@@ -88,7 +88,7 @@ function win32Bg() {
 }
 const { resolveOverlayMouseCapture, pointInRegions, isInChromeGutter, resolveBoundedChromeCapture } = require('../lib/overlayMousePolicy')
 const { resolveSystemPrompt } = require('../lib/defaultSystemPrompt')
-const { getInterviewAnswerSuffixFromStore } = require('../lib/interviewAnswerPrompt.cjs')
+const { getInterviewAnswerSuffixFromStore, getAnswerOutputRulesReminderFromStore } = require('../lib/interviewAnswerPrompt.cjs')
 const {
   normalizeAnswerStructure,
   normalizeResponseFormat,
@@ -3121,6 +3121,9 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     userTurnText = contextParts.join('\n\n')
   }
   if (followUp?.contextBlock) userTurnText = followUp.contextBlock
+  // Last-user reminder — helps OpenRouter/OpenAI/Anthropic/etc. honor General answer settings
+  // the same way NVIDIA Nemotron tends to (shared for every chat provider).
+  userTurnText = `${userTurnText}\n\n${getAnswerOutputRulesReminderFromStore(store)}`
 
   const content = [{ type: 'text', text: userTurnText }]
   if (visionB64) {
@@ -3187,16 +3190,12 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     // prompt input commonly consume 3–4K tokens. A bounded output also avoids
     // reserving unnecessary TPM and keeps the overlay answer useful quickly.
     const answerLength = normalizeAnswerLength(store.get('answerLength'))
-    const qwenOutputTokens = maxTokensForAnswerLength(answerLength, {
+    // Answer length setting applies to ALL chat providers (prompt depth + completion budget).
+    // Coding budget only when the routed answer contract is coding_answer — technical
+    // explanations (e.g. "explain Transformers") keep Short/Medium/Long word budgets.
+    const maxTokens = maxTokensForAnswerLength(answerLength, {
       coding: effectiveAnswerContract === 'coding_answer',
     })
-    const isFastVisionModel =
-      (provider === 'nvidia' && isMultimodalChatModel('nvidia', model)) ||
-      (provider === 'groq' && model === 'qwen/qwen3.6-27b')
-    const maxTokens =
-      isFastVisionModel
-        ? qwenOutputTokens
-        : 8192
     // Same-provider NVIDIA multimodal chain (bench-ranked). Chat no longer depends on Groq.
     const NVIDIA_FALLBACK_MODELS = nvidiaFallbackModelsFor(model)
     const nvidiaKey = String(store.get(providers.getApiKeyField('nvidia')) || '').trim()
@@ -3208,14 +3207,14 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
             provider: 'nvidia',
             apiKey: nvidiaKey,
             model: id,
-            maxTokens: qwenOutputTokens,
+            maxTokens,
           }))
       : []
     // Text-only fallback: when no screenshot is attached and all NVIDIA models are vision-only,
     // Groq (qwen3.6-27b) can handle pure text requests. Appended last so vision models run first.
     const groqTextFallback =
       provider === 'nvidia' && !visionB64 && groqKey
-        ? [{ provider: 'groq', apiKey: groqKey, model: 'qwen/qwen3.6-27b', maxTokens: qwenOutputTokens }]
+        ? [{ provider: 'groq', apiKey: groqKey, model: 'qwen/qwen3.6-27b', maxTokens }]
         : []
     const fallbacks = [...nvFallbacks, ...groqTextFallback]
     let activeStreamProvider = provider

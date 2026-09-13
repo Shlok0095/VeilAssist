@@ -57,8 +57,8 @@ if (/SPOKEN INTERVIEW MODE/i.test(comboSuffix) && /REQUIRED.*Hmm/i.test(comboSuf
 }
 
 const comboTokens = catalog.maxTokensForAnswerLength('short')
-if (comboTokens === 600) pass('Short answer length → 600 max tokens', String(comboTokens))
-else fail('Short answer length → 600 max tokens', String(comboTokens))
+if (comboTokens === 140) pass('Short answer length → 140 max tokens', String(comboTokens))
+else fail('Short answer length → 140 max tokens', String(comboTokens))
 
 const comboStyle = catalog.overlayDisplayStyleFromFormat('conversational')
 if (comboStyle === 'detailed') pass('Conversational format → detailed overlay layout')
@@ -165,7 +165,7 @@ const customSuffix = catalog.buildInterviewAnswerSuffix({
   answerLength: 'medium',
   customInstructions: 'Add filler words to sound natural',
 })
-if (/Custom instructions: Add filler words/i.test(customSuffix)) {
+if (/Custom instructions: Add filler words|MUST follow Custom instructions.*Add filler words/i.test(customSuffix)) {
   pass('custom instructions appended to interview suffix (Android parity)')
 } else {
   fail('custom instructions appended to interview suffix', customSuffix.slice(-120))
@@ -176,10 +176,93 @@ const mockCustomStore = {
   get(k) { return this._data[k] },
 }
 const fromCustomStore = getInterviewAnswerSuffixFromStore(mockCustomStore)
-if (/Custom instructions: Use Hinglish fillers/i.test(fromCustomStore)) {
+if (/MUST follow Custom instructions.*Use Hinglish fillers|Custom instructions: Use Hinglish fillers/i.test(fromCustomStore)) {
   pass('getInterviewAnswerSuffixFromStore includes custom instructions')
 } else {
   fail('getInterviewAnswerSuffixFromStore includes custom instructions', fromCustomStore)
+}
+
+// 11. Answer length maxTokens applies to ALL chat providers (not NVIDIA/Groq-only)
+if (
+  mainSrc.includes('Answer length setting applies to ALL chat providers') &&
+  !/isFastVisionModel/.test(mainSrc) &&
+  /const maxTokens = maxTokensForAnswerLength\(answerLength/.test(mainSrc)
+) {
+  pass('main/index.js maxTokens from answerLength for every provider')
+} else {
+  fail('main/index.js maxTokens from answerLength for every provider')
+}
+
+// 12. Overlay Answer history (Latest / Full) reaches ResponsePanel
+const responsePanel = fs.readFileSync(path.join(ROOT, 'renderer', 'overlay', 'components', 'ResponsePanel.jsx'), 'utf8')
+if (
+  overlayApp.includes('overlayAnswerView={overlayAnswerView}') &&
+  /overlayAnswerView === 'history'/.test(responsePanel)
+) {
+  pass('overlay Answer history wired into ResponsePanel')
+} else {
+  fail('overlay Answer history wired into ResponsePanel')
+}
+
+// 13. OpenRouter Nemotron gets NIM-parity inference knobs + /no_think (NVIDIA path untouched)
+const aiClient = fs.readFileSync(path.join(ROOT, 'lib', 'aiClient.js'), 'utf8')
+if (
+  aiClient.includes('function isOpenRouterFastChatModel') &&
+  aiClient.includes("openrouter.ai") &&
+  aiClient.includes('function isNvidiaFastChatModel') &&
+  /if \(!\/nemotron\/i\.test\(String\(model/.test(aiClient)
+) {
+  pass('aiClient OpenRouter fast-chat + Nemotron /no_think')
+} else {
+  fail('aiClient OpenRouter fast-chat + Nemotron /no_think')
+}
+
+// 14. Non-NVIDIA reasoning knobs (OpenAI/Google/DeepSeek/OR) — NIM helpers untouched
+if (
+  aiClient.includes('function resolveNonNvidiaReasoningInferParams') &&
+  aiClient.includes("reasoning_effort: 'low'") &&
+  aiClient.includes('isGoogleGenerativeHost') &&
+  aiClient.includes('function isNvidiaFastChatModel')
+) {
+  pass('aiClient non-NVIDIA reasoning-off helpers present')
+} else {
+  fail('aiClient non-NVIDIA reasoning-off helpers present')
+}
+
+// 15. STAR/120 neutralized; CAR + Conversational reminder includes custom
+const modeTemplates = fs.readFileSync(path.join(ROOT, 'lib', 'modeTemplates.cjs'), 'utf8')
+const contextPrompts = fs.readFileSync(path.join(ROOT, 'lib', 'contextPrompts.js'), 'utf8')
+const defaultPrompt = fs.readFileSync(path.join(ROOT, 'lib', 'defaultSystemPrompt.js'), 'utf8')
+if (
+  !/Use STAR for behavioral questions \(4 sentences max\)\. Keep answers under 120 words/.test(modeTemplates) &&
+  !/Use STAR for behavioral questions \(4 sentences max\)\. Keep answers under 120 words/.test(contextPrompts)
+) {
+  pass('ACTIVE PROMPT / modeTemplates no longer force STAR+120')
+} else {
+  fail('ACTIVE PROMPT / modeTemplates no longer force STAR+120')
+}
+if (/INTERVIEW OUTPUT CONTRACT/.test(defaultPrompt) && /SPOKEN INTERVIEW MODE/.test(defaultPrompt)) {
+  pass('defaultSystemPrompt gates detailed/markdown when interview contract active')
+} else {
+  fail('defaultSystemPrompt gates detailed/markdown when interview contract active')
+}
+
+const rem = catalog.buildAnswerOutputRulesReminder({
+  answerStructure: 'car',
+  responseFormat: 'conversational',
+  answerLength: 'medium',
+  customInstructions: 'Sound natural',
+})
+if (/custom=.*"Sound natural"/i.test(rem) && /≤180 words/i.test(rem)) {
+  pass('OUTPUT RULES reminder includes custom when set')
+} else {
+  fail('OUTPUT RULES reminder includes custom when set', rem)
+}
+
+if (catalog.maxTokensForAnswerLength('medium', { coding: false }) === 280) {
+  pass('coding:false Medium stays 280 tokens')
+} else {
+  fail('coding:false Medium stays 280 tokens')
 }
 
 const failed = results.filter((r) => !r.ok)

@@ -32,16 +32,28 @@ if (isUtteranceReadyForAutoAnswer('What is gradient boosting and when would you 
 }
 
 if (isUtteranceReadyForAutoAnswer('Tell me about your experience with distributed systems at scale')) {
-  pass('allows long statement without question mark')
+  pass('allows request-style prompt without question mark')
 } else {
-  fail('allows long statement without question mark')
+  fail('allows request-style prompt without question mark')
+}
+
+if (!isUtteranceReadyForAutoAnswer('and what would be the greatest method to do that?')) {
+  pass('blocks short continuation-tail question')
+} else {
+  fail('blocks short continuation-tail question')
+}
+
+if (!isUtteranceReadyForAutoAnswer('suppose there is a client who wants integrate mcp but requirements are satisfied')) {
+  pass('blocks mid-scenario statement without question cue')
+} else {
+  fail('blocks mid-scenario statement without question cue')
 }
 
 const hold = estimatedAnswerReadbackHoldMs('word '.repeat(80))
 if (hold >= 6000 && hold <= 12000) pass('answer readback hold scales with length')
 else fail('answer readback hold scales with length', String(hold))
 
-if (isUtteranceReadyForAutoAnswer('What is XGBoost')) {
+if (isUtteranceReadyForAutoAnswer('What is XGBoost?')) {
   pass('allows short what-question')
 } else {
   fail('allows short what-question')

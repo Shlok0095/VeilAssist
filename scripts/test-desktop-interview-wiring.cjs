@@ -55,6 +55,12 @@ if (/STAR/i.test(suffix) && /filler|conversational|Hmm/i.test(suffix) && /180 wo
   fail('buildInterviewAnswerSuffix includes structure + format + medium length', suffix.slice(0, 120))
 }
 
+if (/INTERVIEW OUTPUT CONTRACT/i.test(suffix) && /HARD MAX LENGTH/i.test(suffix)) {
+  pass('buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT')
+} else {
+  fail('buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT', suffix.slice(0, 160))
+}
+
 // 3b. Conversational includes desktop spoken override (Android parity)
 const convSuffix = catalog.buildInterviewAnswerSuffix({
   answerStructure: 'car',
@@ -137,11 +143,11 @@ if (manualTail === autoTail) {
   fail('prompt tail differs when auto flags toggled')
 }
 
-// 7. maxTokens from answerLength (same for all ask paths)
+// 7. maxTokens from answerLength (same for all ask paths) — tight budgets ≈ word HARD MAX
 const tokenCases = [
-  ['short', 600],
-  ['medium', 1400],
-  ['long', 1800],
+  ['short', 140],
+  ['medium', 280],
+  ['long', 420],
 ]
 for (const [len, expected] of tokenCases) {
   const got = catalog.maxTokensForAnswerLength(len)
@@ -156,6 +162,11 @@ if (mainSrc.includes('getInterviewAnswerSuffixFromStore(store)')) {
   pass('main/index.js wires interview suffix into Ask path')
 } else {
   fail('main/index.js wires interview suffix into Ask path')
+}
+if (mainSrc.includes('getAnswerOutputRulesReminderFromStore(store)')) {
+  pass('main/index.js appends OUTPUT RULES reminder to user turn')
+} else {
+  fail('main/index.js appends OUTPUT RULES reminder to user turn')
 }
 if (mainSrc.includes("buildAiResponseLanguageBlock(store.get('aiResponseLanguage'))")) {
   pass('main/index.js wires aiResponseLanguage into Ask path')
@@ -261,6 +272,72 @@ if (
   pass('overlay App.jsx fires continuation follow-ups immediately, bypassing the readback hold')
 } else {
   fail('overlay App.jsx fires continuation follow-ups immediately, bypassing the readback hold')
+}
+
+// 14. CAR + Conversational + Medium (screenshot settings) → HARD contract
+const carConvMed = catalog.buildInterviewAnswerSuffix({
+  answerStructure: 'car',
+  responseFormat: 'conversational',
+  answerLength: 'medium',
+})
+if (
+  /INTERVIEW OUTPUT CONTRACT/i.test(carConvMed)
+  && /CAR/i.test(carConvMed)
+  && /max 4 short spoken sentences/i.test(carConvMed)
+  && /SPOKEN INTERVIEW MODE/i.test(carConvMed)
+  && /HARD MAX LENGTH: under 180 words/i.test(carConvMed)
+) {
+  pass('CAR + Conversational + Medium → HARD contract + spoken mode')
+} else {
+  fail('CAR + Conversational + Medium → HARD contract + spoken mode', carConvMed.slice(0, 280))
+}
+
+const carReminder = catalog.buildAnswerOutputRulesReminder({
+  answerStructure: 'car',
+  responseFormat: 'conversational',
+  answerLength: 'medium',
+  customInstructions: 'Add filler words to sound natural',
+})
+if (
+  /≤180 words HARD MAX/i.test(carReminder)
+  && /Hmm\/Uh\/So/i.test(carReminder)
+  && /NO markdown headings/i.test(carReminder)
+  && /custom=.*"Add filler words/i.test(carReminder)
+) {
+  pass('OUTPUT RULES reminder includes Conversational + custom')
+} else {
+  fail('OUTPUT RULES reminder includes Conversational + custom', carReminder)
+}
+
+// 15. Mode templates / default interview prompt no longer hardcode STAR + 120
+const modeTemplates = fs.readFileSync(path.join(__dirname, '..', 'lib', 'modeTemplates.cjs'), 'utf8')
+const contextPrompts = fs.readFileSync(path.join(__dirname, '..', 'lib', 'contextPrompts.js'), 'utf8')
+if (
+  !/Use STAR for behavioral questions \(4 sentences max\)\. Keep answers under 120 words/.test(modeTemplates)
+  && !/Use STAR for behavioral questions \(4 sentences max\)\. Keep answers under 120 words/.test(contextPrompts)
+  && /INTERVIEW OUTPUT CONTRACT/.test(modeTemplates)
+  && /INTERVIEW OUTPUT CONTRACT/.test(contextPrompts)
+) {
+  pass('mode templates + default interview defer to INTERVIEW OUTPUT CONTRACT')
+} else {
+  fail('mode templates + default interview defer to INTERVIEW OUTPUT CONTRACT')
+}
+
+// 16. coding maxTokens only for coding_answer; technical Medium stays 280
+if (catalog.maxTokensForAnswerLength('medium', { coding: false }) === 280) {
+  pass('Medium non-coding maxTokens stays 280')
+} else {
+  fail('Medium non-coding maxTokens stays 280', String(catalog.maxTokensForAnswerLength('medium')))
+}
+if (catalog.maxTokensForAnswerLength('medium', { coding: true }) === 1800) {
+  pass('Medium coding maxTokens stays 1800')
+} else {
+  fail('Medium coding maxTokens stays 1800')
+}
+if (/coding: effectiveAnswerContract === 'coding_answer'/.test(mainSrc)) {
+  pass('Ask path gates coding token budget on coding_answer only')
+} else {
+  fail('Ask path gates coding token budget on coding_answer only')
 }
 
 const failed = results.filter((r) => !r.ok)

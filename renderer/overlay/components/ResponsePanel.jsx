@@ -912,6 +912,7 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
     overlayTeleprompter = false,
     overlayAnswerPinToTop = true,
     overlayAnswerAutoScroll = true,
+    overlayAnswerView = 'latest',
     onAbort,
     onRetry,
   },
@@ -973,11 +974,13 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
     }
   }, [isThinking, overlayAnswerPinToTop, overlayAnswerAutoScroll])
 
-  /** Natively-style: one scrollable session feed — newest exchange at top, all replies kept. */
+  /** Newest exchange at top. Latest-only keeps the current turn; History keeps the session. */
   const visibleTurns = useMemo(() => {
     if (turns.length === 0) return turns
-    return [...turns].reverse()
-  }, [turns])
+    const reversed = [...turns].reverse()
+    if (overlayAnswerView === 'history') return reversed
+    return reversed.slice(0, 1)
+  }, [turns, overlayAnswerView])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

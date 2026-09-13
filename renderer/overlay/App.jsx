@@ -67,6 +67,18 @@ import {
   extractFollowUpAfterAnswer,
 } from '../shared/phoneAutoAnswer'
 
+/** Prefer the fuller of buffer vs joined segments (Deepgram split turns). */
+function pickFullerQuestion(bufferText, segsText) {
+  const a = String(bufferText || '').trim()
+  const b = String(segsText || '').trim()
+  if (!a) return b
+  if (!b) return a
+  if (a === b) return a
+  if (a.includes(b) && a.length >= b.length) return a
+  if (b.includes(a) && b.length >= a.length) return b
+  return combineQuestion(a, b)
+}
+
 const ipc = createIpcShim()
 /** Inner status row height (px) — matches StatusBar `h-10` */
 const NOTCH_INNER_H = 40
@@ -89,16 +101,17 @@ const CONSENT_SHELL_H = PILL_H + STACK_GAP + 188
 const MIN_ASK_GAP_MS = 2000
 /** ~1.5s VAD slices — merge then send to Whisper. */
 const STT_SLICE_MS = 1500
-const STT_BATCH_FAST_MS = 1500
-const STT_FLUSH_FAST_MS = 220
+const STT_BATCH_FAST_MS = 2500
+/** Groq/OpenAI renderer: hold through mid-sentence pauses (was 220/320 — too fragmenty). */
+const STT_FLUSH_FAST_MS = 1000
 const STT_BATCH_MIN_MS = 3000
-const STT_FLUSH_SILENCE_MS = 320
-const STT_BATCH_MAX_MS = 3600
+const STT_FLUSH_SILENCE_MS = 1200
+const STT_BATCH_MAX_MS = 10000
 const STT_MAX_QUEUED_BATCHES_PER_CHANNEL = 4
 const MIN_WAV_BYTES = 6400
 const MIN_RECORDING_BYTES = 8192
 /** Ms of silence after last STT chunk before speech Assist may fire. */
-const SPEECH_STABILITY_MS = 1500
+const SPEECH_STABILITY_MS = 2800
 /** Clear rolling speech buffer after this long without a new chunk. */
 const MAX_SPEECH_WINDOW_MS = 20000
 /** Fallback when question detection not loaded yet. */
@@ -123,6 +136,12 @@ const SCREEN_ASSIST_COOLDOWN_MS = 4000
 const GLOBAL_TRIGGER_COOLDOWN_MS = 2000
 /** Cap on the pre-Ask STT flush so a wedged worker can never latch the Ask pipeline. */
 const ASK_FLUSH_TIMEOUT_MS = 2500
+/**
+ * Silence before speech-ended / “still hearing” UI for cloud+local STT.
+ * Longer than NVIDIA’s own server VAD; avoids cutting scenario questions into pieces.
+ * (nvidiaNimStt.js itself is unchanged.)
+ */
+const SPEECH_ENDED_HOLD_MS = 1200
 /** Resolves when all flushes settle or the timeout elapses — never rejects, never hangs. */
 function settleWithinAskFlushTimeout(promises) {
   return Promise.race([
@@ -524,7 +543,7 @@ const SYS_CAPTURE_PROFILES = {
   },
 }
 
-const SPEECH_SILENCE_MS = 600
+const SPEECH_SILENCE_MS = 1200
 
 function resolveMicCaptureProfile(raw) {
   return raw === 'boost' ? MIC_CAPTURE_PROFILES.boost : MIC_CAPTURE_PROFILES.standard
@@ -2221,7 +2240,7 @@ export default function App() {
         }
         if (sttMainProcessRef.current && sttModeRef.current === 'cloud') {
           for (const k of ['mic', 'sys']) {
-            const active = Date.now() - (pathSpeechAtRef.current[k] || 0) < 900
+            const active = Date.now() - (pathSpeechAtRef.current[k] || 0) < SPEECH_ENDED_HOLD_MS
             if (active) pathWasSpeechRef.current[k] = true
             else if (pathWasSpeechRef.current[k]) {
               pathWasSpeechRef.current[k] = false
@@ -2231,7 +2250,7 @@ export default function App() {
         }
         if (sttModeRef.current === 'local') {
           for (const k of ['mic', 'sys']) {
-            const active = Date.now() - (pathSpeechAtRef.current[k] || 0) < 900
+            const active = Date.now() - (pathSpeechAtRef.current[k] || 0) < SPEECH_ENDED_HOLD_MS
             if (active) pathWasSpeechRef.current[k] = true
             else if (pathWasSpeechRef.current[k]) {
               pathWasSpeechRef.current[k] = false
@@ -2241,11 +2260,11 @@ export default function App() {
         }
 
         const speechRecent =
-          Date.now() - (pathSpeechAtRef.current.mic || 0) < 900 ||
-          Date.now() - (pathSpeechAtRef.current.sys || 0) < 900
+          Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS ||
+          Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS
         const paths = audioPathsRef.current || {}
-        setMicCaptureActive(!!paths.hasMic && Date.now() - (pathSpeechAtRef.current.mic || 0) < 900)
-        setSysCaptureActive(!!paths.hasSys && Date.now() - (pathSpeechAtRef.current.sys || 0) < 900)
+        setMicCaptureActive(!!paths.hasMic && Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS)
+        setSysCaptureActive(!!paths.hasSys && Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS)
         if (speechRecent && sttTranscribingCountRef.current === 0) setSttPhaseIfChanged('speech')
         else if (sttTranscribingCountRef.current > 0) setSttPhaseIfChanged('transcribing')
         else if (!speechRecent) setSttPhaseIfChanged('idle')
@@ -2443,8 +2462,8 @@ export default function App() {
       updateRollingBarForPath(audioPathKey, speechChunk, { isFinal: false, speaker })
       emit('transcript-updated', { latest: `${labeled} …`, full: micTranscriptRef.current })
       const speechRecent =
-        Date.now() - (pathSpeechAtRef.current.mic || 0) < 900 ||
-        Date.now() - (pathSpeechAtRef.current.sys || 0) < 900
+        Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS ||
+        Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS
       if (speechRecent) setSttPhaseIfChanged('transcribing')
       return
     }
@@ -2546,8 +2565,8 @@ export default function App() {
       if (sttQueueRef.current[key].length) void drainSttQueue(key)
       if (sttTranscribingCountRef.current === 0) {
         const speechRecent =
-          Date.now() - (pathSpeechAtRef.current.mic || 0) < 900 ||
-          Date.now() - (pathSpeechAtRef.current.sys || 0) < 900
+          Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS ||
+          Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS
         setSttPhaseIfChanged(speechRecent ? 'speech' : 'idle')
       }
     }
@@ -2717,12 +2736,12 @@ export default function App() {
       return
     }
 
-    // Prefer last discrete utterance (phone) over concatenated buffer when in parity mode.
-    // For an immediate-fire continuation, trust the just-set buffer (carries the combined Q1+Q2
-    // question) instead of re-deriving from segments, which may only hold the bare Q2 tail.
+    // Prefer fuller buffer over a single fragment segment (Deepgram split turns).
     const activeFromSegs = selectActiveQuestion(speechSegmentsRef.current)
     const bufferSpeech = String(speechBufferRef.current || '').trim()
-    let speech = bypassHold ? bufferSpeech : (phoneParity && activeFromSegs ? activeFromSegs : bufferSpeech)
+    let speech = bypassHold
+      ? bufferSpeech
+      : pickFullerQuestion(bufferSpeech, phoneParity ? activeFromSegs : '')
     if (phoneParity && pendingFollowUpRef.current && !isStillReadingAnswerAloud()) {
       speech = String(pendingFollowUpRef.current).trim() || speech
     }
@@ -2768,9 +2787,7 @@ export default function App() {
       const afterSegs = selectActiveQuestion(speechSegmentsRef.current)
       const after = bypassHold
         ? String(speechBufferRef.current || '').trim()
-        : (phoneParity && afterSegs)
-          ? afterSegs
-          : String(speechBufferRef.current || '').trim()
+        : pickFullerQuestion(String(speechBufferRef.current || '').trim(), phoneParity ? afterSegs : '')
       if (after.length < minSpeechLengthRef.current) return
       if (silenceNow <= SPEECH_STABILITY_MS) return
       if (Date.now() - lastTriggerTimeRef.current < SPEECH_TRIGGER_COOLDOWN_MS) return
@@ -2856,8 +2873,8 @@ export default function App() {
           // (up to a 2.5s cap) — skip it entirely. Auto/speech-driven asks and any ask with a
           // buffered/recent utterance still flush as before.
           const hasRecentSpeechActivity =
-            (hasMic && Date.now() - (pathSpeechAtRef.current.mic || 0) < 900) ||
-            (hasSys && Date.now() - (pathSpeechAtRef.current.sys || 0) < 900)
+            (hasMic && Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS) ||
+            (hasSys && Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS)
           const hasLocalPendingBlobs =
             (sttPendingRef.current.mic?.blobs?.length || 0) > 0 || (sttPendingRef.current.sys?.blobs?.length || 0) > 0
           const skipFlush = hasText && !isAuto && !hasSpeechBuff && !hasRecentSpeechActivity && !hasLocalPendingBlobs
@@ -3325,6 +3342,7 @@ export default function App() {
                 overlayTeleprompter={overlayTeleprompter}
                 overlayAnswerPinToTop={overlayAnswerPinToTop}
                 overlayAnswerAutoScroll={overlayAnswerAutoScroll}
+                overlayAnswerView={overlayAnswerView}
                 onAbort={onAbortGeneration}
                 onRetry={onRetryLastAsk}
               />
