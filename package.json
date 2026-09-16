@@ -1,6 +1,6 @@
 {
   "name": "veilassist",
-  "version": "2026.914.101",
+  "version": "2026.917.1",
   "description": "Undetectable AI for live meetings — discreet on-screen meeting assistant",
   "author": "VeilAssist",
   "license": "UNLICENSED",
@@ -132,8 +132,8 @@
         "LSUIElement": true
       },
       "artifactName": "VeilAssist${version}-${arch}.${ext}",
-      "bundleShortVersion": "2026.914.101",
-      "bundleVersion": "2026.914.101"
+      "bundleShortVersion": "2026.917.1",
+      "bundleVersion": "2026.917.1"
     },
     "linux": {
       "icon": "build/icons",
