@@ -1,7 +1,7 @@
-﻿// Copyright (c) 2026 VeilAssist. All rights reserved.
+// Copyright (c) 2026 VeilAssist. All rights reserved.
 // Unauthorized copying or distribution is prohibited.
 
-const { app, BrowserWindow, ipcMain, globalShortcut, Tray, nativeImage, screen, dialog, Menu, clipboard, shell, Notification, powerMonitor } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, Tray, nativeImage, screen, dialog, Menu, clipboard, shell, Notification, powerMonitor, nativeTheme } = require('electron')
 require('../lib/mainWebSocket').installMainWebSocket()
 const path = require('path')
 const fs = require('fs')
@@ -152,6 +152,7 @@ const streamingStt = require('../lib/streamingSttRouter')
 const { parseResumeTree, parseJdTree, formatResumeBlock, formatJdBlock, formatResumeBlockV2, formatJdBlockV2, buildProfileTreeV2VoiceGuard } = require('../lib/profileTreeService')
 const { retrieveProfileEvidence, charsFromTokenBudget, clipTextToBudget } = require('../lib/profileEvidence')
 const debugLog = require('../lib/debugLog')
+const perfMarks = require('../lib/perfMarks')
 const { sessionToMarkdown } = require('../lib/sessionExport')
 const { createHindsightClient } = require('../lib/hindsightClient')
 const { createHindsightAdapter } = require('../lib/hindsightAdapter')
@@ -413,6 +414,7 @@ function sendBrandingUpdateToWindows() {
     globalChatWindow,
     launcherWindow,
     meetingToastWindow,
+    quitConfirmWindow,
   ]) {
     if (!w || w.isDestroyed() || w.webContents.isDestroyed()) continue
     try {
@@ -559,6 +561,12 @@ let currentAbortController = null
 let pendingAskVisionB64 = null
 let consentWindow = null
 let onboardingWindow = null
+/** Branded quit confirm — replaces native MessageBox. */
+let quitConfirmWindow = null
+/** @type {((confirmed: boolean) => void) | null} */
+let quitConfirmSettle = null
+/** @type {Promise<boolean> | null} */
+let quitConfirmPending = null
 /** Top-right meeting chip — excluded from stealth content-protection list. */
 let meetingToastWindow = null
 /** Phase 4 — compact launcher window (tray menu). */
@@ -570,8 +578,8 @@ let backgroundOwnerWindow = null
 /** Re-assert Win32 styles — Chromium can reset EXSTYLE after show. */
 let backgroundProcessStyleTimer = null
 /** Lightweight re-apply for known windows; full EnumWindows scan runs less often. */
-const BACKGROUND_STYLE_REFRESH_MS = 2000
-const BACKGROUND_FULL_SCAN_EVERY = 6
+const BACKGROUND_STYLE_REFRESH_MS = 4000
+const BACKGROUND_FULL_SCAN_EVERY = 12
 let backgroundProcessRefreshTick = 0
 /** Avoid restarting the refresh interval on every applyTaskbarVisibility call. */
 let backgroundProcessPolicyActive = false
@@ -1261,9 +1269,11 @@ function runMeetingForegroundTick() {
   // Only pay the PowerShell cost while a session/overlay is actually visible:
   // a hidden, inactive app does not need to know what the foreground window is.
   if (!sessionActive && !overlayVisible) return
+  const tickStarted = Date.now()
   meetingForegroundTickInFlight = true
   detectMeetingForegroundOrScan((err, hit) => {
     meetingForegroundTickInFlight = false
+    perfMarks.mark('meeting-foreground-tick', Date.now() - tickStarted, err ? 'err' : hit ? 'hit' : 'miss')
     const now = Date.now()
     for (const [platform, active] of meetingActiveByPlatform.entries()) {
       if (!active || now - Number(active.lastSeenAt || 0) > MEETING_INACTIVE_CLEAR_MS) {
@@ -1307,7 +1317,11 @@ function runMeetingForegroundTick() {
 function startMeetingForegroundPoll() {
   if (process.platform !== 'win32') return
   stopMeetingForegroundPoll()
-  runMeetingForegroundTick()
+  // Defer first tick so overlay first paint is not competing with PowerShell spawn.
+  setTimeout(() => {
+    if (!sessionActive && !overlayVisible) return
+    runMeetingForegroundTick()
+  }, 2500)
   meetingForegroundTimer = setInterval(runMeetingForegroundTick, MEETING_POLL_MS)
 }
 
@@ -1371,8 +1385,10 @@ async function runCalendarReminderTick() {
 
 function startCalendarReminderPoll() {
   stopCalendarReminderPoll()
+  if (store.get('calendarRemindersEnabled') === false) return
   void runCalendarReminderTick()
   calendarReminderTimer = setInterval(() => {
+    if (store.get('calendarRemindersEnabled') === false) return
     void runCalendarReminderTick()
   }, CALENDAR_REMINDER_POLL_MS)
 }
@@ -1541,6 +1557,13 @@ function resumeOverlayCaptureAfterInteraction() {
 }
 
 /** Bounded chrome poll — only notch/panel/footer capture; transparent areas forward. */
+const OVERLAY_HIT_POLL_FAST_MS = 32
+const OVERLAY_HIT_POLL_MED_MS = 100
+const OVERLAY_HIT_POLL_SLOW_MS = 250
+let overlayHitPollIntervalMs = OVERLAY_HIT_POLL_FAST_MS
+let overlayHitPollStillTicks = 0
+let overlayHitPollLastCursor = { x: null, y: null }
+
 function syncOverlayBoundedCaptureFromCursor() {
   if (!overlayWindow || overlayWindow.isDestroyed() || !overlayVisible) return
   if (store.get('overlayMousePassthroughEnabled') === true) return
@@ -1550,6 +1573,10 @@ function syncOverlayBoundedCaptureFromCursor() {
   const cursor = screen.getCursorScreenPoint()
   const localX = cursor.x - bounds.x
   const localY = cursor.y - bounds.y
+  const moved =
+    overlayHitPollLastCursor.x !== cursor.x || overlayHitPollLastCursor.y !== cursor.y
+  overlayHitPollLastCursor = { x: cursor.x, y: cursor.y }
+
   const inChrome = pointInRegions(localX, localY, overlayHitRegions, {
     captureWhenEmpty: false,
     padding: 2,
@@ -1566,11 +1593,34 @@ function syncOverlayBoundedCaptureFromCursor() {
     overlayWindow.setIgnoreMouseEvents(true, { forward: true })
     overlayMouseCaptureApplied = 'forward'
   }
+
+  // Adaptive poll: stay fast near chrome / while moving; back off when idle outside.
+  let nextInterval = OVERLAY_HIT_POLL_FAST_MS
+  if (capture || inGutter || moved) {
+    overlayHitPollStillTicks = 0
+    nextInterval = OVERLAY_HIT_POLL_FAST_MS
+  } else {
+    overlayHitPollStillTicks += 1
+    if (overlayHitPollStillTicks > 40) nextInterval = OVERLAY_HIT_POLL_SLOW_MS
+    else if (overlayHitPollStillTicks > 12) nextInterval = OVERLAY_HIT_POLL_MED_MS
+  }
+  if (nextInterval !== overlayHitPollIntervalMs) {
+    overlayHitPollIntervalMs = nextInterval
+    if (overlayHitPollTimer) {
+      clearInterval(overlayHitPollTimer)
+      overlayHitPollTimer = setInterval(syncOverlayBoundedCaptureFromCursor, overlayHitPollIntervalMs)
+    }
+  }
+  perfMarks.sampleEvery('overlay-hit-poll', 60, () => {
+    perfMarks.count('overlay-hit-poll', `interval=${overlayHitPollIntervalMs}ms capture=${capture}`)
+  })
 }
 
 function startOverlayBoundedPoll() {
   stopOverlayHitPoll()
-  overlayHitPollTimer = setInterval(syncOverlayBoundedCaptureFromCursor, 32)
+  overlayHitPollIntervalMs = OVERLAY_HIT_POLL_FAST_MS
+  overlayHitPollStillTicks = 0
+  overlayHitPollTimer = setInterval(syncOverlayBoundedCaptureFromCursor, overlayHitPollIntervalMs)
   syncOverlayBoundedCaptureFromCursor()
 }
 
@@ -1622,6 +1672,7 @@ function getBackgroundManagedWindows() {
     consentWindow,
     onboardingWindow,
     meetingToastWindow,
+    quitConfirmWindow,
   ]
 }
 
@@ -1828,6 +1879,7 @@ function applyTaskbarVisibility() {
     consentWindow,
     onboardingWindow,
     meetingToastWindow,
+    quitConfirmWindow,
   ]) {
     if (w && !w.isDestroyed()) {
       try {
@@ -2016,19 +2068,150 @@ async function shutdownApplication() {
 async function quitApplication(opts) {
   if (appQuitting) return
   if (!opts?.skipConfirm) {
-    const { response } = await dialog.showMessageBox({
-      type: 'question',
-      buttons: ['Quit', 'Cancel'],
-      defaultId: 1,
-      cancelId: 1,
-      title: `Quit ${getBrandName()}?`,
-      message: `Quit ${getBrandName()}?`,
-      detail: sessionActive ? 'Your session is still active and will end.' : 'The app will fully close, including the tray icon.',
-    })
-    if (response !== 0) return
+    const confirmed = await showQuitConfirmDialog()
+    if (!confirmed) return
   }
   await shutdownApplication()
   app.quit()
+}
+
+function resolveUiColorSchemeForDialog() {
+  const pref = store.get('uiColorScheme')
+  if (pref === 'light' || pref === 'dark') return pref
+  try {
+    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  } catch (_) {
+    return 'dark'
+  }
+}
+
+function getQuitConfirmHtmlPath() {
+  return useBuilt
+    ? path.join(__dirname, '..', 'out', 'quit-confirm', 'index.html')
+    : path.join(__dirname, '..', 'renderer', 'quit-confirm', 'index.html')
+}
+
+function settleQuitConfirm(confirmed) {
+  const resolve = quitConfirmSettle
+  quitConfirmSettle = null
+  quitConfirmPending = null
+  if (typeof resolve === 'function') resolve(!!confirmed)
+}
+
+function closeQuitConfirmWindow() {
+  if (quitConfirmWindow && !quitConfirmWindow.isDestroyed()) {
+    try {
+      quitConfirmWindow.close()
+    } catch (_) {}
+  }
+  quitConfirmWindow = null
+}
+
+function sendQuitConfirmPayload() {
+  if (!quitConfirmWindow || quitConfirmWindow.isDestroyed() || quitConfirmWindow.webContents.isDestroyed()) return
+  const detail = sessionActive
+    ? 'Your session is still active and will end.'
+    : 'The app will fully close, including the tray icon.'
+  try {
+    quitConfirmWindow.webContents.send('quit-confirm-payload', {
+      brandName: getBrandName(),
+      detail,
+      colorScheme: resolveUiColorSchemeForDialog(),
+      sessionActive: !!sessionActive,
+    })
+  } catch (_) {}
+}
+
+/**
+ * Branded frameless quit dialog (settings glass language). Resolves true only on Quit.
+ * @returns {Promise<boolean>}
+ */
+function showQuitConfirmDialog() {
+  if (quitConfirmPending) {
+    if (quitConfirmWindow && !quitConfirmWindow.isDestroyed()) {
+      try {
+        quitConfirmWindow.show()
+        quitConfirmWindow.focus()
+      } catch (_) {}
+    }
+    return quitConfirmPending
+  }
+
+  quitConfirmPending = new Promise((resolve) => {
+    quitConfirmSettle = resolve
+
+    if (quitConfirmWindow && !quitConfirmWindow.isDestroyed()) {
+      try {
+        quitConfirmWindow.destroy()
+      } catch (_) {}
+      quitConfirmWindow = null
+    }
+
+    const parent =
+      (settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible() && settingsWindow) ||
+      (globalChatWindow && !globalChatWindow.isDestroyed() && globalChatWindow.isVisible() && globalChatWindow) ||
+      null
+
+    const quitOwner = getBackgroundOwnerParent()
+    quitConfirmWindow = new BrowserWindow({
+      width: 392,
+      height: 208,
+      resizable: false,
+      maximizable: false,
+      minimizable: false,
+      fullscreenable: false,
+      center: true,
+      ...(parent ? { parent, modal: process.platform !== 'darwin' } : {}),
+      frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      roundedCorners: true,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      show: false,
+      ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
+      ...(quitOwner && !parent ? { parent: quitOwner } : {}),
+      webPreferences: {
+        preload: preloadPath,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        backgroundThrottling: false,
+      },
+    })
+    quitConfirmWindow.setMenuBarVisibility(false)
+    hardenWindow(quitConfirmWindow)
+    applyBackgroundWindowStyles(quitConfirmWindow)
+
+    const finishFalseIfStillPending = () => {
+      if (quitConfirmSettle) settleQuitConfirm(false)
+      quitConfirmWindow = null
+    }
+
+    quitConfirmWindow.on('closed', finishFalseIfStillPending)
+    quitConfirmWindow.on('show', () => setImmediate(applyTaskbarVisibility))
+
+    quitConfirmWindow.webContents.once('did-finish-load', () => {
+      sendQuitConfirmPayload()
+    })
+
+    quitConfirmWindow.once('ready-to-show', () => {
+      if (!quitConfirmWindow || quitConfirmWindow.isDestroyed()) return
+      try {
+        quitConfirmWindow.show()
+        quitConfirmWindow.focus()
+      } catch (_) {}
+      setImmediate(applyTaskbarVisibility)
+    })
+
+    quitConfirmWindow.loadFile(getQuitConfirmHtmlPath()).catch((err) => {
+      console.error('[quit-confirm] load failed:', err)
+      settleQuitConfirm(false)
+      closeQuitConfirmWindow()
+    })
+  })
+
+  return quitConfirmPending
 }
 
 function hasValidConsent() {
@@ -3223,6 +3406,9 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     console.log(
       `[ai-perf] provider=${provider} model=${model} capture=${captureFinishedAt - askStartedAt}ms context=${contextFinishedAt - captureFinishedAt}ms preflight=${requestStartedAt - askStartedAt}ms imageKB=${visionB64 ? Math.round(visionB64.length * 0.75 / 1024) : 0}`,
     )
+    perfMarks.mark('ask-capture', captureFinishedAt - askStartedAt)
+    perfMarks.mark('ask-context', contextFinishedAt - captureFinishedAt)
+    perfMarks.mark('ask-preflight', requestStartedAt - askStartedAt)
     for await (const token of getAiClient().streamChat(
       provider,
       apiKey,
@@ -3547,6 +3733,7 @@ function setupIPC() {
             r.height > 0,
         )
       : []
+    perfMarks.count('overlay-hit-regions', `n=${overlayHitRegions.length}`)
     if (store.get('overlayMousePassthroughEnabled') !== true) {
       syncOverlayBoundedCaptureFromCursor()
     }
@@ -3641,6 +3828,21 @@ function setupIPC() {
     // Declining is already an explicit decision — no need to confirm quitting again.
     quitApplication({ skipConfirm: true })
     return true
+  })
+  ipcMain.handle('quit-confirm:ready', (e) => {
+    if (!quitConfirmWindow || quitConfirmWindow.isDestroyed()) return false
+    if (e.sender !== quitConfirmWindow.webContents) return false
+    sendQuitConfirmPayload()
+    return true
+  })
+  ipcMain.on('quit-confirm:decide', (e, confirmed) => {
+    if (!quitConfirmWindow || quitConfirmWindow.isDestroyed()) return
+    if (e.sender !== quitConfirmWindow.webContents) return
+    const ok = confirmed === true
+    settleQuitConfirm(ok)
+    try {
+      quitConfirmWindow.close()
+    } catch (_) {}
   })
   ipcMain.handle('session-start-confirmed', () => {
     if (!sessionActive) startSession()
@@ -4183,6 +4385,7 @@ function setupIPC() {
       const pcm = payload?.pcm
       if (!pcm) return
       const sampleRate = Number(payload?.sampleRate) || 48000
+      perfMarks.count('local-stt-write-chunk', `ch=${channel} bytes=${pcm.byteLength || 0}`)
       localStt.writeChunk(channel, pcm, sampleRate)
     } catch (e) {
       console.warn('[local-stt:write-chunk]', e?.message || e)
@@ -4297,6 +4500,7 @@ function setupIPC() {
       const pcm = payload?.pcm
       if (!pcm) return
       const sampleRate = Number(payload?.sampleRate) || 48000
+      perfMarks.count('streaming-stt-write-chunk', `ch=${channel} bytes=${pcm.byteLength || 0}`)
       void streamingStt.writeChunk(channel, pcm, sampleRate)
     } catch (e) {
       console.warn('[streaming-stt:write-chunk]', e?.message || e)
@@ -4335,6 +4539,7 @@ function setupIPC() {
   ipcMain.handle('session-active', () => sessionActive)
   ipcMain.handle('get-hotkeys', () => store.get('hotkeys') || hotkeys.DEFAULT_HOTKEYS)
   ipcMain.handle('update-hotkey', (_, action, acc) => hotkeys.updateHotkey(action, acc))
+  ipcMain.handle('hotkeys:set-suspended', (_, next) => hotkeys.setSuspended(!!next))
   ipcMain.handle('clear-all-data', () => { store.clear(); hotkeys.registerAll() })
   ipcMain.handle('get-desktop-source-id', () => screenCapture.getDesktopSourceId())
   /** Returns true when the current provider+model supports direct image (vision) input. */
@@ -4651,9 +4856,13 @@ async function initApp() {
   void syncPhoneLinkAutoStart()
   applyTaskbarVisibility()
 
-  startMeetingForegroundPoll()
-  startCalendarReminderPoll()
-  scheduleVectorMemoryMaintenance()
+  // Defer background polls until after overlay first paint — avoids PowerShell / calendar
+  // competing with Chromium compositor on cold start.
+  setTimeout(() => {
+    startMeetingForegroundPoll()
+    startCalendarReminderPoll()
+    scheduleVectorMemoryMaintenance()
+  }, 3000)
 
   // Display topology changes: keep the overlay on-screen when monitors are
   // unplugged, rescaled, or reordered (multi-monitor support).

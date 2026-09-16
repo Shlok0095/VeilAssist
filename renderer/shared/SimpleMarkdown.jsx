@@ -61,7 +61,7 @@ function renderInline(text) {
     const bold = part.match(/^\*\*(.+)\*\*$/)
     if (bold) {
       return (
-        <strong key={idx} className="font-medium text-zinc-200">
+        <strong key={idx} className="font-medium" style={{ color: 'var(--text-primary)' }}>
           {bold[1]}
         </strong>
       )
@@ -78,21 +78,33 @@ export default function SimpleMarkdown({ text, className = '' }) {
       {nodes.map((n, idx) => {
         if (n.type === 'h2') {
           return (
-            <h4 key={idx} className="mt-3 text-[13px] font-semibold text-zinc-100 first:mt-0">
+            <h4
+              key={idx}
+              className="mt-3 text-[13px] font-semibold first:mt-0"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {n.content}
             </h4>
           )
         }
         if (n.type === 'h3') {
           return (
-            <h5 key={idx} className="mt-2 text-[12px] font-semibold text-zinc-200">
+            <h5
+              key={idx}
+              className="mt-2 text-[12px] font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {n.content}
             </h5>
           )
         }
         if (n.type === 'ul') {
           return (
-            <ul key={idx} className="list-disc space-y-1.5 pl-4 text-[12px] leading-relaxed text-zinc-400">
+            <ul
+              key={idx}
+              className="list-disc space-y-1.5 pl-4 text-[12px] leading-relaxed"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               {n.items.map((item, j) => (
                 <li key={j}>{renderInline(item)}</li>
               ))}
@@ -101,7 +113,11 @@ export default function SimpleMarkdown({ text, className = '' }) {
         }
         if (n.type === 'ol') {
           return (
-            <ol key={idx} className="list-decimal space-y-1.5 pl-4 text-[12px] leading-relaxed text-zinc-400">
+            <ol
+              key={idx}
+              className="list-decimal space-y-1.5 pl-4 text-[12px] leading-relaxed"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               {n.items.map((item, j) => (
                 <li key={j}>{renderInline(item)}</li>
               ))}
@@ -109,7 +125,7 @@ export default function SimpleMarkdown({ text, className = '' }) {
           )
         }
         return (
-          <p key={idx} className="text-[12px] leading-relaxed text-zinc-400">
+          <p key={idx} className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {renderInline(n.content)}
           </p>
         )

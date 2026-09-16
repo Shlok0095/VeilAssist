@@ -219,13 +219,24 @@ test('formatUserFacingChatError explains EngineCore to users', () => {
   assert.match(formatUserFacingChatError(error), /NVIDIA model server crashed/i)
 })
 
-test('403 and 404 are fallback eligible (deprecated or entitlement-blocked NIM models)', () => {
+test('403, 404, and 410 are fallback eligible (deprecated or entitlement-blocked NIM models)', () => {
   const forbidden = new Error('Authorization failed')
   forbidden.status = 403
   assert.equal(isEligibleFallbackError(forbidden), true)
   const missing = new Error('Not found')
   missing.status = 404
   assert.equal(isEligibleFallbackError(missing), true)
+  const gone = new Error('410 status code (no body)')
+  gone.status = 410
+  assert.equal(isEligibleFallbackError(gone), true)
+})
+
+test('formatUserFacingChatError explains NVIDIA 410 to users', () => {
+  const gone = new Error('410 status code (no body)')
+  gone.status = 410
+  gone.model = 'meta/llama-4-maverick-17b-128e-instruct'
+  assert.match(formatUserFacingChatError(gone), /removed or sunset/i)
+  assert.match(formatUserFacingChatError(gone), /maverick/)
 })
 
 test('ordered same-provider fallbacks try the next multimodal model', async () => {

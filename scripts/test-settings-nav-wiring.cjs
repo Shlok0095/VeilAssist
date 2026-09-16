@@ -111,8 +111,9 @@ if (!advanceSrc.includes('ProfileModesPanel') && !advanceSrc.includes('SkillsSet
 }
 
 for (const section of ['AI Providers', 'Audio', 'Phone', 'Intelligence', 'Overlay']) {
-  if (advanceSrc.includes(`title="${section}"`)) pass(`Advance section: ${section}`)
-  else fail(`Advance section missing: ${section}`)
+  if (advanceSrc.includes(`title: '${section}'`) || advanceSrc.includes(`title="${section}"`)) {
+    pass(`Advance section: ${section}`)
+  } else fail(`Advance section missing: ${section}`)
 }
 
 if (!displaySrc.includes('title="Advanced"')) {
@@ -121,10 +122,10 @@ if (!displaySrc.includes('title="Advanced"')) {
   fail('General still has a legacy top-level "Advanced" section')
 }
 
-if (displaySrc.includes('SettingsCollapsible') && displaySrc.includes('title="Diagnostics & advanced"')) {
-  pass('General collapses diagnostics into "Diagnostics & advanced"')
+if (displaySrc.includes('SettingsCollapsible') && displaySrc.includes('title="More options"')) {
+  pass('General collapses extras into "More options"')
 } else {
-  fail('General missing collapsed Diagnostics & advanced section')
+  fail('General missing collapsed More options section')
 }
 
 const cssSrc = read('renderer/settings/index.css')
@@ -134,10 +135,17 @@ if (cssSrc.includes('.settings-scroll-outer') && cssSrc.includes('overflow-y: au
   fail('main scroll region missing flex scroll styles')
 }
 
-if (displaySrc.includes('Answers & screenshots') && displaySrc.includes('Answer structure')) {
-  pass('General has Answers & screenshots section')
+if (
+  displaySrc.includes('title="Answers"') &&
+  displaySrc.includes('Answer structure') &&
+  displaySrc.includes('CheckmarkSelect') &&
+  displaySrc.includes('title="Overlay look"') &&
+  displaySrc.includes('title="Startup"') &&
+  displaySrc.includes('label="Theme"')
+) {
+  pass('General has Startup / Answers / Overlay look with checkmark dropdowns')
 } else {
-  fail('General missing Answers & screenshots')
+  fail('General missing simplified Startup/Answers/Overlay look layout')
 }
 
 if (!aiSrc.includes('Interview answers')) {

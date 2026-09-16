@@ -28,6 +28,7 @@ export default defineConfig({
         'settings/index': path.join(__dirname, 'renderer', 'settings', 'index.html'),
         'onboarding/index': path.join(__dirname, 'renderer', 'onboarding', 'index.html'),
         'consent/index': path.join(__dirname, 'renderer', 'consent', 'index.html'),
+        'quit-confirm/index': path.join(__dirname, 'renderer', 'quit-confirm', 'index.html'),
         'meeting-toast/index': path.join(__dirname, 'renderer', 'meeting-toast', 'index.html'),
         'launcher/index': path.join(__dirname, 'renderer', 'launcher', 'index.html'),
         'global-chat/index': path.join(__dirname, 'renderer', 'global-chat', 'index.html'),

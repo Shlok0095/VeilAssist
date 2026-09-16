@@ -32,6 +32,102 @@
   /* Semantic feedback accents — saved/success state, destructive actions */
   --success-rgb: 74 222 128;
   --danger-rgb: 239 68 68;
+  /* Toggle — track ≠ thumb (never reuse --accent-primary for ON track) */
+  --toggle-track-off: #2a2a2e;
+  --toggle-track-on: #e4e4e7;
+  --toggle-knob-off: #ffffff;
+  --toggle-knob-on: #09090b;
+  --toggle-track-border-off: var(--border-muted);
+  --toggle-knob-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.settings-body[data-color-scheme='light'] {
+  --bg-primary: #f4f4f5;
+  --bg-secondary: #ececef;
+  --bg-elevated: #ffffff;
+  --bg-sidebar: #f4f4f5;
+  --bg-main: #fafafa;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-component: #f4f4f5;
+  --bg-toggle-switch: #e4e4e7;
+  --bg-item-surface: rgba(0, 0, 0, 0.03);
+  --bg-item-active: rgba(0, 0, 0, 0.06);
+  --bg-subtle-hover: rgba(0, 0, 0, 0.04);
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-tertiary: #71717a;
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-muted: rgba(0, 0, 0, 0.14);
+  --accent-primary: #27272a;
+  --accent-text: #18181b;
+  --accent-muted: rgba(0, 0, 0, 0.06);
+  --accent-border: rgba(0, 0, 0, 0.18);
+  --accent-rgb: 39 39 42;
+  --accent-mid-rgb: 82 82 91;
+  --accent-light-rgb: 24 24 27;
+  /* Mid zinc track + dark knob only — not a black pill */
+  --toggle-track-off: #e4e4e7;
+  --toggle-track-on: #d4d4d8;
+  --toggle-knob-off: #ffffff;
+  --toggle-knob-on: #18181b;
+  --toggle-track-border-off: rgba(0, 0, 0, 0.12);
+  --toggle-knob-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+}
+
+.settings-body[data-color-scheme='light'] .btn-glow,
+.settings-body[data-color-scheme='light'] .nat-btn-primary {
+  background: #18181b;
+  color: #fafafa;
+  border-color: #18181b;
+}
+
+.settings-body[data-color-scheme='light'] .btn-glow:hover,
+.settings-body[data-color-scheme='light'] .nat-btn-primary:hover {
+  background: #27272a;
+}
+
+.settings-body[data-color-scheme='light'] .hotkey-keycap {
+  background: #f4f4f5;
+  border-color: rgba(0, 0, 0, 0.14);
+  color: #18181b;
+}
+
+.settings-body[data-color-scheme='light'] .settings-segmented {
+  background: #ececef;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.settings-body[data-color-scheme='light'] .settings-segmented .settings-chip {
+  color: var(--text-tertiary);
+}
+
+.settings-body[data-color-scheme='light'] .settings-segmented .settings-chip-active {
+  background: #ffffff;
+  color: var(--text-primary);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.settings-body[data-color-scheme='light'] .input-shadow:focus,
+.settings-body[data-color-scheme='light'] .nat-input:focus {
+  border-color: rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
+}
+
+.settings-body[data-color-scheme='light'] select.input-shadow,
+.settings-body[data-color-scheme='light'] select.settings-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.settings-body[data-color-scheme='light'] select.input-shadow option,
+.settings-body[data-color-scheme='light'] select.settings-select option {
+  background: #ffffff;
+  color: #18181b;
+}
+
+.settings-body[data-color-scheme='light'] .settings-title-logo {
+  filter: contrast(1.05);
 }
 
 html {
@@ -43,7 +139,9 @@ html {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
   background: transparent;
   color: var(--text-primary);
 }
@@ -221,18 +319,20 @@ html {
 }
 
 .settings-page-title {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-family: 'Syne', 'Outfit', system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
 }
 
 .settings-page-desc {
   margin-top: var(--space-1);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.4;
   color: var(--text-secondary);
   font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 .settings-page {
@@ -240,34 +340,38 @@ html {
 }
 
 .settings-row-label {
+  font-family: 'Outfit', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--text-primary);
 }
 
 .settings-row-hint {
-  margin-top: var(--space-1);
-  max-width: 36rem;
+  margin-top: 3px;
+  max-width: 28rem;
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.35;
   color: var(--text-secondary);
   font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 .settings-field-hint {
   margin-bottom: var(--space-2);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.35;
   color: var(--text-secondary);
   font-weight: 400;
 }
 
 .settings-collapsible-desc {
-  margin-top: var(--space-1);
+  margin-top: 3px;
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.35;
   color: var(--text-secondary);
   font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 .settings-prose {
@@ -412,20 +516,25 @@ html {
   border-top: 1px solid var(--border-subtle);
 }
 
-.settings-prose .meeting-summary-md h4 {
+.settings-prose .meeting-summary-md h4,
+.settings-root .meeting-summary-md h4,
+.settings-root .meeting-summary-md h5 {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .settings-prose .meeting-summary-md p,
-.settings-prose .meeting-summary-md li {
+.settings-prose .meeting-summary-md li,
+.settings-root .meeting-summary-md p,
+.settings-root .meeting-summary-md li {
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-secondary);
 }
 
-.settings-prose .meeting-summary-md strong {
+.settings-prose .meeting-summary-md strong,
+.settings-root .meeting-summary-md strong {
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -572,6 +681,203 @@ select.settings-select option {
   font-size: 12px;
 }
 
+/* Checkmark dropdown (General answer settings) */
+.checkmark-select {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  margin-left: auto;
+}
+
+.checkmark-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.checkmark-select-trigger:hover:not(:disabled) {
+  border-color: var(--border-muted);
+  background: var(--bg-item-surface);
+}
+
+.checkmark-select-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkmark-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkmark-select-menu,
+.checkmark-select-menu-portal {
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border-muted);
+  background: #1a1a1d;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  max-height: min(320px, calc(100vh - 24px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #52525b transparent;
+}
+
+.checkmark-select-menu::-webkit-scrollbar,
+.checkmark-select-menu-portal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.checkmark-select-menu::-webkit-scrollbar-track,
+.checkmark-select-menu-portal::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.checkmark-select-menu::-webkit-scrollbar-thumb,
+.checkmark-select-menu-portal::-webkit-scrollbar-thumb {
+  background: #52525b;
+  border-radius: 999px;
+}
+
+.checkmark-select-menu::-webkit-scrollbar-thumb:hover,
+.checkmark-select-menu-portal::-webkit-scrollbar-thumb:hover {
+  background: #71717a;
+}
+
+.checkmark-select-menu::-webkit-scrollbar-button,
+.checkmark-select-menu-portal::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.checkmark-select-opt {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.checkmark-select-opt:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.checkmark-select-opt-on {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.checkmark-select-opt-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.checkmark-select-opt-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fafafa;
+}
+
+.checkmark-select-opt-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #a1a1aa;
+  white-space: normal;
+}
+
+.checkmark-select-spacer {
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.checkmark-select-tick {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #fafafa;
+}
+
+/* Keybinds — per-key boxes, no outer combo shell */
+.hotkey-combo {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: min(420px, 100%);
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.hotkey-combo:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.25);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.hotkey-combo-editing .hotkey-keycap {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.hotkey-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: #222226;
+  border: 1px solid #3a3a40;
+  color: #fafafa;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.hotkey-keycap-muted {
+  color: #71717a;
+  font-weight: 500;
+}
+
+.hotkey-plus {
+  color: #71717a;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
 /* Segmented control — connected pill group (macOS / iOS style) */
 .settings-segmented {
   display: inline-flex;
@@ -601,12 +907,254 @@ select.settings-select option {
   color: var(--text-primary);
 }
 
-/* Advance tab — stacked expert sections */
+/* Advance tab — Figma accordion stack (#161618 cards) */
 .settings-advance-stack {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding-bottom: 0.5rem;
+}
+
+.settings-advance-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.settings-advance-card[open] > .settings-advance-summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-advance-card > .settings-advance-summary:hover {
+  background: var(--bg-subtle-hover);
+}
+
+.settings-advance-badge {
+  border-color: var(--border-muted);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+.settings-advance-ai-block {
+  padding: 12px 0;
+}
+
+.settings-advance-ai-divider {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settings-advance-ai-label {
+  margin: 0;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.settings-advance-ai-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.settings-advance-ai-row-head .settings-advance-ai-label {
+  margin: 0;
+}
+
+.settings-advance-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.settings-advance-pill {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-advance-pill:hover {
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+}
+
+.settings-advance-pill-active {
+  background: var(--bg-item-active);
+  border-color: var(--border-muted);
+  color: var(--text-primary);
+}
+
+.settings-advance-ai-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.settings-advance-ai-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
+.settings-advance-ai-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-item-surface);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.settings-advance-ai-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+}
+
+.settings-advance-ai-link:hover {
+  color: var(--text-secondary);
+}
+
+.settings-advance-ai-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-advance-model-dd {
+  min-width: 180px;
+  max-width: 280px;
+  flex-shrink: 0;
+}
+
+.settings-advance-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0 4px;
+}
+
+/* Flat rows inside Advance accordion (Figma AI / Audio body) */
+.settings-advance-flat .nat-row,
+.settings-advance-flat-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settings-advance-flat .nat-row:first-child,
+.settings-advance-flat > .settings-advance-flat-row:first-child {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.settings-advance-flat > .settings-advance-card:first-child,
+.settings-advance-flat > details:first-child {
+  border-top: none;
+}
+
+.settings-advance-flat-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Nested Advance rows — flat hairline like Figma Advanced STT (no boxed leak) */
+.settings-advance-nested.settings-advance-card {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.settings-advance-flat > .settings-advance-nested.settings-advance-card {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0;
+}
+
+.settings-advance-flat > .settings-advance-nested.settings-advance-card:first-child {
+  border-top: none;
+}
+
+.settings-advance-nested.settings-advance-card > .settings-advance-summary {
+  padding: 12px 0;
+  align-items: center;
+}
+
+.settings-advance-nested.settings-advance-card[open] > .settings-advance-summary {
+  border-bottom: none;
+  padding-bottom: 8px;
+}
+
+.settings-advance-nested.settings-advance-card > div {
+  padding: 0 0 10px;
+  border-top: none !important;
+}
+
+.settings-advance-card > .settings-advance-summary .font-semibold {
+  font-family: 'Syne', 'Outfit', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.settings-advance-nested.settings-advance-card > .settings-advance-summary .font-semibold {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  letter-spacing: -0.015em;
+}
+
+.settings-advance-group-label {
+  margin: 12px 0 4px;
+  font-family: 'Syne', 'Outfit', system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.settings-advance-group-label:first-child {
+  margin-top: 2px;
+}
+
+/* Strip nested glass cards when somehow still used inside Advance */
+.settings-advance-card .glass-panel {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.settings-advance-card .nat-section-head {
+  padding: 10px 0 2px;
+}
+
+.settings-advance-card .nat-section-head-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.settings-advance-card .nat-section-head-desc {
+  display: none;
 }
 
 .settings-advance-stack details.glass-panel > summary {
@@ -789,7 +1337,7 @@ select.settings-select option {
   color: var(--text-primary);
 }
 
-/* Toggle — Natively w-11 h-6 */
+/* Toggle — 44×24 track, separate track/knob tokens (platform switch pattern) */
 .nat-toggle {
   position: relative;
   display: inline-flex;
@@ -800,16 +1348,17 @@ select.settings-select option {
   align-items: center;
   border-radius: var(--radius-pill);
   border: none;
-  transition: background-color var(--transition-base);
+  transition: background-color var(--transition-base), border-color var(--transition-base);
 }
 
 .nat-toggle[aria-checked='true'] {
-  background: var(--accent-primary);
+  background: var(--toggle-track-on);
+  border: 1px solid transparent;
 }
 
 .nat-toggle[aria-checked='false'] {
-  background: var(--bg-toggle-switch);
-  border: 1px solid var(--border-muted);
+  background: var(--toggle-track-off);
+  border: 1px solid var(--toggle-track-border-off);
 }
 
 .nat-toggle-knob {
@@ -819,14 +1368,14 @@ select.settings-select option {
   width: 20px;
   transform: translateX(2px);
   border-radius: var(--radius-pill);
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  transition: transform var(--transition-base);
+  background: var(--toggle-knob-off);
+  box-shadow: var(--toggle-knob-shadow);
+  transition: transform var(--transition-base), background-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .nat-toggle[aria-checked='true'] .nat-toggle-knob {
   transform: translateX(22px);
-  background: #09090b;
+  background: var(--toggle-knob-on);
 }
 
 .nat-toggle:active:not(:disabled) .nat-toggle-knob {
@@ -882,7 +1431,9 @@ select.settings-select option {
 
 /* Legacy token overrides for inline styles / tailwind in panels */
 .settings-root .text-white,
-.settings-root .text-gray-200 {
+.settings-root .text-gray-200,
+.settings-root .text-zinc-50,
+.settings-root .text-zinc-100 {
   color: var(--text-primary) !important;
 }
 

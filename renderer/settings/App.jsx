@@ -152,8 +152,26 @@ export default function Settings() {
   const [overlayMousePassthroughUi, setOverlayMousePassthroughUi] = useState(false)
   const [hideFromTaskbarUi, setHideFromTaskbarUi] = useState(false)
   const [uiAccentThemeUi, setUiAccentThemeUi] = useState('blue')
+  const [uiColorSchemeUi, setUiColorSchemeUi] = useState('system')
   const [settingsToast, setSettingsToast] = useState(null)
   const [profileSaveStatus, setProfileSaveStatus] = useState('idle')
+
+  useEffect(() => {
+    const pref = uiColorSchemeUi === 'light' || uiColorSchemeUi === 'dark' ? uiColorSchemeUi : 'system'
+    const applyResolved = (resolved) => {
+      document.body?.setAttribute('data-color-scheme', resolved)
+      document.documentElement?.setAttribute('data-color-scheme', resolved)
+    }
+    if (pref !== 'system') {
+      applyResolved(pref)
+      return undefined
+    }
+    const mq = window.matchMedia?.('(prefers-color-scheme: light)')
+    const sync = () => applyResolved(mq?.matches ? 'light' : 'dark')
+    sync()
+    mq?.addEventListener?.('change', sync)
+    return () => mq?.removeEventListener?.('change', sync)
+  }, [uiColorSchemeUi])
 
   const sttCapableMeta = useMemo(() => {
     if (sttProviderMeta.length) return sttProviderMeta
@@ -294,6 +312,9 @@ export default function Settings() {
         setOverlayMousePassthroughUi(s.overlayMousePassthroughEnabled === true)
         setHideFromTaskbarUi(s.hideFromTaskbarEnabled === true)
         setUiAccentThemeUi(String(s.uiAccentTheme || 'blue'))
+        setUiColorSchemeUi(
+          s.uiColorScheme === 'light' || s.uiColorScheme === 'dark' ? s.uiColorScheme : 'system',
+        )
         setCalendarReminderMinutes(
           Number.isFinite(Number(s.calendarReminderMinutes))
             ? Math.max(0, Number(s.calendarReminderMinutes))
@@ -505,28 +526,28 @@ export default function Settings() {
     setSnap((s) => (s ? { ...s, [key]: value } : s))
   }
 
-  const getKeyForProvider = async (pId) => {
+  const testApiFor = async (pId) => {
     const meta = providerMeta.find((p) => p.id === pId)
     const field = meta?.keyField
-    if (!field) return ''
-    const local = (secretByProvider[pId] || '').trim()
-    const stored = await ipc?.invoke('get-store', field)
-    return local || stored
-  }
+    const localKey = (secretByProvider[pId] || '').trim()
+    const hasSavedKey = field ? !!keySetMap[field] : true
 
-  const testApiFor = async (pId) => {
-    const key = await getKeyForProvider(pId)
-    if (!key) {
-      setTestByProvider((t) => ({ ...t, [pId]: { success: false, error: 'Enter or save API key first' } }))
+    if (field && !localKey && !hasSavedKey) {
+      setTestByProvider((t) => ({
+        ...t,
+        [pId]: { success: false, error: 'Add an API key above, then choose Save key.' },
+      }))
       return
     }
+
     setTestingProvider(pId)
     setTestByProvider((t) => {
       const n = { ...t }
       delete n[pId]
       return n
     })
-    const r = await ipc.invoke('test-api', pId, key)
+    // Main process resolves persisted keys when the renderer passes an empty string.
+    const r = await ipc.invoke('test-api', pId, localKey)
     setTestByProvider((t) => ({ ...t, [pId]: r }))
     setTestingProvider(null)
   }
@@ -1004,6 +1025,13 @@ export default function Settings() {
     await save('uiAccentTheme', id)
   }
 
+  const applyUiColorScheme = async (id) => {
+    const next = id === 'light' || id === 'dark' ? id : 'system'
+    setUiColorSchemeUi(next)
+    patchSnap('uiColorScheme', next)
+    await save('uiColorScheme', next)
+  }
+
   const applyHindsightAutoStart = async (v) => {
     const enabled = !!v
     patchSnap('hindsightAutoStartEnabled', enabled)
@@ -1302,6 +1330,8 @@ export default function Settings() {
             onOverlayAnswerAutoScrollChange={applyOverlayAnswerAutoScroll}
             openAtLoginUi={openAtLoginUi}
             onOpenAtLoginChange={applyOpenAtLogin}
+            uiColorSchemeUi={uiColorSchemeUi}
+            onUiColorSchemeChange={applyUiColorScheme}
             overlayMousePassthroughUi={overlayMousePassthroughUi}
             onOverlayMousePassthroughChange={applyOverlayMousePassthrough}
             hideFromTaskbarUi={hideFromTaskbarUi}

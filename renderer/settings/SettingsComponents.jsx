@@ -1,7 +1,8 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
 // Shared settings UI — aligned with Natively SettingsOverlay patterns.
 
-import React, { memo, useId, useMemo, useState } from 'react'
+import React, { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { polishCopy } from './settingsCopy'
 
 export const SettingsPage = memo(function SettingsPage({ title, description, children, wide }) {
@@ -86,14 +87,19 @@ export function SettingsFieldHint({ children, className = '' }) {
 }
 
 export function SettingsBadge({ children, tone = 'neutral' }) {
-  const cls =
-    tone === 'success'
-      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-      : tone === 'warn'
-        ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-        : 'border-white/10 bg-white/[0.06] text-zinc-400'
+  // Product palette is monochrome — ignore color tones.
+  void tone
   return (
-    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${cls}`}>{children}</span>
+    <span
+      className="rounded-full border px-[7px] py-0.5 text-[10px] font-semibold"
+      style={{
+        borderColor: 'var(--border-muted)',
+        background: 'var(--bg-input)',
+        color: 'var(--text-secondary)',
+      }}
+    >
+      {children}
+    </span>
   )
 }
 
@@ -149,6 +155,156 @@ export const SettingsSelect = memo(function SettingsSelect({
     </div>
   )
 })
+
+/**
+ * Cursor-style checkmark dropdown. Menus portal to body so parent overflow cannot clip them.
+ * options: [{ id, label, detail? }]
+ */
+export function CheckmarkSelect({
+  value,
+  onChange,
+  options = [],
+  disabled = false,
+  'aria-label': ariaLabel,
+  className = '',
+  menuMinWidth = 240,
+}) {
+  const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState(null)
+  const rootRef = useRef(null)
+  const triggerRef = useRef(null)
+  const menuRef = useRef(null)
+  const selected = options.find((o) => o.id === value) || options[0]
+  const label = selected?.label || String(value || '')
+
+  const placeMenu = () => {
+    const trigger = triggerRef.current
+    if (!trigger) return
+    const rect = trigger.getBoundingClientRect()
+    const width = Math.min(Math.max(rect.width, menuMinWidth), Math.min(360, window.innerWidth - 16))
+    let left = rect.right - width
+    if (left < 8) left = 8
+    if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8)
+    const estimatedH = Math.min(320, 12 + options.length * 44)
+    let top = rect.bottom + 6
+    if (top + estimatedH > window.innerHeight - 8 && rect.top - 6 - estimatedH > 8) {
+      top = rect.top - 6 - estimatedH
+    }
+    setMenuPos({ top, left, width })
+  }
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPos(null)
+      return undefined
+    }
+    placeMenu()
+    const onReposition = () => placeMenu()
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
+    return () => {
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- place when open/options change
+  }, [open, options.length, menuMinWidth])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const onDoc = (e) => {
+      const t = e.target
+      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return
+      setOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const menu =
+    open && menuPos
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className="checkmark-select-menu checkmark-select-menu-portal"
+            role="listbox"
+            style={{
+              position: 'fixed',
+              top: menuPos.top,
+              left: menuPos.left,
+              width: menuPos.width,
+              zIndex: 10050,
+            }}
+          >
+            {options.map((opt) => {
+              const active = opt.id === value
+              return (
+                <button
+                  key={opt.id === '' ? '__empty' : opt.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  className={`checkmark-select-opt ${active ? 'checkmark-select-opt-on' : ''}`}
+                  onClick={() => {
+                    onChange?.(opt.id)
+                    setOpen(false)
+                  }}
+                >
+                  <span className="checkmark-select-opt-text">
+                    <span className="checkmark-select-opt-label">{opt.label}</span>
+                    {opt.detail ? <span className="checkmark-select-opt-detail">{opt.detail}</span> : null}
+                  </span>
+                  {active ? (
+                    <svg
+                      className="checkmark-select-tick"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      aria-hidden
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <span className="checkmark-select-spacer" aria-hidden />
+                  )}
+                </button>
+              )
+            })}
+          </div>,
+          document.body,
+        )
+      : null
+
+  return (
+    <div className={`checkmark-select ${open ? 'checkmark-select-open' : ''} ${className}`.trim()} ref={rootRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="checkmark-select-trigger"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel || label}
+        onClick={() => !disabled && setOpen((v) => !v)}
+      >
+        <span className="checkmark-select-value">{label}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {menu}
+    </div>
+  )
+}
 
 export const ModelSelect = memo(function ModelSelect({ label, value, models, onChange, listbox }) {
   const [filter, setFilter] = useState('')
@@ -324,15 +480,45 @@ export function SettingsCollapsible({
   title,
   description,
   badge = null,
+  badgeActive = false,
   defaultOpen = false,
   forceOpen = false,
+  open: controlledOpen = undefined,
+  onOpenChange = undefined,
   icon: HeaderIcon = null,
   className = '',
+  variant = 'default',
   children,
 }) {
+  const isControlled = controlledOpen !== undefined
+  // Uncontrolled: honor forceOpen / defaultOpen. Controlled: always boolean — never
+  // `open={false || undefined}` (that flips controlled→uncontrolled and flickers).
+  const isOpen = isControlled ? !!controlledOpen : forceOpen || defaultOpen || undefined
+
+  const panelClass =
+    variant === 'advance'
+      ? `settings-advance-card group overflow-hidden ${className}`.trim()
+      : `glass-panel group overflow-hidden ${className}`.trim()
+
+  // Controlled mode: stop the browser from toggling <details> itself. onToggle +
+  // preventDefault does not cancel the open change and fights React → flicker.
+  const summaryProps = isControlled
+    ? {
+        onClick: (e) => {
+          e.preventDefault()
+          onOpenChange?.(!controlledOpen)
+        },
+      }
+    : {}
+
   return (
-    <details className={`glass-panel group overflow-hidden ${className}`.trim()} open={forceOpen || defaultOpen || undefined}>
-      <summary className="flex cursor-pointer list-none items-start gap-3 px-5 py-4 transition-colors [&::-webkit-details-marker]:hidden">
+    <details className={panelClass} open={isOpen}>
+      <summary
+        className={`settings-advance-summary flex cursor-pointer list-none items-start gap-3 transition-colors [&::-webkit-details-marker]:hidden ${
+          variant === 'advance' ? 'px-4 py-3.5' : 'px-5 py-4'
+        }`}
+        {...summaryProps}
+      >
         {HeaderIcon ? (
           <span
             className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
@@ -343,13 +529,20 @@ export function SettingsCollapsible({
         ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <span
+              className={`font-semibold ${variant === 'advance' ? 'text-[13px]' : 'text-sm'}`}
+              style={{ color: 'var(--text-primary)' }}
+            >
               {title}
             </span>
             {badge ? (
               <span
-                className="rounded-md border px-2 py-0.5 text-[10px] font-medium"
-                style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-input)', color: 'var(--text-secondary)' }}
+                className="settings-advance-badge rounded-full border px-[7px] py-0.5 text-[10px] font-semibold"
+                style={{
+                  borderColor: badgeActive ? 'var(--accent-border)' : 'var(--border-muted)',
+                  background: 'var(--bg-input)',
+                  color: badgeActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}
               >
                 {badge}
               </span>
@@ -373,7 +566,10 @@ export function SettingsCollapsible({
           <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </summary>
-      <div className="border-t px-5 pb-5 pt-4" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div
+        className={`border-t ${variant === 'advance' ? 'px-4 pb-3 pt-1' : 'px-5 pb-5 pt-4'}`}
+        style={{ borderColor: 'var(--border-subtle)' }}
+      >
         {children}
       </div>
     </details>

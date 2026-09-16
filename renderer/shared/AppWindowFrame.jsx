@@ -1,7 +1,8 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
 
 import React, { useCallback, useState } from 'react'
-import overlayBrandLogo from './overlayBrandLogo'
+import brandLogo from './brandLogo'
+import { useBrand } from './branding'
 
 const drag = { WebkitAppRegion: 'drag' }
 const noDrag = { WebkitAppRegion: 'no-drag' }
@@ -25,6 +26,7 @@ function TitleBarButton({ onClick, title, children, danger }) {
 /** Frameless window: violet border, compact title strip (VeilAssist + window controls). */
 export default function AppWindowFrame({ children }) {
   const api = typeof window !== 'undefined' ? window.shadowAPI : null
+  const { name } = useBrand()
   const [maximized, setMaximized] = useState(false)
 
   const minimize = useCallback(() => {
@@ -48,14 +50,14 @@ export default function AppWindowFrame({ children }) {
       >
         <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2 px-3" style={drag}>
           <img
-            src={overlayBrandLogo}
-            alt="VeilAssist"
+            src={brandLogo}
+            alt={name || 'VeilAssist'}
             width={20}
             height={20}
             draggable={false}
             className="pointer-events-none h-5 w-5 shrink-0 object-contain"
           />
-          <span className="truncate text-[12px] font-medium text-zinc-400">VeilAssist</span>
+          <span className="truncate text-[12px] font-medium text-zinc-200">{name || 'VeilAssist'}</span>
         </div>
 
         <div className="flex shrink-0 items-stretch" style={noDrag}>

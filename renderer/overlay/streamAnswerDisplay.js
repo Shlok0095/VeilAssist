@@ -65,7 +65,7 @@ export function splitStreamTakeaway(stripped) {
 
 /** Throttle interval for formatted stream React updates (ms). */
 export function streamPreviewIntervalFor(length) {
-  if (length > 6000) return 280
-  if (length > 2000) return 160
-  return 80
+  if (length > 6000) return 320
+  if (length > 2000) return 180
+  return 100
 }

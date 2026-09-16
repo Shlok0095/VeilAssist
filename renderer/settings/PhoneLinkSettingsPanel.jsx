@@ -3,14 +3,11 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import QRCode from 'react-qr-code'
-import { MonitorSmartphone, Smartphone } from 'lucide-react'
 import { createIpcShim } from '../shared/ipcShim'
-import AppIcon from '../shared/AppIcon'
 import {
-  SettingsPage,
+  SettingsCollapsible,
   SettingsPanelShell,
   SettingsRow,
-  SettingsSection,
   ToggleSwitch,
 } from './SettingsComponents'
 
@@ -78,6 +75,7 @@ export default function PhoneLinkSettingsPanel({
   }, [refreshStatus, refreshMirrorTools, phoneLinkEnabled])
 
   const primaryUrl = status?.urls?.[0] || ''
+  const toolsReady = mirrorProbe?.adbFound && mirrorProbe?.scrcpyFound
 
   const regenerateToken = async () => {
     if (!ipc) return
@@ -114,97 +112,78 @@ export default function PhoneLinkSettingsPanel({
     }
   }
 
-  const toolsReady = mirrorProbe?.adbFound && mirrorProbe?.scrcpyFound
+  const body = (
+    <div className="settings-advance-flat">
+      <SettingsRow label="Phone Link" hint="QR on the same Wi‑Fi.">
+        <ToggleSwitch checked={phoneLinkEnabled} onChange={onPhoneLinkEnabledChange} />
+      </SettingsRow>
 
-  return (
-    <SettingsPanelShell
-      embedded={embedded}
-      title="Phone"
-      description="Phone Link (QR companion) and Android USB mirror (scrcpy). Desktop Listen, STT, and screen capture stay unchanged unless you opt in below."
-    >
-      <SettingsSection
-        title="Phone Link — companion"
-        description="Scan a QR code to read transcript and AI answers on your phone (same Wi‑Fi)."
-      >
-        <SettingsRow
-          label="Enable Phone Link"
-          hint="Starts a small LAN server on this PC. Off by default."
-        >
-          <ToggleSwitch checked={phoneLinkEnabled} onChange={onPhoneLinkEnabledChange} />
-        </SettingsRow>
+      <SettingsRow label="Remote mic" hint="Phone audio while linked.">
+        <ToggleSwitch
+          checked={phoneLinkRemoteMicEnabled}
+          onChange={onPhoneLinkRemoteMicChange}
+          disabled={!phoneLinkEnabled}
+        />
+      </SettingsRow>
 
-        <SettingsRow
-          label="Remote microphone"
-          hint="Phone sends voice to the PC during Listen. Desktop mic is not disabled."
-        >
-          <ToggleSwitch
-            checked={phoneLinkRemoteMicEnabled}
-            onChange={onPhoneLinkRemoteMicChange}
-            disabled={!phoneLinkEnabled}
-          />
-        </SettingsRow>
+      {phoneLinkEnabled ? (
+        <>
+          <SettingsRow
+            label="Server"
+            hint={
+              status?.running
+                ? `Port ${status.port} · ${status.connectedClients || 0} phone(s)`
+                : 'Check Windows Firewall if pairing fails.'
+            }
+          >
+            <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+              {status?.running ? 'Running' : 'Stopped'}
+            </span>
+          </SettingsRow>
 
-        {phoneLinkEnabled && (
-          <>
-            <SettingsRow
-              label="Server status"
-              hint={
-                status?.running
-                  ? `Port ${status.port} · ${status.connectedClients || 0} phone(s) connected`
-                  : 'Check Windows Firewall if pairing fails.'
-              }
-            >
-              <span className={`text-sm ${status?.running ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {status?.running ? 'Running' : 'Stopped'}
-              </span>
-            </SettingsRow>
-
-            {primaryUrl ? (
-              <SettingsRow
-                label="Scan to connect"
-                hint="Point your phone camera at this QR (same Wi‑Fi as this PC)."
+          {primaryUrl ? (
+            <div className="settings-advance-flat-row settings-advance-flat-stack">
+              <p className="settings-advance-ai-label">Pairing QR</p>
+              <p className="settings-advance-ai-hint" style={{ marginTop: 2, marginBottom: 8 }}>
+                Same Wi‑Fi as this PC.
+              </p>
+              <div className="rounded-xl bg-white p-3 w-fit">
+                <QRCode value={primaryUrl} size={140} level="M" />
+              </div>
+              <button
+                type="button"
+                className="btn-ghost mt-2 w-fit px-3.5 py-2 text-xs"
+                disabled={busy}
+                onClick={() => void regenerateToken()}
               >
-                <div className="flex flex-col gap-3 items-end">
-                  <div className="rounded-xl bg-white p-3 shadow-inner">
-                    <QRCode value={primaryUrl} size={168} level="M" />
-                  </div>
-                  <button
-                    type="button"
-                    className="settings-btn-secondary text-sm"
-                    disabled={busy}
-                    onClick={() => void regenerateToken()}
-                  >
-                    {busy ? 'Refreshing…' : 'New QR code'}
-                  </button>
-                </div>
-              </SettingsRow>
-            ) : null}
-          </>
-        )}
-      </SettingsSection>
+                {busy ? 'Refreshing…' : 'New QR code'}
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : null}
 
-      <SettingsSection
-        title="Android mirror — scrcpy"
-        description="Show your Android screen in a separate window (USB debugging). Same approach as scrcpy and PhoneMirror-style apps."
+      <SettingsCollapsible
+        variant="advance"
+        title="Android mirror"
+        description="USB + scrcpy"
+        className="settings-advance-nested"
       >
         <SettingsRow
           label="adb / scrcpy"
-          hint="Install Android Platform Tools (adb) and scrcpy, both on your PATH."
+          hint="On PATH."
         >
-          <span className="text-sm text-zinc-400">
+          <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
             {toolsReady
               ? 'Ready'
-              : [
-                  !mirrorProbe?.adbFound && 'adb missing',
-                  !mirrorProbe?.scrcpyFound && 'scrcpy missing',
-                ]
+              : [!mirrorProbe?.adbFound && 'adb missing', !mirrorProbe?.scrcpyFound && 'scrcpy missing']
                   .filter(Boolean)
                   .join(' · ') || 'Checking…'}
           </span>
         </SettingsRow>
 
-        <SettingsRow label="Android device" hint="USB debugging on · approve this PC on the phone.">
-          <div className="flex flex-col gap-2 items-end min-w-[200px]">
+        <SettingsRow label="Device" hint="USB debug on.">
+          <div className="flex flex-col gap-2 items-end min-w-[180px]">
             <select
               className="input-shadow w-full max-w-xs px-3 py-2 text-sm"
               value={phoneMirrorDeviceId}
@@ -217,17 +196,13 @@ export default function PhoneLinkSettingsPanel({
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              className="settings-btn-secondary text-sm"
-              onClick={() => void refreshMirrorTools()}
-            >
-              Refresh devices
+            <button type="button" className="btn-ghost px-3 py-1.5 text-xs" onClick={() => void refreshMirrorTools()}>
+              Refresh
             </button>
           </div>
         </SettingsRow>
 
-        <SettingsRow label="Max width (px)" hint="scrcpy --max-size (default 1080).">
+        <SettingsRow label="Max width" hint="scrcpy --max-size">
           <input
             type="number"
             min={480}
@@ -239,74 +214,51 @@ export default function PhoneLinkSettingsPanel({
           />
         </SettingsRow>
 
-        <SettingsRow
-          label="Include phone screen in Ask AI"
-          hint="When mirror is running, adds an adb screencap alongside the normal desktop screenshot. Off by default."
-        >
+        <SettingsRow label="Include in Ask" hint="With desktop capture.">
           <ToggleSwitch checked={phoneMirrorIncludeInAsk} onChange={onPhoneMirrorIncludeInAskChange} />
         </SettingsRow>
 
         <SettingsRow
           label="Mirror window"
-          hint={
-            mirrorStatus?.mirroring
-              ? `Mirroring ${mirrorStatus.serial || 'device'} — scrcpy window on desktop`
-              : 'Starts scrcpy in its own window (control phone with mouse/keyboard there).'
-          }
+          hint={mirrorStatus?.mirroring ? `Mirroring ${mirrorStatus.serial || 'device'}` : 'Separate scrcpy window'}
         >
-          <div className="flex gap-2">
-            {mirrorStatus?.mirroring ? (
-              <button
-                type="button"
-                className="settings-btn-secondary text-sm"
-                disabled={mirrorBusy}
-                onClick={() => void stopMirror()}
-              >
-                {mirrorBusy ? '…' : 'Stop mirror'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="settings-btn-secondary text-sm"
-                disabled={mirrorBusy || !toolsReady}
-                onClick={() => void startMirror()}
-              >
-                {mirrorBusy ? 'Starting…' : 'Start mirror'}
-              </button>
-            )}
-          </div>
+          {mirrorStatus?.mirroring ? (
+            <button
+              type="button"
+              className="btn-ghost px-3.5 py-2 text-xs"
+              disabled={mirrorBusy}
+              onClick={() => void stopMirror()}
+            >
+              {mirrorBusy ? '…' : 'Stop'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-ghost px-3.5 py-2 text-xs"
+              disabled={mirrorBusy || !toolsReady}
+              onClick={() => void startMirror()}
+            >
+              {mirrorBusy ? 'Starting…' : 'Start'}
+            </button>
+          )}
         </SettingsRow>
 
         {mirrorErr ? (
-          <p className="text-sm text-red-400/90 m-0 px-1">{mirrorErr}</p>
+          <p className="settings-advance-ai-hint" style={{ color: 'var(--text-primary)' }}>
+            {mirrorErr}
+          </p>
         ) : null}
-      </SettingsSection>
+      </SettingsCollapsible>
+    </div>
+  )
 
-      <SettingsSection title="Setup">
-        <div className="flex gap-3 items-start text-sm text-zinc-400 leading-relaxed">
-          <AppIcon icon={Smartphone} size={18} className="mt-0.5 shrink-0 opacity-80" />
-          <div className="space-y-3">
-            <div>
-              <p className="m-0 font-medium text-zinc-300">Phone Link</p>
-              <ol className="list-decimal list-inside space-y-1 m-0 mt-1">
-                <li>Same Wi‑Fi · enable Phone Link · scan QR</li>
-                <li>Start Listen on PC for live sync</li>
-              </ol>
-            </div>
-            <div className="flex gap-2 items-start">
-              <AppIcon icon={MonitorSmartphone} size={18} className="mt-0.5 shrink-0 opacity-80" />
-              <div>
-                <p className="m-0 font-medium text-zinc-300">Android mirror</p>
-                <ol className="list-decimal list-inside space-y-1 m-0 mt-1">
-                  <li>Install adb + scrcpy · USB-connect phone</li>
-                  <li>Enable USB debugging · tap Start mirror</li>
-                  <li>iOS not supported on Windows for USB mirror</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </div>
-      </SettingsSection>
+  return (
+    <SettingsPanelShell
+      embedded={embedded}
+      title="Phone"
+      description="Link & mirror."
+    >
+      {body}
     </SettingsPanelShell>
   )
 }

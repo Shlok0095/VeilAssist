@@ -159,7 +159,7 @@ function capMessages(list) {
 }
 
 /** Debounce live-caption React updates — refs stay synchronous for Ask snapshots. */
-const LIVE_TRANSCRIPT_UI_MS = 80
+const LIVE_TRANSCRIPT_UI_MS = 120
 
 const MAX_LIVE_SEGMENTS = 30
 /** Max utterance segments sent to the LLM (Cluely-style window). */
@@ -832,6 +832,20 @@ export default function App() {
     sttLivePhaseRef.current = next
     setSttLivePhase(next)
   }
+  const micCaptureActiveRef = useRef(false)
+  const sysCaptureActiveRef = useRef(false)
+  const setMicCaptureActiveIfChanged = (next) => {
+    const v = !!next
+    if (micCaptureActiveRef.current === v) return
+    micCaptureActiveRef.current = v
+    setMicCaptureActive(v)
+  }
+  const setSysCaptureActiveIfChanged = (next) => {
+    const v = !!next
+    if (sysCaptureActiveRef.current === v) return
+    sysCaptureActiveRef.current = v
+    setSysCaptureActive(v)
+  }
   /** Last mic transcript activity (for main-process audioRecent). */
   const lastAudioUpdateRef = useRef(0)
 
@@ -1402,17 +1416,17 @@ export default function App() {
       }
       flushSync(() => {
         setIsThinking(true)
-        openPanel()
-        setActiveAskSource(askSource)
-        if (heardQuestion) {
-          setMessages((m) =>
-            capMessages([
-              ...m,
-              { role: 'heard', text: heardQuestion, context: heardContext, id: ++msgId.current },
-            ]),
-          )
-        }
       })
+      openPanel()
+      setActiveAskSource(askSource)
+      if (heardQuestion) {
+        setMessages((m) =>
+          capMessages([
+            ...m,
+            { role: 'heard', text: heardQuestion, context: heardContext, id: ++msgId.current },
+          ]),
+        )
+      }
       if (perfAskT0Ref.current && import.meta.env.DEV) {
         console.log('UI_AI_START_MS', Date.now() - perfAskT0Ref.current)
       }
@@ -1544,8 +1558,8 @@ export default function App() {
         // state) so the UI responds immediately instead of staying closed during preflight.
         flushSync(() => {
           setIsThinking(true)
-          openPanel()
         })
+        openPanel()
         streamDomAcceptingRef.current = true
         return
       }
@@ -2135,6 +2149,8 @@ export default function App() {
       audioPathsRef.current = { hasMic: !!mic, hasSys: !!sys }
       setSysCaptureActive(false)
       setMicCaptureActive(false)
+      micCaptureActiveRef.current = false
+      sysCaptureActiveRef.current = false
       energySampleRef.current = samplePack
       chunkEnergyRef.current = {
         active: false,
@@ -2263,8 +2279,8 @@ export default function App() {
           Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS ||
           Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS
         const paths = audioPathsRef.current || {}
-        setMicCaptureActive(!!paths.hasMic && Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS)
-        setSysCaptureActive(!!paths.hasSys && Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS)
+        setMicCaptureActiveIfChanged(!!paths.hasMic && Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS)
+        setSysCaptureActiveIfChanged(!!paths.hasSys && Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS)
         if (speechRecent && sttTranscribingCountRef.current === 0) setSttPhaseIfChanged('speech')
         else if (sttTranscribingCountRef.current > 0) setSttPhaseIfChanged('transcribing')
         else if (!speechRecent) setSttPhaseIfChanged('idle')
@@ -3095,13 +3111,13 @@ export default function App() {
   }, [maybeTriggerFromScreen])
 
   useEffect(() => {
-    if (!sessionOn) return
+    if (!sessionOn || !overlayMainVisible) return
     const tick = window.setInterval(() => {
       applySpeechSilenceWindow()
       maybeTriggerAIRef.current?.()
     }, 500)
     return () => clearInterval(tick)
-  }, [sessionOn, applySpeechSilenceWindow])
+  }, [sessionOn, overlayMainVisible, applySpeechSilenceWindow])
 
   useEffect(
     () => () => {
@@ -3114,7 +3130,7 @@ export default function App() {
   )
 
   useEffect(() => {
-    if (!sessionOn) return
+    if (!sessionOn || !overlayMainVisible) return
     if (speechFailsafeIntervalRef.current) clearInterval(speechFailsafeIntervalRef.current)
     speechFailsafeIntervalRef.current = window.setInterval(() => {
       if (!sessionOnRef.current) return
@@ -3138,7 +3154,7 @@ export default function App() {
         speechFailsafeIntervalRef.current = null
       }
     }
-  }, [sessionOn, applySpeechSilenceWindow, isStillReadingAnswerAloud, shouldBlockAutoReadback, isPhoneAutoParity])
+  }, [sessionOn, overlayMainVisible, applySpeechSilenceWindow, isStillReadingAnswerAloud, shouldBlockAutoReadback, isPhoneAutoParity])
 
   const hideOverlay = useCallback(() => {
     setHiding(true)

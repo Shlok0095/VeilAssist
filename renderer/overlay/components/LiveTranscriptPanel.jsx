@@ -1,19 +1,24 @@
 // Copyright (c) 2026 ShadowAssist. All rights reserved.
 
-import React, { useRef, useEffect, useCallback } from 'react'
+import React, { useRef, useEffect, useCallback, useMemo } from 'react'
 import { useLiveTranscriptSegments } from '../liveTranscriptStore.js'
 
 const SCROLL_BOTTOM_THRESHOLD = 24
+const VISIBLE_MAX = 24
 
 function isNearBottom(el) {
   if (!el) return true
   return el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_BOTTOM_THRESHOLD
 }
 
+function tailLines(lines, max) {
+  if (!Array.isArray(lines) || lines.length <= max) return lines
+  return lines.slice(lines.length - max)
+}
+
 /**
  * Side-by-side live captions: Me (local mic) vs Participant (system / loopback).
- * Reads directly from the live-transcript store (~80ms updates) so only this
- * subtree re-renders, not the whole overlay App.
+ * Reads directly from the live-transcript store so only this subtree re-renders.
  */
 export default function LiveTranscriptPanel({ className = '', autoScroll = true }) {
   const segments = useLiveTranscriptSegments()
@@ -29,7 +34,6 @@ export default function LiveTranscriptPanel({ className = '', autoScroll = true 
     if (!el) return
     programmaticScrollRef.current = true
     el.scrollTop = el.scrollHeight
-    // Clear on next frame after the synthetic scroll event has fired.
     requestAnimationFrame(() => {
       programmaticScrollRef.current = false
     })
@@ -43,14 +47,24 @@ export default function LiveTranscriptPanel({ className = '', autoScroll = true 
     else partPausedRef.current = paused
   }, [])
 
+  const { meLines, otherLines } = useMemo(() => {
+    const me = []
+    const other = []
+    for (const s of segments) {
+      if (s?.speaker === 'me') me.push(s)
+      else if (s?.speaker === 'other') other.push(s)
+    }
+    return {
+      meLines: tailLines(me, VISIBLE_MAX),
+      otherLines: tailLines(other, VISIBLE_MAX),
+    }
+  }, [segments])
+
   useEffect(() => {
     if (!autoScroll) return
     if (!mePausedRef.current) scrollColumnToBottom(meColRef.current)
     if (!partPausedRef.current) scrollColumnToBottom(partColRef.current)
   }, [segments, autoScroll, scrollColumnToBottom])
-
-  const meLines = segments.filter((s) => s.speaker === 'me')
-  const otherLines = segments.filter((s) => s.speaker === 'other')
 
   return (
     <div
@@ -72,11 +86,12 @@ export default function LiveTranscriptPanel({ className = '', autoScroll = true 
         {meLines.length === 0 ? (
           <p className="crystal-live-empty">Waiting for audio…</p>
         ) : (
-          meLines.map((s) => (
+          meLines.map((s, i) => (
             <p
               key={s.id}
               className={[
-                'crystal-live-line animate-overlay-live-line',
+                'crystal-live-line',
+                s.interim || i === meLines.length - 1 ? 'animate-overlay-live-line' : '',
                 s.interim ? 'crystal-live-line-me-interim' : 'crystal-live-line-me',
               ].join(' ')}
             >
@@ -98,11 +113,12 @@ export default function LiveTranscriptPanel({ className = '', autoScroll = true 
         {otherLines.length === 0 ? (
           <p className="crystal-live-empty">Waiting for audio…</p>
         ) : (
-          otherLines.map((s) => (
+          otherLines.map((s, i) => (
             <p
               key={s.id}
               className={[
-                'crystal-live-line animate-overlay-live-line',
+                'crystal-live-line',
+                s.interim || i === otherLines.length - 1 ? 'animate-overlay-live-line' : '',
                 s.interim ? 'crystal-live-line-them-interim' : 'crystal-live-line-them',
               ].join(' ')}
             >

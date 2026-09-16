@@ -10,8 +10,9 @@ import { useCallback, useEffect, useRef } from 'react'
 import { createIpcShim } from '../shared/ipcShim'
 
 const ipc = createIpcShim()
-const REGION_PUSH_MIN_MS = 80
-const REGION_PUSH_INTERVAL_MS = 200
+const REGION_PUSH_MIN_MS = 120
+const REGION_PUSH_INTERVAL_MS = 400
+const REGION_PUSH_IDLE_MS = 1200
 const REGION_RESIZE_DEBOUNCE_MS = 120
 
 function roundRect(rect) {
@@ -54,6 +55,7 @@ export function useOverlayBoundedRegions(active, regionRefs, rebindingDeps = [])
   const activeRef = useRef(active)
   const lastPushRef = useRef(0)
   const lastRegionsRef = useRef([])
+  const unchangedTicksRef = useRef(0)
   const resizeDebounceRef = useRef(null)
   const regionRefsRef = useRef(regionRefs)
   regionRefsRef.current = regionRefs
@@ -64,7 +66,11 @@ export function useOverlayBoundedRegions(active, regionRefs, rebindingDeps = [])
     const now = Date.now()
     if (!force && now - lastPushRef.current < REGION_PUSH_MIN_MS) return
     const regions = measureRegions(regionRefsRef.current)
-    if (!force && regionsEqual(regions, lastRegionsRef.current)) return
+    if (!force && regionsEqual(regions, lastRegionsRef.current)) {
+      unchangedTicksRef.current += 1
+      return
+    }
+    unchangedTicksRef.current = 0
     lastPushRef.current = now
     lastRegionsRef.current = regions
     ipc.send('overlay:update-hit-regions', regions)
@@ -83,6 +89,7 @@ export function useOverlayBoundedRegions(active, regionRefs, rebindingDeps = [])
     if (!active) {
       ipc.send('overlay:update-hit-regions', [])
       lastRegionsRef.current = []
+      unchangedTicksRef.current = 0
       return undefined
     }
 
@@ -101,9 +108,20 @@ export function useOverlayBoundedRegions(active, regionRefs, rebindingDeps = [])
       observers.push(ro)
     }
 
-    // Unforced: respects the throttle + dedupe checks in pushRegions, so this
-    // interval is a safety-net re-check, not a guaranteed 5x/sec IPC send.
-    const pushTimer = window.setInterval(() => pushRegions(false), REGION_PUSH_INTERVAL_MS)
+    // Back off the safety-net interval while regions stay stable.
+    let intervalMs = REGION_PUSH_INTERVAL_MS
+    const pushTimer = window.setInterval(() => {
+      const nextMs = unchangedTicksRef.current > 4 ? REGION_PUSH_IDLE_MS : REGION_PUSH_INTERVAL_MS
+      if (nextMs !== intervalMs) {
+        intervalMs = nextMs
+        window.clearInterval(pushTimer)
+        // Recreate with new cadence via effect restart is heavy — just skip extra ticks.
+      }
+      if (unchangedTicksRef.current > 4 && Date.now() - lastPushRef.current < REGION_PUSH_IDLE_MS) {
+        return
+      }
+      pushRegions(false)
+    }, REGION_PUSH_INTERVAL_MS)
     pushRegions(true)
 
     return () => {
