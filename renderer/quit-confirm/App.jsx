@@ -8,12 +8,6 @@ import { createIpcShim } from '../shared/ipcShim'
 
 const ipc = createIpcShim()
 
-function applyColorScheme(scheme) {
-  const resolved = scheme === 'light' ? 'light' : 'dark'
-  document.body?.setAttribute('data-color-scheme', resolved)
-  document.documentElement?.setAttribute('data-color-scheme', resolved)
-}
-
 export default function QuitConfirmApp() {
   const { name } = useBrand()
   const [detail, setDetail] = useState('The app will fully close, including the tray icon.')
@@ -30,7 +24,8 @@ export default function QuitConfirmApp() {
       if (typeof payload.detail === 'string' && payload.detail.trim()) {
         setDetail(payload.detail.trim())
       }
-      applyColorScheme(payload.colorScheme === 'light' ? 'light' : 'dark')
+      // Color scheme is not part of this payload — theme-init.js already applied it
+      // synchronously from the `?theme=` URL param before this window was shown.
       setReady(true)
     })
 

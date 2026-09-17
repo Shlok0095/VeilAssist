@@ -2178,7 +2178,7 @@ export default function App() {
         sttConfigRef.current = cfg
         sttModeRef.current = 'cloud'
         sttMainProcessRef.current = cfg?.useMainProcessStt === true
-        if (!cfg?.apiKey) {
+        if (!cfg?.hasApiKey) {
           emit('mic-error', { message: 'Add a cloud STT API key in Settings → Audio' })
           closeMicAudioCtx()
           streamRef._mic?.getTracks().forEach((t) => t.stop())
@@ -2622,11 +2622,11 @@ export default function App() {
     try {
       if (sttModeRef.current === 'local') return
       let cfg = sttConfigRef.current
-      if (!cfg?.apiKey) {
+      if (!cfg?.hasApiKey) {
         cfg = await ipc?.invoke('get-transcription-config')
         sttConfigRef.current = cfg
       }
-      if (!cfg?.apiKey) return
+      if (!cfg?.hasApiKey) return
 
       if (cfg.sttKind === 'nvidia_nim') {
         let uploadBlob = blob
@@ -2668,45 +2668,35 @@ export default function App() {
         }
       }
 
-      const post = (format) => {
-        const fd = new FormData()
-        fd.append('file', uploadBlob, `a.${uploadExt}`)
-        fd.append('model', cfg.model)
-        fd.append('temperature', '0')
-        if (cfg.language) fd.append('language', cfg.language)
-        if (cfg.prompt) fd.append('prompt', cfg.prompt)
-        if (format === 'verbose_json') {
-          fd.append('response_format', 'verbose_json')
-          fd.append('timestamp_granularities[]', 'segment')
-        } else if (format === 'json') {
-          fd.append('response_format', 'json')
-        } else {
-          fd.append('response_format', 'text')
-        }
-        return fetch(cfg.url, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${cfg.apiKey}` },
-          body: fd,
+      // The provider API key never reaches this process — main resolves it fresh from
+      // the store and performs the multipart POST server-side (cloud-stt:transcribe-rest).
+      const post = async (format) => {
+        const audioAb = await uploadBlob.arrayBuffer()
+        const result = await ipc?.invoke('cloud-stt:transcribe-rest', {
+          audio: audioAb,
+          ext: uploadExt,
+          format,
         })
+        return result || { ok: false }
       }
 
       let useWhisperMeta = cfg.useWhisperSegmentMeta === true
-      let res
+      let result
       if (useWhisperMeta) {
-        res = await post('verbose_json')
-        if (!res.ok) { res = await post('json'); useWhisperMeta = false }
+        result = await post('verbose_json')
+        if (!result?.ok) { result = await post('json'); useWhisperMeta = false }
       } else if (cfg.responseKind === 'json') {
-        res = await post('json')
+        result = await post('json')
       } else {
-        res = await post('text')
+        result = await post('text')
       }
-      if (!res.ok) return
+      if (!result?.ok) return
 
       let text = ''
-      const ct = (res.headers.get('content-type') || '').toLowerCase()
+      const ct = (result.contentType || '').toLowerCase()
       if (useWhisperMeta || cfg.responseKind === 'json' || ct.includes('application/json')) {
         try {
-          const j = await res.json()
+          const j = JSON.parse(result.bodyText || '{}')
           if (useWhisperMeta) {
             const gated = filterWhisperVerboseJson(j, audioPathKey === 'sys' ? 'sys' : 'mic')
             text = String(gated.text || '').trim()
@@ -2728,7 +2718,7 @@ export default function App() {
           return
         }
       } else {
-        text = (await res.text()).trim()
+        text = (result.bodyText || '').trim()
       }
       if (!text || text.length < 3 || HALLUCINATIONS.some((r) => r.test(text.trim())) || isRepetitionHallucination(text.trim())) return
       if (meta.generation == null || meta.generation === sttSessionGenerationRef.current) {

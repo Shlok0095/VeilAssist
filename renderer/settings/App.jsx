@@ -11,6 +11,7 @@ import SettingsWindowFrame from './SettingsWindowFrame'
 import { SettingsLoadingSkeleton } from './SettingsComponents'
 import brandLogo from '../shared/brandLogo'
 import { fontSizeFromAnswerLength } from '../shared/interviewSettings'
+import { applyColorScheme, watchSystemColorScheme } from '../shared/colorScheme'
 
 const ipc = createIpcShim()
 
@@ -152,25 +153,24 @@ export default function Settings() {
   const [overlayMousePassthroughUi, setOverlayMousePassthroughUi] = useState(false)
   const [hideFromTaskbarUi, setHideFromTaskbarUi] = useState(false)
   const [uiAccentThemeUi, setUiAccentThemeUi] = useState('blue')
-  const [uiColorSchemeUi, setUiColorSchemeUi] = useState('system')
+  // null = "preference not loaded yet". The inline theme-init.js <head> script already
+  // applied the correct data-color-scheme for first paint (main resolved it from the same
+  // store, synchronously, before this window was even shown) — leave it untouched until the
+  // real preference arrives from get-all-settings, so this effect never overwrites a correct
+  // first paint with a guess (that guess-then-correct sequence was the settings-window flash).
+  const [uiColorSchemeUi, setUiColorSchemeUi] = useState(null)
   const [settingsToast, setSettingsToast] = useState(null)
   const [profileSaveStatus, setProfileSaveStatus] = useState('idle')
 
   useEffect(() => {
+    if (uiColorSchemeUi == null) return undefined
     const pref = uiColorSchemeUi === 'light' || uiColorSchemeUi === 'dark' ? uiColorSchemeUi : 'system'
-    const applyResolved = (resolved) => {
-      document.body?.setAttribute('data-color-scheme', resolved)
-      document.documentElement?.setAttribute('data-color-scheme', resolved)
-    }
     if (pref !== 'system') {
-      applyResolved(pref)
+      applyColorScheme(pref)
       return undefined
     }
-    const mq = window.matchMedia?.('(prefers-color-scheme: light)')
-    const sync = () => applyResolved(mq?.matches ? 'light' : 'dark')
-    sync()
-    mq?.addEventListener?.('change', sync)
-    return () => mq?.removeEventListener?.('change', sync)
+    applyColorScheme(window.matchMedia?.('(prefers-color-scheme: light)')?.matches ? 'light' : 'dark')
+    return watchSystemColorScheme(pref, applyColorScheme)
   }, [uiColorSchemeUi])
 
   const sttCapableMeta = useMemo(() => {

@@ -147,7 +147,6 @@ const { createLongTermMemoryStore } = require('../lib/longTermMemory')
 const { detectMeetingMode, findPromptForTemplate, buildPromptFromStarterTemplate } = require('../lib/meetingModeDetector')
 const { parseTranscriptEchoForDisplay } = require('../lib/transcriptEchoDisplay')
 const localStt = require('../lib/localStt')
-const cloudRestStt = require('../lib/cloudRestStt')
 const streamingStt = require('../lib/streamingSttRouter')
 const { parseResumeTree, parseJdTree, formatResumeBlock, formatJdBlock, formatResumeBlockV2, formatJdBlockV2, buildProfileTreeV2VoiceGuard } = require('../lib/profileTreeService')
 const { retrieveProfileEvidence, charsFromTokenBudget, clipTextToBudget } = require('../lib/profileEvidence')
@@ -2025,9 +2024,11 @@ async function shutdownApplication() {
     sessionMemory.shutdown()
   } catch (_) {}
   try {
+    currentAbortController?.abort()
+  } catch (_) {}
+  try {
     localStt.shutdown()
     streamingStt.stopListening()
-    cloudRestStt.stopListening()
     hindsightLocalServer.stop()
     phoneLink.stop()
     phoneLinkMic.stop()
@@ -2075,7 +2076,12 @@ async function quitApplication(opts) {
   app.quit()
 }
 
-function resolveUiColorSchemeForDialog() {
+/**
+ * Single source of truth for resolving the effective light/dark scheme, synchronously
+ * (electron-store reads are sync) — safe to call before a window is created so its
+ * theme can be baked into the URL and applied before first paint, with no flash.
+ */
+function resolveUiColorScheme() {
   const pref = store.get('uiColorScheme')
   if (pref === 'light' || pref === 'dark') return pref
   try {
@@ -2113,10 +2119,11 @@ function sendQuitConfirmPayload() {
     ? 'Your session is still active and will end.'
     : 'The app will fully close, including the tray icon.'
   try {
+    // Color scheme is no longer sent here — it's resolved synchronously via the
+    // `?theme=` URL param (see showQuitConfirmDialog) so it's correct on first paint.
     quitConfirmWindow.webContents.send('quit-confirm-payload', {
       brandName: getBrandName(),
       detail,
-      colorScheme: resolveUiColorSchemeForDialog(),
       sessionActive: !!sessionActive,
     })
   } catch (_) {}
@@ -2204,7 +2211,7 @@ function showQuitConfirmDialog() {
       setImmediate(applyTaskbarVisibility)
     })
 
-    quitConfirmWindow.loadFile(getQuitConfirmHtmlPath()).catch((err) => {
+    quitConfirmWindow.loadFile(getQuitConfirmHtmlPath(), { search: `?theme=${resolveUiColorScheme()}` }).catch((err) => {
       console.error('[quit-confirm] load failed:', err)
       settleQuitConfirm(false)
       closeQuitConfirmWindow()
@@ -2262,6 +2269,7 @@ function createConsentWindow() {
     backgroundColor: '#00000000',
     roundedCorners: true,
     skipTaskbar: true,
+    show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
     webPreferences: {
       preload: preloadPath,
@@ -2282,7 +2290,10 @@ function createConsentWindow() {
     if (!appCoreStarted && !hasValidConsent()) app.quit()
   })
   consentWindow.on('show', () => setImmediate(applyTaskbarVisibility))
-  consentWindow.once('ready-to-show', () => setImmediate(applyTaskbarVisibility))
+  consentWindow.once('ready-to-show', () => {
+    consentWindow.show()
+    setImmediate(applyTaskbarVisibility)
+  })
 }
 
 function createOnboardingWindow() {
@@ -2305,6 +2316,7 @@ function createOnboardingWindow() {
     backgroundColor: '#00000000',
     roundedCorners: true,
     skipTaskbar: true,
+    show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
     webPreferences: {
       preload: preloadPath,
@@ -2326,6 +2338,7 @@ function createOnboardingWindow() {
   })
   onboardingWindow.on('show', () => setImmediate(applyTaskbarVisibility))
   onboardingWindow.once('ready-to-show', () => {
+    onboardingWindow.show()
     applyContentProtectionAllWindows()
     setImmediate(applyTaskbarVisibility)
   })
@@ -2352,10 +2365,13 @@ function moveOverlay(dx, dy) {
 function createSettingsWindow(navOpts = null) {
   const tab = navOpts && typeof navOpts === 'object' ? String(navOpts.tab || '').trim() : ''
   const section = navOpts && typeof navOpts === 'object' ? String(navOpts.section || '').trim() : ''
-  const searchParts = []
+  // Resolve light/dark synchronously (electron-store reads are sync) and hand it to the
+  // renderer via the URL so an inline <head> script can paint the correct theme on the very
+  // first frame — no useEffect round-trip, no flash. See resolveUiColorScheme().
+  const searchParts = [`theme=${resolveUiColorScheme()}`]
   if (tab) searchParts.push(`tab=${encodeURIComponent(tab)}`)
   if (section) searchParts.push(`section=${encodeURIComponent(section)}`)
-  const search = searchParts.length ? `?${searchParts.join('&')}` : ''
+  const search = `?${searchParts.join('&')}`
 
   if (restoreAppWindow(settingsWindow)) {
     applyTaskbarVisibility()
@@ -2383,6 +2399,7 @@ function createSettingsWindow(navOpts = null) {
     backgroundColor: '#00000000',
     roundedCorners: true,
     skipTaskbar: true,
+    show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
     webPreferences: {
       preload: preloadPath,
@@ -2401,7 +2418,7 @@ function createSettingsWindow(navOpts = null) {
   settingsWindow.loadFile(useBuilt
     ? path.join(__dirname, '..', 'out', 'settings', 'index.html')
     : path.join(__dirname, '..', 'renderer', 'settings', 'index.html'),
-  search ? { search } : undefined)
+  { search })
   settingsWindow.on('closed', () => {
     settingsWindow = null
     applyTaskbarVisibility()
@@ -2417,6 +2434,7 @@ function createSettingsWindow(navOpts = null) {
   })
   settingsWindow.on('hide', applyTaskbarVisibility)
   settingsWindow.once('ready-to-show', () => {
+    settingsWindow.show()
     applyContentProtectionAllWindows()
     applyTaskbarVisibility()
   })
@@ -2440,6 +2458,7 @@ function createGlobalChatWindow() {
     title: `${getBrandName()} — Global Chat`,
     backgroundColor: '#0a0a0b',
     skipTaskbar: true,
+    show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
     webPreferences: {
       preload: preloadPath,
@@ -2454,6 +2473,7 @@ function createGlobalChatWindow() {
   globalChatWindow.loadFile(getGlobalChatHtmlPath())
   globalChatWindow.on('closed', () => { globalChatWindow = null })
   globalChatWindow.once('ready-to-show', () => {
+    globalChatWindow.show()
     applyContentProtectionAllWindows()
     applyTaskbarVisibility()
   })
@@ -2519,6 +2539,7 @@ function createLauncherWindow() {
     title: `${getBrandName()} Launcher`,
     backgroundColor: '#0c0c0e',
     skipTaskbar: true,
+    show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
     webPreferences: {
       preload: preloadPath,
@@ -2535,7 +2556,10 @@ function createLauncherWindow() {
   launcherWindow.on('show', () => setImmediate(applyTaskbarVisibility))
   launcherWindow.on('restore', () => setImmediate(applyTaskbarVisibility))
   launcherWindow.on('minimize', () => setImmediate(applyTaskbarVisibility))
-  launcherWindow.once('ready-to-show', () => setImmediate(applyTaskbarVisibility))
+  launcherWindow.once('ready-to-show', () => {
+    launcherWindow.show()
+    setImmediate(applyTaskbarVisibility)
+  })
   launcherWindow.on('closed', () => { launcherWindow = null })
   applyBackgroundWindowStyles(launcherWindow)
 }
@@ -4303,8 +4327,50 @@ function setupIPC() {
     const cfg = getTranscriptionRequestConfig((k) => store.get(k))
     const sttMode = store.get('sttMode') === 'cloud' ? 'cloud' : 'local'
     const sttProvider = store.get('sttProvider') || store.get('provider') || 'groq'
-    if (!cfg) return { sttMode, apiKey: null, sttProvider }
-    return { ...cfg, sttMode, sttProvider }
+    if (!cfg) return { sttMode, hasApiKey: false, sttProvider }
+    // The renderer must never hold the raw STT provider key — it only needs to know
+    // whether one is configured. The actual REST call happens in main via
+    // 'cloud-stt:transcribe-rest', which resolves the real key itself.
+    const { apiKey, ...safeCfg } = cfg
+    return { ...safeCfg, hasApiKey: !!apiKey, sttMode, sttProvider }
+  })
+  ipcMain.handle('cloud-stt:transcribe-rest', async (_, payload) => {
+    try {
+      const cfg = getTranscriptionRequestConfig((k) => store.get(k))
+      if (!cfg?.apiKey || !cfg?.url) return { ok: false, error: 'Cloud STT not configured' }
+      const raw = payload?.audio
+      if (!raw) return { ok: false, error: 'No audio data' }
+      const audioBuffer = Buffer.isBuffer(raw) ? raw : Buffer.from(raw)
+      const ext = payload?.ext === 'wav' ? 'wav' : 'wav'
+      const format = payload?.format === 'verbose_json' || payload?.format === 'json' ? payload.format : 'text'
+
+      const fd = new FormData()
+      fd.append('file', new Blob([audioBuffer]), `a.${ext}`)
+      fd.append('model', cfg.model)
+      fd.append('temperature', '0')
+      if (cfg.language) fd.append('language', cfg.language)
+      if (cfg.prompt) fd.append('prompt', cfg.prompt)
+      if (format === 'verbose_json') {
+        fd.append('response_format', 'verbose_json')
+        fd.append('timestamp_granularities[]', 'segment')
+      } else if (format === 'json') {
+        fd.append('response_format', 'json')
+      } else {
+        fd.append('response_format', 'text')
+      }
+
+      const res = await fetch(cfg.url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${cfg.apiKey}` },
+        body: fd,
+      })
+      const contentType = res.headers.get('content-type') || ''
+      const bodyText = await res.text()
+      return { ok: res.ok, status: res.status, contentType, bodyText }
+    } catch (e) {
+      console.warn('[cloud-stt:transcribe-rest]', e?.message || e)
+      return { ok: false, error: e?.message || String(e) }
+    }
   })
   ipcMain.handle('nvidia-nim:transcribe-wav', async (_, payload) => {
     try {
@@ -4441,41 +4507,6 @@ function setupIPC() {
         { id: 'whisper-tiny', label: 'Whisper Tiny (Hindi/Hinglish)', modelId: WHISPER_TINY },
       ],
     }
-  })
-
-  cloudRestStt.setStoreGetter((k) => store.get(k))
-  cloudRestStt.setTranscriptCallback((evt) => {
-    sendToOverlay('rest-stt:transcript', evt)
-  })
-  ipcMain.handle('rest-stt:start', () => {
-    try {
-      return cloudRestStt.startListening()
-    } catch (e) {
-      console.warn('[rest-stt:start]', e?.message || e)
-      return { ok: false, error: e?.message || String(e) }
-    }
-  })
-  ipcMain.on('rest-stt:write-chunk', (_, payload) => {
-    try {
-      const channel = payload?.channel === 'sys' ? 'sys' : 'mic'
-      const pcm = payload?.pcm
-      if (!pcm) return
-      cloudRestStt.writeChunk(channel, pcm)
-    } catch (e) {
-      console.warn('[rest-stt:write-chunk]', e?.message || e)
-    }
-  })
-  ipcMain.on('rest-stt:speech-ended', (_, payload) => {
-    try {
-      const channel = payload?.channel === 'sys' ? 'sys' : 'mic'
-      cloudRestStt.notifySpeechEnded(channel)
-    } catch (e) {
-      console.warn('[rest-stt:speech-ended]', e?.message || e)
-    }
-  })
-  ipcMain.handle('rest-stt:stop', () => {
-    cloudRestStt.stopListening()
-    return { ok: true }
   })
 
   streamingStt.setStoreGetter((k) => store.get(k))
@@ -5030,7 +5061,6 @@ app.on('will-quit', () => {
   hotkeys.unregisterAll()
   localStt.shutdown()
   streamingStt.stopListening()
-  cloudRestStt.stopListening()
   phoneLink.stop()
   phoneLinkMic.stop()
   phoneMirror.stop()

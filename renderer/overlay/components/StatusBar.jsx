@@ -8,14 +8,8 @@ import overlayBrandLogo from '../../shared/overlayBrandLogo'
 
 import { useBrand } from '../../shared/branding'
 
-function StatusBar({ sessionOn, ocrStatus, onToggleSession, onOpenSettings, onQuit }) {
+function StatusBar({ sessionOn, onToggleSession, onOpenSettings, onQuit }) {
   const { name } = useBrand()
-  const ocrHint =
-    ocrStatus === 'loading'
-      ? 'Loading screen OCR…'
-      : ocrStatus === 'error'
-        ? 'Screen OCR failed'
-        : null
 
   return (
     <div className="crystal-status-row crystal-notch-bar relative flex h-10 items-center justify-between gap-2 pl-2 pr-2.5 select-none">
@@ -26,15 +20,6 @@ function StatusBar({ sessionOn, ocrStatus, onToggleSession, onOpenSettings, onQu
           className="crystal-notch-logo"
           draggable={false}
         />
-        {ocrHint && (
-          <span
-            className={`text-[10px] font-semibold normal-case tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap ${
-              ocrStatus === 'error' ? 'crystal-badge-danger' : 'crystal-badge-warning'
-            }`}
-          >
-            {ocrHint}
-          </span>
-        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>

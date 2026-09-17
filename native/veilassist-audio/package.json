@@ -1,0 +1,26 @@
+{
+  "name": "veilassist-audio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rust N-API PCM resample helpers for VeilAssist STT",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "veilassist-audio",
+    "triples": {
+      "defaults": true
+    }
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "prepublishOnly": "napi prepublish -t npm"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -50,3 +50,8 @@ dist-release/
 # Graphify knowledge graph (local dev artifact)
 graphify-out/
 !build/version-state.json
+
+# Rust native audio addon (keep committed .node prebuilds if present)
+native/veilassist-audio/target/
+native/veilassist-audio/node_modules/
+native/veilassist-audio/*.node.bak
