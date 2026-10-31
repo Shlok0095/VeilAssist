@@ -45,15 +45,15 @@ const comboStore = {
   },
 }
 const comboSuffix = getInterviewAnswerSuffixFromStore(comboStore)
-if (/CAR/i.test(comboSuffix) && /filler|Hmm|conversational/i.test(comboSuffix) && /80 words/i.test(comboSuffix)) {
+if (/CAR \(Context, Action, Result\)/i.test(comboSuffix) && /hmm/i.test(comboSuffix) && /1-3 sentences/i.test(comboSuffix)) {
   pass('CAR + Conversational + Short → prompt suffix')
 } else {
   fail('CAR + Conversational + Short → prompt suffix', comboSuffix.slice(0, 200))
 }
-if (/SPOKEN INTERVIEW MODE/i.test(comboSuffix) && /REQUIRED.*Hmm/i.test(comboSuffix)) {
-  pass('Conversational adds spoken override (Hmm/umm parity with Android)')
+if (/The answer should be in the following style:/i.test(comboSuffix) && /easy to read aloud/i.test(comboSuffix)) {
+  pass('Conversational uses InterviewMan spoken style (hmm/uh)')
 } else {
-  fail('Conversational adds spoken override (Hmm/umm parity with Android)', comboSuffix.slice(-220))
+  fail('Conversational uses InterviewMan spoken style (hmm/uh)', comboSuffix.slice(-220))
 }
 
 const comboTokens = catalog.maxTokensForAnswerLength('short')
@@ -144,7 +144,7 @@ for (const key of storeKeys) {
 }
 
 // 8. Answers section copy matches behavior
-if (displayPanel.includes('Answers & screenshots') && displayPanel.includes('auto-scroll is on')) {
+if (displayPanel.includes('Answers') && displayPanel.includes('auto-scroll is on')) {
   pass('DisplaySettingsPanel documents answer-length → font coupling')
 } else {
   fail('DisplaySettingsPanel documents answer-length → font coupling')
@@ -165,7 +165,7 @@ const customSuffix = catalog.buildInterviewAnswerSuffix({
   answerLength: 'medium',
   customInstructions: 'Add filler words to sound natural',
 })
-if (/Custom instructions: Add filler words|MUST follow Custom instructions.*Add filler words/i.test(customSuffix)) {
+if (/extra_user_instructions/i.test(customSuffix) && /Add filler words to sound natural/i.test(customSuffix)) {
   pass('custom instructions appended to interview suffix (Android parity)')
 } else {
   fail('custom instructions appended to interview suffix', customSuffix.slice(-120))
@@ -176,7 +176,7 @@ const mockCustomStore = {
   get(k) { return this._data[k] },
 }
 const fromCustomStore = getInterviewAnswerSuffixFromStore(mockCustomStore)
-if (/MUST follow Custom instructions.*Use Hinglish fillers|Custom instructions: Use Hinglish fillers/i.test(fromCustomStore)) {
+if (/extra_user_instructions/i.test(fromCustomStore) && /Use Hinglish fillers/i.test(fromCustomStore)) {
   pass('getInterviewAnswerSuffixFromStore includes custom instructions')
 } else {
   fail('getInterviewAnswerSuffixFromStore includes custom instructions', fromCustomStore)
@@ -204,17 +204,20 @@ if (
   fail('overlay Answer history wired into ResponsePanel')
 }
 
-// 13. OpenRouter Nemotron gets NIM-parity inference knobs + /no_think (NVIDIA path untouched)
+// 13. OpenRouter Nemotron gets temp 0 + reasoning off + /no_think (NVIDIA path untouched)
 const aiClient = fs.readFileSync(path.join(ROOT, 'lib', 'aiClient.js'), 'utf8')
 if (
   aiClient.includes('function isOpenRouterFastChatModel') &&
+  aiClient.includes('function openRouterFastInferParams') &&
   aiClient.includes("openrouter.ai") &&
   aiClient.includes('function isNvidiaFastChatModel') &&
-  /if \(!\/nemotron\/i\.test\(String\(model/.test(aiClient)
+  /if \(!\/nemotron\/i\.test\(String\(model/.test(aiClient) &&
+  /enabled:\s*false/.test(aiClient) &&
+  /effort:\s*'none'/.test(aiClient)
 ) {
-  pass('aiClient OpenRouter fast-chat + Nemotron /no_think')
+  pass('aiClient OpenRouter fast-chat + Nemotron /no_think + reasoning off')
 } else {
-  fail('aiClient OpenRouter fast-chat + Nemotron /no_think')
+  fail('aiClient OpenRouter fast-chat + Nemotron /no_think + reasoning off')
 }
 
 // 14. Non-NVIDIA reasoning knobs (OpenAI/Google/DeepSeek/OR) — NIM helpers untouched
@@ -253,7 +256,7 @@ const rem = catalog.buildAnswerOutputRulesReminder({
   answerLength: 'medium',
   customInstructions: 'Sound natural',
 })
-if (/custom=.*"Sound natural"/i.test(rem) && /≤180 words/i.test(rem)) {
+if (/custom=.*"Sound natural"/i.test(rem) && /one paragraph/i.test(rem)) {
   pass('OUTPUT RULES reminder includes custom when set')
 } else {
   fail('OUTPUT RULES reminder includes custom when set', rem)

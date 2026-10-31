@@ -90,16 +90,30 @@ function findExeSize(dir, name) {
   return null
 }
 
+function newestMatching(dir, test) {
+  const hits = fs.readdirSync(dir)
+    .filter((n) => test(n))
+    .map((n) => {
+      const filePath = path.join(dir, n)
+      return { filePath, mtime: fs.statSync(filePath).mtimeMs }
+    })
+    .sort((a, b) => b.mtime - a.mtime)
+  return hits[0]?.filePath || null
+}
+
 function findInstallerExe(dir, compactVersion) {
   if (!dir) return null
   if (compactVersion) {
     const exact = path.join(dir, `VeilAssistSetup${compactVersion}.exe`)
     if (fs.existsSync(exact)) return exact
   }
+  if (stampVersion) {
+    const stamped = path.join(dir, `VeilAssistSetup${stampVersion}.exe`)
+    if (fs.existsSync(stamped)) return stamped
+  }
   const setup = path.join(dir, 'VeilAssist-Setup.exe')
   if (fs.existsSync(setup)) return setup
-  const compact = fs.readdirSync(dir).find((n) => /^VeilAssistSetup\d/.test(n) && n.endsWith('.exe'))
-  return compact ? path.join(dir, compact) : null
+  return newestMatching(dir, (n) => /^VeilAssistSetup\d/.test(n) && n.endsWith('.exe'))
 }
 
 function findPortableExe(dir, compactVersion) {
@@ -108,10 +122,13 @@ function findPortableExe(dir, compactVersion) {
     const exact = path.join(dir, `VeilAssist${compactVersion}.exe`)
     if (fs.existsSync(exact)) return exact
   }
+  if (stampVersion) {
+    const stamped = path.join(dir, `VeilAssist${stampVersion}.exe`)
+    if (fs.existsSync(stamped)) return stamped
+  }
   const portable = path.join(dir, 'VeilAssist.exe')
   if (fs.existsSync(portable)) return portable
-  const match = fs.readdirSync(dir).find((n) => /^VeilAssist\d/.test(n) && n.endsWith('.exe') && !/Setup/.test(n))
-  return match ? path.join(dir, match) : null
+  return newestMatching(dir, (n) => /^VeilAssist\d/.test(n) && n.endsWith('.exe') && !/Setup/.test(n))
 }
 
 function sha256File(filePath) {
@@ -146,6 +163,15 @@ const distDir = findDistDirForYml(ymlPath)
 const compactVersion = yml.version || stampVersion || ''
 const installerExe = findInstallerExe(distDir, compactVersion)
 const portableExe = findPortableExe(distDir, compactVersion)
+
+// Vercel and other checkouts do not include the 150MB installer. Keep the
+// committed landing pin so `npm run build` cannot roll the download page
+// back to an older latest.yml sitting in git.
+if (!installerExe) {
+  console.log('[sync-windows-manifest] no installer binary — keeping committed landing package pin')
+  process.exit(0)
+}
+
 const portableSize = portableExe && fs.existsSync(portableExe) ? fs.statSync(portableExe).size : null
 const installerSize =
   yml.installerSize || (installerExe && fs.existsSync(installerExe) ? fs.statSync(installerExe).size : null)
@@ -156,8 +182,8 @@ const installerSha256 = sha256File(installerExe)
 const releaseTag = compactVersion ? `interview-v${compactVersion}` : 'interview-v2026.820.207'
 const repo = 'Shlok0095/VeilAssist'
 const releaseBase = `https://github.com/${repo}/releases/download/${releaseTag}`
-const installerFile = compactVersion ? `VeilAssistSetup${compactVersion}.exe` : 'VeilAssist-Setup.exe'
-const portableFile = compactVersion ? `VeilAssist${compactVersion}.exe` : 'VeilAssist.exe'
+const installerFile = path.basename(installerExe)
+const portableFile = portableExe ? path.basename(portableExe) : compactVersion ? `VeilAssist${compactVersion}.exe` : 'VeilAssist.exe'
 
 const manifest = {
   version: compactVersion ? compactToDotted(compactVersion) : stampVersion || '',

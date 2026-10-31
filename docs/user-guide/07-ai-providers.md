@@ -27,6 +27,16 @@ VeilAssist uses **bring your own key (BYOK)** for all cloud AI. Configure chat a
 
 Keys are stored locally and encrypted with Windows DPAPI when available.
 
+## Fallback provider
+
+**Settings → AI Providers → Fallback provider** lets you pick a second chat provider that takes over when the active one fails *before it starts answering* — for example NVIDIA returning a 403, a rate limit (429), a server error, or no response in time. It applies to answers and to auto-answer's question check.
+
+- Off by default. Only providers with a saved key are listed, and never the active provider.
+- Screen asks only fall back to a **vision-capable** provider; text asks can use any.
+- It is opt-in on purpose: a key you saved only for speech-to-text (the OpenAI and Groq chat keys double as Whisper keys) is never used for chat unless you choose that provider here.
+- Existing safety nets still run first: NVIDIA tries its other vision models, and with an NVIDIA primary and a Groq key, text asks also fall back to Groq.
+- Only one provider answers a given turn: once the first token has streamed, there is no switch.
+
 ## Custom OpenAI-compatible endpoint
 
 For **Custom** provider:

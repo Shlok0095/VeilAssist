@@ -63,9 +63,10 @@ export function splitStreamTakeaway(stripped) {
   return { takeaway, rest }
 }
 
-/** Throttle interval for formatted stream React updates (ms). */
-export function streamPreviewIntervalFor(length) {
-  if (length > 6000) return 320
-  if (length > 2000) return 180
-  return 100
+/** One display frame — InterviewMan paints the helper bubble on every stream event. */
+export const STREAM_PREVIEW_INTERVAL_MS = 16
+
+/** Throttle interval for formatted stream React updates (ms). Always one frame. */
+export function streamPreviewIntervalFor(_length) {
+  return STREAM_PREVIEW_INTERVAL_MS
 }

@@ -38,21 +38,34 @@ export const RESPONSE_FORMATS = [
   {
     value: 'conversational',
     label: 'Conversational',
-    detail: 'Natural spoken tone with light fillers (Hmm, basically, I mean)',
+    detail: 'Natural spoken tone with hmm/uh fillers',
   },
   { value: 'example', label: 'Example-Driven', detail: 'Main points illustrated with specific examples' },
 ]
 
 export const ANSWER_LENGTHS = [
-  { value: 'short', label: 'Short', detail: 'Under ~80 words' },
-  { value: 'medium', label: 'Medium', detail: 'Balanced depth (default)' },
-  { value: 'long', label: 'Long', detail: 'Up to ~250 words when needed' },
+  { value: 'short', label: 'Short', detail: '1–3 sentences (default brief)' },
+  { value: 'medium', label: 'Medium', detail: 'About a paragraph (default)' },
+  { value: 'long', label: 'Long', detail: 'Multiple paragraphs with more detail' },
 ]
 
 export const QUESTION_DETECTION_LEVELS = [
   { value: 'low', label: 'Low', detail: 'Wait for longer utterances (~24 chars)' },
   { value: 'medium', label: 'Medium', detail: 'Balanced (~14 chars)' },
   { value: 'high', label: 'High', detail: 'Fast trigger (~6 chars)' },
+]
+
+/** How auto-answer decides a question is ready (lib/questionDetector.cjs). */
+export const QUESTION_DETECTION_ENGINES = [
+  { value: 'ai', label: 'AI-assisted', detail: 'Your chat model judges when a question is complete and new. Falls back to rules if unreachable.' },
+  { value: 'rules', label: 'Rules only', detail: 'On-device checks and a fixed silence delay. No extra model calls.' },
+]
+
+/** How near-identical a new question must be to an answered one to be dropped as a repeat. */
+export const QUESTION_REPEAT_SENSITIVITIES = [
+  { value: 'strict', label: 'Strict', detail: 'Drop more repeats (85% similar)' },
+  { value: 'balanced', label: 'Balanced', detail: 'Default (90% similar)' },
+  { value: 'lenient', label: 'Lenient', detail: 'Drop only near-identical repeats (95% similar)' },
 ]
 
 export const MEETING_LANGUAGES = [

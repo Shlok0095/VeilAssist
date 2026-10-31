@@ -37,7 +37,7 @@ export default function PersonalBackgroundSection({
   return (
     <SettingsCollapsible
       title="Personal background"
-      description="Optional facts for interview and fit questions — not part of any mode. Coding asks ignore this automatically."
+      description="Used only in Interview, and only when a question is about you."
       badge={hasContent ? statusLabel : null}
       defaultOpen={defaultOpen}
       icon={FileUser}

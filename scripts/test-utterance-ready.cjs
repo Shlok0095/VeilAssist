@@ -59,6 +59,53 @@ if (isUtteranceReadyForAutoAnswer('What is XGBoost?')) {
   fail('allows short what-question')
 }
 
+const { isIncompleteSpokenQuestion } = require('../lib/utteranceReady.cjs')
+const forming = [
+  'what is deep learning and how',
+  'how',
+  'how do we',
+  'how do we use',
+  'do we use?',
+]
+for (const t of forming) {
+  if (isIncompleteSpokenQuestion(t) && !isUtteranceReadyForAutoAnswer(t)) {
+    pass(`waits on forming question: ${t}`)
+  } else {
+    fail(`waits on forming question: ${t}`)
+  }
+}
+if (isUtteranceReadyForAutoAnswer('how do we use generative ai in our data?')) {
+  pass('allows completed generative-AI question')
+} else {
+  fail('allows completed generative-AI question')
+}
+if (isUtteranceReadyForAutoAnswer('how do we use generative ai in our day to day life?')) {
+  pass('allows completed day-to-day question')
+} else {
+  fail('allows completed day-to-day question')
+}
+
+if (isUtteranceReadyForAutoAnswer('Hey, what is deep learning? Can you explain?')) {
+  pass('allows finished deep-learning + can-you-explain')
+} else {
+  fail('allows finished deep-learning + can-you-explain')
+}
+if (isUtteranceReadyForAutoAnswer('Can you explain?')) {
+  pass('allows standalone Can you explain?')
+} else {
+  fail('allows standalone Can you explain?')
+}
+if (isUtteranceReadyForAutoAnswer('what is machine learning?')) {
+  pass('allows what is machine learning?')
+} else {
+  fail('allows what is machine learning?')
+}
+if (isIncompleteSpokenQuestion('Can you explain?')) {
+  fail('Can you explain? must not be treated as still forming')
+} else {
+  pass('Can you explain? is a finished question')
+}
+
 const failed = results.filter((r) => !r.ok)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)
 if (failed.length) process.exit(1)

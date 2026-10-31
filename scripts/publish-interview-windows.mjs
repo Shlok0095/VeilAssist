@@ -25,17 +25,31 @@ function parseYml(text) {
   return { version }
 }
 
+function findNamedExe(dir, prefix, version) {
+  const compact = join(dir, `${prefix}${version}.exe`)
+  if (existsSync(compact)) return compact
+  const names = readdirSync(dir).filter((n) => {
+    if (!n.startsWith(prefix) || !n.endsWith('.exe')) return false
+    if (prefix === 'VeilAssist' && /^VeilAssistSetup/i.test(n)) return false
+    return true
+  })
+  const preferred = names.find((n) => n.includes(version)) || names.sort().at(-1)
+  return preferred ? join(dir, preferred) : compact
+}
+
 function findDistDir(arg) {
   if (arg) {
-    const dir = join(repoRoot, arg)
+    const dir = arg.startsWith(repoRoot) ? arg : join(repoRoot, arg)
     if (!existsSync(join(dir, 'latest.yml'))) throw new Error(`No latest.yml in ${arg}`)
     return dir
   }
+  const dist = join(repoRoot, 'dist')
+  if (existsSync(join(dist, 'latest.yml'))) return dist
   const dirs = readdirSync(repoRoot, { withFileTypes: true })
     .filter((d) => d.isDirectory() && /^dist-interview-\d+$/.test(d.name))
     .map((d) => join(repoRoot, d.name))
     .filter((p) => existsSync(join(p, 'latest.yml')))
-  if (!dirs.length) throw new Error('No dist-interview-* folder found')
+  if (!dirs.length) throw new Error('No dist or dist-interview-* folder found')
   dirs.sort((a, b) => {
     const va = parseYml(readFileSync(join(a, 'latest.yml'), 'utf8')).version
     const vb = parseYml(readFileSync(join(b, 'latest.yml'), 'utf8')).version
@@ -52,10 +66,10 @@ function run(cmd, args) {
 const distDir = findDistDir(process.argv[2])
 const { version } = parseYml(readFileSync(join(distDir, 'latest.yml'), 'utf8'))
 const tag = `interview-v${version}`
-const installerName = `VeilAssistSetup${version}.exe`
-const portableName = `VeilAssist${version}.exe`
-const installerPath = join(distDir, installerName)
-const portablePath = join(distDir, portableName)
+const installerPath = findNamedExe(distDir, 'VeilAssistSetup', version)
+const portablePath = findNamedExe(distDir, 'VeilAssist', version)
+const installerName = basename(installerPath)
+const portableName = basename(portablePath)
 
 for (const p of [installerPath, portablePath]) {
   if (!existsSync(p)) {

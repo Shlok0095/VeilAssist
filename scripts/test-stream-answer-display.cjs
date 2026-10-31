@@ -4,6 +4,8 @@
  * Usage: node scripts/test-stream-answer-display.cjs
  */
 const assert = require('assert')
+const fs = require('fs')
+const path = require('path')
 const {
   stripMarkdownForStreamDisplay,
   splitStreamTakeaway,
@@ -48,10 +50,28 @@ test('splitStreamTakeaway handles single paragraph', () => {
   assert.strictEqual(rest, '')
 })
 
-test('streamPreviewIntervalFor scales with length', () => {
-  assert.strictEqual(streamPreviewIntervalFor(100), 80)
-  assert.strictEqual(streamPreviewIntervalFor(3000), 160)
-  assert.strictEqual(streamPreviewIntervalFor(8000), 280)
+test('streamPreviewIntervalFor is one display frame (InterviewMan paints every chunk)', () => {
+  assert.strictEqual(streamPreviewIntervalFor(100), 16)
+  assert.strictEqual(streamPreviewIntervalFor(3000), 16)
+  assert.strictEqual(streamPreviewIntervalFor(8000), 16)
+})
+
+test('overlay paints the stream on rAF and follows the growing bubble', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'overlay', 'App.jsx'), 'utf8')
+  assert(app.includes('window.requestAnimationFrame'), 'stream preview uses rAF')
+  assert(app.includes('cancelStreamPreviewFlush'), 'pending frames are cancelled on commit')
+  const panel = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'overlay', 'components', 'ResponsePanel.jsx'), 'utf8')
+  assert(panel.includes('container.scrollTop = Math.max(0, blockBottom - container.clientHeight + 12)'))
+  assert(!panel.includes('STREAM_SCROLL_MAX_STEP_PX'), 'no stepped 28px scroll lag')
+  assert(!panel.includes('splitStreamTakeaway'), 'live stream is one growing bubble, not a takeaway split')
+  assert(panel.includes('STREAM_SCROLL_AWAY_PX = 50'), 'user scroll away pauses follow, like InterviewMan')
+  assert(panel.includes('followPausedRef'), 'auto-scroll does not yank back after Ctrl+Shift+Up')
+  assert(
+    panel.includes('const followStream = overlayAnswerAutoScroll === true && autoAnswerStream === true'),
+    'InterviewMan helper_auto_scroll is auto-answer only',
+  )
+  assert(app.includes('autoAnswerStream={autoAnswerStream}'), 'overlay passes auto-answer stream flag')
+  assert(!app.includes('overlayAnswerAutoScroll={overlayAnswerAutoScroll &&'), 'manual Ctrl+Enter is not gated at the setting prop')
 })
 
 console.log(`\n${passed}/${passed + failed} passed`)

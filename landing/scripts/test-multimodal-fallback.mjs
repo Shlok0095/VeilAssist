@@ -57,7 +57,7 @@ function classify(err) {
 async function simulate({ think, image, nvidiaFails = 0, groqFails = 0, recoverAfterOpen = false }) {
   const cb = cloneBreaker()
   const nvidiaModels = ['nvidia/primary', 'nvidia/fb1']
-  const groqModels = ['qwen/qwen3.6-27b']
+  const groqModels = ['qwen/qwen3.8-27b']
   const hops = []
   const failCount = { nvidia: 0, groq: 0 }
   const plan = [
@@ -98,7 +98,7 @@ function fail(name, d) {
 
 try {
   const t1 = await simulate({ think: false, image: true, groqFails: 0 })
-  assert.equal(t1.actual.model, 'qwen/qwen3.6-27b')
+  assert.equal(t1.actual.model, 'qwen/qwen3.8-27b')
   pass('Test 1 primary Groq succeeds')
 } catch (e) {
   fail('Test 1 primary Groq succeeds', e.message)

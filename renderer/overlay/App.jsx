@@ -30,9 +30,6 @@ import { applyUiAccentTheme, normalizeUiAccentId } from '../shared/uiAccentTheme
 import { createIpcShim } from '../shared/ipcShim'
 import { useOverlayBoundedRegions } from './useOverlayBoundedRegions'
 import { useOverlayMousePassthrough } from './useOverlayMousePassthrough'
-import {
-  streamPreviewIntervalFor,
-} from './streamAnswerDisplay.js'
 import { clearStreamPreview, setStreamPreviewText } from './streamPreviewStore.js'
 import {
   setLiveTranscriptSegments as pushLiveTranscriptSegments,
@@ -55,10 +52,14 @@ import {
 } from '../shared/audioCaptureRecovery'
 import { parseTranscriptEchoForDisplay } from '../shared/formatTranscriptEcho'
 import { effectiveMinSpeechChars, fontSizeFromAnswerLength, overlayDisplayStyleFromFormat } from '../shared/interviewSettings'
-import { isLikelySelfReadback, stripSelfReadback } from '../shared/selfReadback'
+import { isLikelySelfReadback, spokenQuestionRemainder, stripSelfReadback } from '../shared/selfReadback'
+import { collapseRepeatedTurns, commitFinalSegment, isStaleDetectionTranscript } from '../shared/sttRevision'
 import { isUtteranceReadyForAutoAnswer, estimatedAnswerReadbackHoldMs } from '../shared/utteranceReady'
 import {
   selectActiveQuestion,
+  latestPendingChannel,
+  readbackHoldApplies,
+  normalizeQuestion,
   questionsAreSimilar,
   combineQuestion,
   classifyPostAnswerSpeech,
@@ -66,6 +67,22 @@ import {
   isStillUsingLastAnswer,
   extractFollowUpAfterAnswer,
 } from '../shared/phoneAutoAnswer'
+import {
+  DETECTION_MIN_SILENCE_MS,
+  detectBackoffMs,
+  normalizeDetectionEngine,
+  detectionSilenceBucket,
+  createAnsweredQuestionLedger,
+  createDetectionCoordinator,
+  decideAutoAnswerAction,
+} from '../shared/questionDetector'
+import {
+  DEFAULT_TRANSCRIPT_DURATION_SECONDS,
+  normalizeTranscriptDurationSeconds,
+  clipTranscriptTail,
+  buildAutoAnswerUserPrompt,
+  createTranscriptDetectScheduler,
+} from '../shared/autoAnswerTranscript'
 
 /** Prefer the fuller of buffer vs joined segments (Deepgram split turns). */
 function pickFullerQuestion(bufferText, segsText) {
@@ -169,6 +186,15 @@ const MAX_LLM_SEGMENTS_MANUAL = 3
 
 function speakerLabel(speaker) {
   return speaker === 'other' ? 'Participant' : 'Me'
+}
+
+/** Final, non-readback lines the auto-answer detector and answer model both read. Resends collapse. */
+function autoDetectLines(segments) {
+  return collapseRepeatedTurns(
+    (Array.isArray(segments) ? segments : [])
+      .filter((s) => s && !s.interim && !s.consumed && !s.readback && String(s.text || '').trim())
+      .map((s) => `${speakerLabel(s.speaker)}: ${String(s.text).trim()}`),
+  )
 }
 
 /** Build chunked transcript for the model — not one flat merged blob. */
@@ -707,6 +733,8 @@ export default function App() {
   const [overlayTranscriptAutoScroll, setOverlayTranscriptAutoScroll] = useState(true)
   const [overlayAnswerPinToTop, setOverlayAnswerPinToTop] = useState(true)
   const [overlayAnswerAutoScroll, setOverlayAnswerAutoScroll] = useState(true)
+  /** InterviewMan helper_auto_scroll applies only to auto-answer streams, never Ctrl+Enter. */
+  const [autoAnswerStream, setAutoAnswerStream] = useState(false)
   const [globalMeetingSearchEnabled, setGlobalMeetingSearchEnabled] = useState(false)
   const [focusInputOpen, setFocusInputOpen] = useState(false)
   const answerStyleRef = useRef('brief')
@@ -867,6 +895,43 @@ export default function App() {
   const answerCompletedAtRef = useRef(0)
   const speakHoldMsRef = useRef(8000)
   const questionDetectionRef = useRef('high')
+  const transcriptDurationRef = useRef(DEFAULT_TRANSCRIPT_DURATION_SECONDS)
+  /** 'ai' = main-process model verdict gates auto-answer; 'rules' = on-device regex + silence only. */
+  const detectionEngineRef = useRef('ai')
+  /** Questions already answered this session — the model uses it to skip repeats and fragments. */
+  const answeredLedgerRef = useRef(null)
+  if (answeredLedgerRef.current == null) answeredLedgerRef.current = createAnsweredQuestionLedger()
+  /** Runs the actual check; assigned each render below so the coordinator always calls the latest closure. */
+  const runQuestionDetectionRef = useRef(async () => false)
+  /** One check at a time; the newest transcript waits in a single queue slot (see lib/questionDetector.cjs). */
+  const detectionCoordinatorRef = useRef(null)
+  if (detectionCoordinatorRef.current == null) {
+    detectionCoordinatorRef.current = createDetectionCoordinator({
+      run: (text) => runQuestionDetectionRef.current(text),
+    })
+  }
+  /** Text + silence bucket the detector last judged, so an unchanged buffer is never re-sent. */
+  const lastDetectKeyRef = useRef('')
+  /** While in the future, AI detection is skipped and the rule gates run (detector unavailable). */
+  const detectUnavailableUntilRef = useRef(0)
+  /** Consecutive failed AI checks; sets how long the rule gates take over (see detectBackoffMs). */
+  const detectFailStreakRef = useRef(0)
+  const requestQuestionDetectionRef = useRef(() => {})
+  /** InterviewMan: emit on STT endpoint, wait 2s quiet, skip interims for 5s after an endpoint. */
+  const detectSchedulerRef = useRef(null)
+  if (detectSchedulerRef.current == null) {
+    detectSchedulerRef.current = createTranscriptDetectScheduler({
+      isBusy: () => responseLockRef.current || isThinkingRef.current,
+      onDetect: (text) => {
+        if (!sessionOnRef.current || !assistAutoTriggerRef.current) return
+        if (detectionEngineRef.current !== 'ai') return
+        if (Date.now() < detectUnavailableUntilRef.current) return
+        if (responseLockRef.current || isThinkingRef.current) return
+        const silenceMs = lastSpeechTimeRef.current > 0 ? Date.now() - lastSpeechTimeRef.current : 0
+        requestQuestionDetectionRef.current(text, silenceMs)
+      },
+    })
+  }
   const micSensitivityRef = useRef('standard')
   const minSpeechLengthRef = useRef(MIN_SPEECH_LENGTH_FALLBACK)
   const syncMinSpeechThreshold = useCallback(() => {
@@ -888,6 +953,8 @@ export default function App() {
   const lastSentSpeechRef = useRef('')
   /** Last auto-asked question (phone follow-up classify). */
   const lastAutoQuestionRef = useRef('')
+  /** True when the in-flight / just-finished ask was auto-answer (not Ctrl+Enter). */
+  const lastAskWasAutoRef = useRef(false)
   /** Follow-up queued while user is still reading the answer aloud. */
   const pendingFollowUpRef = useRef('')
   /** Continuation-kind follow-ups fire as soon as the ask pipeline is free — they skip the "still reading" hold entirely (phone parity). */
@@ -941,6 +1008,9 @@ export default function App() {
     lastTriggerTimeRef.current = 0
     lastSentSpeechRef.current = ''
     lastAutoQuestionRef.current = ''
+    lastDetectKeyRef.current = ''
+    detectionCoordinatorRef.current?.reset()
+    detectSchedulerRef.current?.reset()
     pendingFollowUpRef.current = ''
     pendingFollowUpImmediateRef.current = false
     if (followUpHoldTimerRef.current != null) {
@@ -1078,6 +1148,7 @@ export default function App() {
     lastSpeechTimeRef.current = lastSpeechTimestampFromSegments(remaining)
     lastChunkRef.current = remaining[remaining.length - 1]?.text || ''
     lastSentSpeechRef.current = ''
+    lastDetectKeyRef.current = ''
     const lastSeg = remaining[remaining.length - 1]
     if (lastSeg?.text) {
       const sp = lastSeg.speaker === 'me' ? 'me' : 'other'
@@ -1202,6 +1273,14 @@ export default function App() {
     if (!chunk) return false
     const answerText = `${String(lastResponseRef.current || '').trim()} ${String(streamAccumRef.current || '').trim()}`.trim()
     if (!answerText) return false
+    // Reading the answer off the panel is not a new question. Anything question-shaped still goes
+    // through, and the transcript itself is updated either way (InterviewMan always keeps it).
+    if (lastAskWasAutoRef.current) {
+      // A real question is detected even when it shares topic words with the answer on screen.
+      // Reading that answer aloud, with no question left in the chunk, is not detected.
+      if (spokenQuestionRemainder(chunk, answerText)) return false
+      return isLikelySelfReadback(chunk, answerText)
+    }
     if (isThinkingRef.current || responseLockRef.current || micPausedForAskRef.current) {
       // AI is actively answering — never blanket-drop mic speech. Only filter genuine
       // readback so a real follow-up spoken mid-generation still reaches the transcript/buffer
@@ -1233,6 +1312,9 @@ export default function App() {
   }, [isPhoneAutoParity])
 
   const applySpeechSilenceWindow = useCallback(() => {
+    // Auto-answer keeps the rolling transcript (InterviewMan `cx`). The 20s silence wipe
+    // is for manual / non-auto sessions only.
+    if (assistAutoTriggerRef.current) return
     const now = Date.now()
     if (lastSpeechTimeRef.current > 0 && now - lastSpeechTimeRef.current > MAX_SPEECH_WINDOW_MS) {
       clearRollingSpeech()
@@ -1272,33 +1354,19 @@ export default function App() {
   const commitLiveSegmentFinal = useCallback((speaker, textChunk, meta = {}) => {
     const t = String(textChunk || '').trim()
     if (!t) return
-    const segs = speechSegmentsRef.current
     const channel = meta.channel || (speaker === 'other' ? 'sys' : 'mic')
-    const interimIndex = segs.findLastIndex((segment) => segment.channel === channel && segment.interim)
-    const now = Date.now()
-    const segmentFlags = {
-      consumed: Boolean(meta.consumed),
-      readback: Boolean(meta.readback),
-    }
-    let next
-    if (interimIndex >= 0) {
-      next = segs.map((segment, index) => (
-        index === interimIndex
-          ? { ...segment, text: t, updatedAt: now, interim: false, ...segmentFlags }
-          : segment
-      ))
-    } else {
-      next = [...segs, {
-        id: ++liveSegmentIdRef.current,
-        speaker,
-        channel,
-        text: t,
-        capturedAt: Number(meta.capturedAt) || now,
-        updatedAt: now,
-        interim: false,
-        ...segmentFlags,
-      }]
-    }
+    const next = commitFinalSegment(speechSegmentsRef.current, {
+      speaker,
+      channel,
+      text: t,
+      capturedAt: meta.capturedAt,
+      now: Date.now(),
+      flags: {
+        consumed: Boolean(meta.consumed),
+        readback: Boolean(meta.readback),
+      },
+      nextId: () => ++liveSegmentIdRef.current,
+    })
     const capped = next
       .sort((a, b) => (a.capturedAt - b.capturedAt) || (a.id - b.id))
       .slice(-MAX_LIVE_SEGMENTS)
@@ -1319,6 +1387,12 @@ export default function App() {
       questionDetectionRef.current = v === 'low' || v === 'medium' ? v : 'high'
       syncMinSpeechThreshold()
     })
+    ipc.invoke('get-store', 'transcriptDurationSeconds').then((v) => {
+      transcriptDurationRef.current = normalizeTranscriptDurationSeconds(v)
+    })
+    ipc.invoke('get-store', 'questionDetectionEngine').then((v) => {
+      detectionEngineRef.current = normalizeDetectionEngine(v)
+    })
     ipc.invoke('get-store', 'micSensitivity').then((v) => {
       micSensitivityRef.current = v === 'boost' ? 'boost' : 'standard'
       syncMinSpeechThreshold()
@@ -1338,18 +1412,23 @@ export default function App() {
     }
   }, [])
 
+  const cancelStreamPreviewFlush = useCallback(() => {
+    if (streamPreviewFlushRef.current == null) return
+    cancelAnimationFrame(streamPreviewFlushRef.current)
+    streamPreviewFlushRef.current = null
+  }, [])
+
   /**
-   * Throttled stream UI refresh — plain teleprompter text (no raw markdown syntax).
-   * Full BriefAnswer layout is applied on commit only (Natively companion pattern).
+   * Paint the helper bubble on the next frame (InterviewMan updates the message on every SSE chunk).
+   * Full BriefAnswer layout is applied on commit only.
    */
   const scheduleStreamPreviewFlush = useCallback(() => {
     if (streamPreviewFlushRef.current != null) return
-    const delay = streamPreviewIntervalFor(streamAccumRef.current.length)
-    streamPreviewFlushRef.current = window.setTimeout(() => {
+    streamPreviewFlushRef.current = window.requestAnimationFrame(() => {
       streamPreviewFlushRef.current = null
       if (!streamDomAcceptingRef.current) return
       setStreamPreviewText(streamAccumRef.current)
-    }, delay)
+    })
   }, [])
 
   const appendTokenToStreamDom = useCallback(
@@ -1378,6 +1457,7 @@ export default function App() {
 
     const onStart = (_, meta) => {
       cancelStreamScroll()
+      cancelStreamPreviewFlush()
       streamAccumRef.current = ''
       streamDomAcceptingRef.current = true
       clearStreamPreview()
@@ -1393,13 +1473,14 @@ export default function App() {
         askSource,
         ...(screenContext ? { screenContext } : {}),
       }
-      if (assistAutoTriggerRef.current) {
+      if (assistAutoTriggerRef.current && lastAskWasAutoRef.current !== true) {
         answerCompletedAtRef.current = Date.now()
         speakHoldMsRef.current = isPhoneAutoParity()
           ? Math.max(speakHoldMsRef.current, 8000)
           : Math.max(speakHoldMsRef.current, 8000)
       }
-      micPausedForAskRef.current = true
+      // InterviewMan keeps STT running during auto-answer. Ctrl+Enter still pauses echo.
+      if (lastAskWasAutoRef.current !== true) micPausedForAskRef.current = true
       const echoRaw = meta && typeof meta === 'object' ? meta.transcriptEcho : null
       const echoCtxRaw = meta && typeof meta === 'object' ? meta.transcriptEchoContext : null
       let heardQuestion = ''
@@ -1418,6 +1499,7 @@ export default function App() {
         setIsThinking(true)
       })
       openPanel()
+      setAutoAnswerStream(lastAskWasAutoRef.current === true)
       setActiveAskSource(askSource)
       if (heardQuestion) {
         setMessages((m) =>
@@ -1452,16 +1534,19 @@ export default function App() {
           } else if (import.meta.env.DEV) {
             console.log('duplicate response — showing with repeat note')
           }
-          if (assistAutoTriggerRef.current) {
+          if (assistAutoTriggerRef.current && lastAskWasAutoRef.current !== true) {
             answerCompletedAtRef.current = Date.now()
             speakHoldMsRef.current = isPhoneAutoParity()
               ? estimatedAnswerHoldMs(full)
               : estimatedAnswerReadbackHoldMs(full)
+          } else if (lastAskWasAutoRef.current === true) {
+            // InterviewMan PE's the next utterance as soon as Generating Answer ends.
+            answerCompletedAtRef.current = 0
           }
           const bufferedAfterAnswer = String(speechBufferRef.current || '').trim()
           if (bufferedAfterAnswer && isLikelySelfReadback(bufferedAfterAnswer, full)) {
-            if (isPhoneAutoParity()) {
-              // Keep any genuine tail question; don't wipe the whole buffer.
+            if (lastAskWasAutoRef.current) {
+              // Auto-answer keeps any genuine tail question; don't wipe the whole buffer.
               const remainder = stripSelfReadback(bufferedAfterAnswer, full)
               speechBufferRef.current = remainder
               if (!remainder) {
@@ -1474,7 +1559,13 @@ export default function App() {
               lastSentSpeechRef.current = ''
             }
           }
-          if (isPhoneAutoParity()) {
+          if (lastAskWasAutoRef.current && isPhoneAutoParity() && detectionEngineRef.current === 'ai' && Date.now() >= detectUnavailableUntilRef.current) {
+            // Leftover detect for auto-answer is kicked after consume in handleAsk so Q1 is
+            // already off the tail. Commit only clears the cached key here.
+            lastDetectKeyRef.current = ''
+            pendingFollowUpRef.current = ''
+            pendingFollowUpImmediateRef.current = false
+          } else if (lastAskWasAutoRef.current && isPhoneAutoParity()) {
             // Classify leftover speech for continuation / new follow-up (phone processPostAnswerFollowUp).
             // STT keeps running during generation, so the raw buffer/segments can still contain the
             // ORIGINAL question text (Q1) glued to any genuinely new speech (Q2). Strip the already-answered
@@ -1560,13 +1651,11 @@ export default function App() {
           setIsThinking(true)
         })
         openPanel()
+        setAutoAnswerStream(lastAskWasAutoRef.current === true)
         streamDomAcceptingRef.current = true
         return
       }
-      if (streamPreviewFlushRef.current != null) {
-        clearTimeout(streamPreviewFlushRef.current)
-        streamPreviewFlushRef.current = null
-      }
+      cancelStreamPreviewFlush()
       // commit() triggers setMessages, which is what actually costs a synchronous
       // markdown parse (BriefAnswer) in ResponsePanel. Let that land in its own commit
       // first, then flip isThinking a frame later — fusing both into one tick was the
@@ -1575,11 +1664,24 @@ export default function App() {
       clearStreamPreview()
       // Resume mic after answer finishes; readback filter still drops mic echo in processTranscribedText.
       setTimeout(() => { micPausedForAskRef.current = false }, 1200)
-      pushLiveTranscriptSegments([...speechSegmentsRef.current])
-      pushRollingBar({ ...rollingBarDisplayRef.current })
-      requestAnimationFrame(() => setIsThinking(false))
+      if (lastAskWasAutoRef.current) {
+        pushLiveTranscriptSegments([...speechSegmentsRef.current])
+        pushRollingBar({ ...rollingBarDisplayRef.current })
+      } else {
+        // Ctrl+Enter / typed ask: always clear the live transcript, even if Auto-answer is on.
+        clearRollingSpeech()
+      }
+      requestAnimationFrame(() => {
+        setIsThinking(false)
+        // InterviewMan: skip detect while Generating Answer, then judge the rolling tail
+        // (follow-ups that landed in the transcript during the stream).
+        if (lastAskWasAutoRef.current && assistAutoTriggerRef.current) {
+          detectSchedulerRef.current?.resume()
+        }
+      })
     }
     const onAborted = () => {
+      cancelStreamPreviewFlush()
       setIsThinking(false)
       clearStreamPreview()
       responseLockRef.current = false
@@ -1589,6 +1691,7 @@ export default function App() {
     }
     const onError = (_, msg) => {
       cancelStreamScroll()
+      cancelStreamPreviewFlush()
       streamDomAcceptingRef.current = false
       ipc?.send('shadowassist-stream-ended')
       streamAccumRef.current = ''
@@ -1614,6 +1717,8 @@ export default function App() {
       setMessages([])
       syncMicTranscriptRefs('')
       clearRollingSpeech()
+      // A cleared conversation forgets what was answered, so the same question can be answered again.
+      answeredLedgerRef.current.clear()
       lastAudioUpdateRef.current = 0
 
       lastSpeechActivityRef.current = 0
@@ -1760,8 +1865,40 @@ export default function App() {
         questionDetectionRef.current = p.questionDetection
         syncMinSpeechThreshold()
       }
+      if (p?.transcriptDurationSeconds != null) {
+        transcriptDurationRef.current = normalizeTranscriptDurationSeconds(p.transcriptDurationSeconds)
+      }
+      if (p?.questionDetectionEngine != null) {
+        detectionEngineRef.current = normalizeDetectionEngine(p.questionDetectionEngine)
+        // Switching engines starts fresh: forget the cached verdict and any "unavailable" backoff.
+        lastDetectKeyRef.current = ''
+        detectUnavailableUntilRef.current = 0
+        detectFailStreakRef.current = 0
+      }
       if (p?.width != null && p?.height != null) expandedSize.current = { w: p.width, h: p.height }
-      if (p?.assistAutoTrigger != null) assistAutoTriggerRef.current = !!p.assistAutoTrigger
+      if (p?.assistAutoTrigger != null) {
+        const next = !!p.assistAutoTrigger
+        const wasOn = assistAutoTriggerRef.current === true
+        assistAutoTriggerRef.current = next
+        // Session stays on. Turning Auto-answer off restores Ctrl+Enter as a full
+        // manual ask (screen capture, transcript consume) on the next Ask.
+        if (wasOn && !next) {
+          detectSchedulerRef.current?.reset()
+          lastDetectKeyRef.current = ''
+          pendingFollowUpRef.current = ''
+          pendingFollowUpImmediateRef.current = false
+          lastAskWasAutoRef.current = false
+          setAutoAnswerStream(false)
+          if (followUpHoldTimerRef.current != null) {
+            clearInterval(followUpHoldTimerRef.current)
+            followUpHoldTimerRef.current = null
+          }
+          if (speechTriggerDelayRef.current != null) {
+            clearTimeout(speechTriggerDelayRef.current)
+            speechTriggerDelayRef.current = null
+          }
+        }
+      }
       if (p?.overlayAnswerAutoScroll != null) overlayAnswerAutoScrollRef.current = !!p.overlayAnswerAutoScroll
       if (p?.micSensitivity === 'boost' || p?.micSensitivity === 'standard') {
         micSensitivityRef.current = p.micSensitivity
@@ -1807,6 +1944,11 @@ export default function App() {
     const onStatus = (_, active) => {
       sessionOnRef.current = active
       setSessionOn(active)
+      // Each Listen session starts with a clean slate of answered questions.
+      answeredLedgerRef.current.clear()
+      lastDetectKeyRef.current = ''
+      detectUnavailableUntilRef.current = 0
+      detectFailStreakRef.current = 0
       if (active) {
         startMicRef.current()
         bypassCaptureOnceRef.current = true
@@ -1873,6 +2015,7 @@ export default function App() {
       setIsThinking(false)
       syncMicTranscriptRefs('')
       clearRollingSpeech()
+      answeredLedgerRef.current.clear()
       setModeSuggestion(null)
       lastAudioUpdateRef.current = 0
       lastSpeechActivityRef.current = 0
@@ -2432,23 +2575,44 @@ export default function App() {
     else { speaker = assignChunkSpeaker(trimmedChunk, silenceBeforeMs, lastSpeakerRef) }
 
     if (audioPathKey === 'mic' && shouldIgnoreMicTranscript(trimmedChunk)) {
-      if (isFinal) {
-        const segmentMeta = { channel: audioPathKey, capturedAt: Number(capturedAt) || tChunk }
-        commitLiveSegmentFinal(speaker, trimmedChunk, {
-          ...segmentMeta,
-          consumed: true,
-          readback: true,
-        })
+      // Keep the caption (InterviewMan always writes the transcript). Do not ask the detector
+      // to answer speech that is just the panel answer being read aloud.
+      const segmentMeta = { channel: audioPathKey, capturedAt: Number(capturedAt) || tChunk }
+      if (!isFinal) {
+        setLiveSegmentInterim(speaker, trimmedChunk, segmentMeta)
+        updateRollingBarForPath(audioPathKey, trimmedChunk, { isFinal: false, speaker })
+        return
       }
+      commitLiveSegmentFinal(speaker, trimmedChunk, {
+        ...segmentMeta,
+        consumed: true,
+        readback: true,
+      })
+      updateRollingBarForPath(audioPathKey, trimmedChunk, { isFinal: true, speaker })
+      const combined = (micTranscriptRef.current + ' ' + trimmedChunk).trim().split(/\s+/).slice(-600).join(' ')
+      syncMicTranscriptRefs(combined)
+      emit('transcript-updated', { latest: `${speaker === 'me' ? 'Me' : 'Participant'}: ${trimmedChunk}`, full: combined })
       return
     }
 
     let speechChunk = trimmedChunk
+    let barChunk = trimmedChunk
+    if (audioPathKey === 'mic' && lastAskWasAutoRef.current) {
+      const answerText = `${String(lastResponseRef.current || '').trim()} ${String(streamAccumRef.current || '').trim()}`.trim()
+      const remainder = spokenQuestionRemainder(trimmedChunk, answerText)
+      // Show the whole caption. The detector reads only the question sentences.
+      if (remainder && remainder !== trimmedChunk) {
+        speechChunk = remainder
+        barChunk = trimmedChunk
+      }
+    }
     // Phone parity: strip answer-overlap but keep a genuine follow-up tail.
+    // Auto-answer keeps every STT final in the rolling transcript (InterviewMan `cx`).
     if (
       isPhoneAutoParity()
       && audioPathKey === 'mic'
       && assistAutoTriggerRef.current
+      && lastAskWasAutoRef.current !== true
     ) {
       const answerText = `${String(lastResponseRef.current || '').trim()} ${String(streamAccumRef.current || '').trim()}`.trim()
       if (answerText) {
@@ -2465,6 +2629,7 @@ export default function App() {
           return
         }
         speechChunk = remainder
+        barChunk = remainder
       }
     }
     let readbackDrop = false
@@ -2475,12 +2640,16 @@ export default function App() {
     if (!isFinal) {
       if (readbackDrop) return
       setLiveSegmentInterim(speaker, speechChunk, segmentMeta)
-      updateRollingBarForPath(audioPathKey, speechChunk, { isFinal: false, speaker })
+      updateRollingBarForPath(audioPathKey, barChunk, { isFinal: false, speaker })
       emit('transcript-updated', { latest: `${labeled} …`, full: micTranscriptRef.current })
       const speechRecent =
         Date.now() - (pathSpeechAtRef.current.mic || 0) < SPEECH_ENDED_HOLD_MS ||
         Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS
       if (speechRecent) setSttPhaseIfChanged('transcribing')
+      if (assistAutoTriggerRef.current && detectionEngineRef.current === 'ai') {
+        const rolling = [micTranscriptRef.current, labeled].filter(Boolean).join('\n')
+        detectSchedulerRef.current?.interim(clipTranscriptTail(rolling, transcriptDurationRef.current))
+      }
       return
     }
 
@@ -2518,13 +2687,18 @@ export default function App() {
     speechBufferRef.current = trimBufferSmart(mergedBuff)
     lastSpeechTimeRef.current = Date.now()
     commitLiveSegmentFinal(speaker, speechChunk, segmentMeta)
-    updateRollingBarForPath(audioPathKey, speechChunk, { isFinal: true, speaker })
+    updateRollingBarForPath(audioPathKey, barChunk, { isFinal: true, speaker })
 
     const combined = (micTranscriptRef.current + ' ' + speechChunk).trim().split(/\s+/).slice(-600).join(' ')
     syncMicTranscriptRefs(combined)
     emit('transcript-updated', { latest: labeled, full: combined })
 
-    maybeTriggerAIRef.current?.()
+    if (assistAutoTriggerRef.current && detectionEngineRef.current === 'ai') {
+      const turns = autoDetectLines(speechSegmentsRef.current)
+      const raw = turns.length ? turns.join('\n') : `Participant: ${speechBufferRef.current}`
+      detectSchedulerRef.current?.endpoint(clipTranscriptTail(raw, transcriptDurationRef.current))
+    }
+    maybeTriggerAIRef.current?.({ fromFinal: true })
   }
 
   processTranscribedTextRef.current = processTranscribedText
@@ -2727,7 +2901,105 @@ export default function App() {
     } catch {}
   }
 
-  const maybeTriggerAI = useCallback(() => {
+  /**
+   * One AI question check (the coordinator calls this). Builds the transcript, asks the main process
+   * whether it holds a final, not-yet-answered question — and whether answering it needs facts about
+   * the user — and fires the ask with that verdict when it does. Resolves true only if an answer was
+   * fired. Any failure disables the AI gate for a while so the rule-based path takes over: auto-answer
+   * never depends on the model being reachable.
+   */
+  const runQuestionDetection = useCallback(async (speech) => {
+    const silenceMs = lastSpeechTimeRef.current > 0 ? Date.now() - lastSpeechTimeRef.current : 0
+    const bufferAtRequest = String(speechBufferRef.current || '').trim()
+    // InterviewMan keeps the last 450 characters, however many utterances that is. A 6-line cap
+    // dropped the real question once speech-to-text had repeated the line.
+    const beforeLines = autoDetectLines(speechSegmentsRef.current)
+    const transcript = clipTranscriptTail(
+      beforeLines.length ? beforeLines.join('\n') : `Participant: ${speech}`,
+      transcriptDurationRef.current,
+    )
+
+    const fallBackToRules = () => {
+      detectFailStreakRef.current += 1
+      detectUnavailableUntilRef.current = Date.now() + detectBackoffMs(detectFailStreakRef.current)
+      lastDetectKeyRef.current = ''
+    }
+
+    let res = null
+    try {
+      res = await ipc?.invoke('detect-question', {
+        transcript,
+        answeredQuestions: answeredLedgerRef.current.list(),
+        sensitivity: questionDetectionRef.current,
+        silenceMs,
+      })
+    } catch {
+      res = null
+    }
+    if (!sessionOnRef.current || !assistAutoTriggerRef.current) return false
+
+    // A word-fix of the same line is not new speech. Appending every final onto a second buffer
+    // used to throw away a finished verdict whenever the recognizer corrected a word.
+    const afterLines = autoDetectLines(speechSegmentsRef.current)
+    if (isStaleDetectionTranscript(beforeLines, afterLines)) {
+      lastDetectKeyRef.current = ''
+      return false
+    }
+
+    const { action } = decideAutoAnswerAction({
+      result: res,
+      bufferAtRequest: transcript,
+      currentBuffer: transcript,
+      busy: responseLockRef.current || isThinkingRef.current,
+      sinceLastTriggerMs: Date.now() - lastTriggerTimeRef.current,
+      cooldownMs: SPEECH_TRIGGER_COOLDOWN_MS,
+    })
+    if (action === 'fallback') {
+      // Unavailable, or only the rules answered: the rule gates (with their longer silence window)
+      // decide instead of firing early on a degraded verdict.
+      fallBackToRules()
+      return false
+    }
+    // Any other action means the model produced a usable verdict: the AI gate is healthy again.
+    detectFailStreakRef.current = 0
+    if (action === 'rejudge') {
+      // Stale text returns false too: the coordinator then checks the newer queued text right away.
+      lastDetectKeyRef.current = ''
+      return false
+    }
+    // 'wait' keeps the cached verdict: no new model call until the text or silence bucket changes.
+    if (action !== 'fire') return false
+
+    // Claim the buffer synchronously (same race fix as the rule-based path).
+    lastSentSpeechRef.current = bufferAtRequest
+    lastAutoQuestionRef.current = String(res.question || '').trim() || bufferAtRequest
+    pendingFollowUpRef.current = ''
+    pendingFollowUpImmediateRef.current = false
+    handleAskRef.current?.(null, {
+      auto: true,
+      source: 'speech',
+      detected: {
+        question: res.question,
+        requiresPersonalInfo: typeof res.requiresPersonalInfo === 'boolean' ? res.requiresPersonalInfo : null,
+      },
+    })
+    return true
+  }, [])
+  runQuestionDetectionRef.current = runQuestionDetection
+
+  /**
+   * Submit buffered speech for a check, skipping text + silence-bucket combinations already judged.
+   * While a check is running the coordinator keeps only the newest submission.
+   */
+  const requestQuestionDetection = useCallback((speech, silenceMs) => {
+    const key = `${normalizeQuestion(speech)}|${detectionSilenceBucket(silenceMs)}`
+    if (key === lastDetectKeyRef.current) return
+    lastDetectKeyRef.current = key
+    void detectionCoordinatorRef.current.submit(speech)
+  }, [])
+  requestQuestionDetectionRef.current = requestQuestionDetection
+
+  const maybeTriggerAI = useCallback((opts = {}) => {
     if (!sessionOnRef.current) return
     if (!assistAutoTriggerRef.current) return
     if (responseLockRef.current || isThinkingRef.current) return
@@ -2738,9 +3010,14 @@ export default function App() {
     const bypassHold = phoneParity && pendingFollowUpImmediateRef.current
     const silenceMs = Date.now() - lastSpeechTimeRef.current
     if (lastSpeechTimeRef.current > 0 && silenceMs > MAX_SPEECH_WINDOW_MS) {
-      clearRollingSpeech()
       return
     }
+
+    // AI-assisted gate: a model verdict (final question? already answered? a follow-up?) replaces the
+    // fixed silence window and regex readiness. Skipped while the detector is unavailable, and when
+    // the user chose the rules engine, so the original path below still runs unchanged.
+    const aiGateOn = detectionEngineRef.current === 'ai' && Date.now() >= detectUnavailableUntilRef.current
+    if (aiGateOn) return
 
     // Prefer fuller buffer over a single fragment segment (Deepgram split turns).
     const activeFromSegs = selectActiveQuestion(speechSegmentsRef.current)
@@ -2748,13 +3025,26 @@ export default function App() {
     let speech = bypassHold
       ? bufferSpeech
       : pickFullerQuestion(bufferSpeech, phoneParity ? activeFromSegs : '')
-    if (phoneParity && pendingFollowUpRef.current && !isStillReadingAnswerAloud()) {
+    // The AI gate always judges the live buffer: a queued follow-up would pin `speech` to old text,
+    // so the detector cache key never changed and newer speech was never re-judged.
+    if (phoneParity && !aiGateOn && pendingFollowUpRef.current && !isStillReadingAnswerAloud()) {
       speech = String(pendingFollowUpRef.current).trim() || speech
     }
 
-    if (isStillReadingAnswerAloud() && !bypassHold) {
-      // Queue a ready follow-up while the user is still reading the answer.
-      if (phoneParity && speech && isUtteranceReadyForAutoAnswer(speech) && !isLikelySelfReadback(speech, lastResponseRef.current || '')) {
+    // The user reading an answer aloud is always on the mic channel. With the AI gate, speech that
+    // arrives on the system channel (the other participant) is a new utterance and doesn't wait out
+    // the readback hold — a follow-up is judged as soon as it is heard.
+    if (
+      readbackHoldApplies({
+        stillReading: isStillReadingAnswerAloud(),
+        bypassHold,
+        aiGateOn,
+        latestChannel: latestPendingChannel(speechSegmentsRef.current),
+      })
+    ) {
+      // Queue a ready follow-up while the user is still reading the answer (rules path; the AI gate
+      // judges the live buffer itself once the hold ends).
+      if (!aiGateOn && phoneParity && speech && isUtteranceReadyForAutoAnswer(speech) && !isLikelySelfReadback(speech, lastResponseRef.current || '')) {
         if (!questionsAreSimilar(speech, lastAutoQuestionRef.current) && !questionsAreSimilar(speech, pendingFollowUpRef.current)) {
           pendingFollowUpRef.current = speech
           pendingFollowUpImmediateRef.current = false
@@ -2765,6 +3055,16 @@ export default function App() {
 
     if (speech.length < minSpeechLengthRef.current) return
     if (shouldBlockAutoReadback(speech)) return
+    if (aiGateOn) {
+      // A freshly finalized segment is checked at once (STT already ended the utterance); the tick
+      // path still waits for a short pause so half-heard text isn't re-sent every 500ms.
+      if (!opts.fromFinal && silenceMs <= DETECTION_MIN_SILENCE_MS) return
+      if (Date.now() - lastTriggerTimeRef.current < SPEECH_TRIGGER_COOLDOWN_MS) return
+      if (questionsAreSimilar(speech, lastSentSpeechRef.current) || speech === lastSentSpeechRef.current) return
+      if (speechTriggerDelayRef.current != null) return
+      requestQuestionDetection(speech, silenceMs)
+      return
+    }
     if (phoneParity && !isUtteranceReadyForAutoAnswer(speech)) return
     if (silenceMs <= SPEECH_STABILITY_MS) return
     if (Date.now() - lastTriggerTimeRef.current < SPEECH_TRIGGER_COOLDOWN_MS) return
@@ -2787,7 +3087,6 @@ export default function App() {
       if (isStillReadingAnswerAloud() && !bypassHold) return
       const silenceNow = Date.now() - lastSpeechTimeRef.current
       if (lastSpeechTimeRef.current > 0 && silenceNow > MAX_SPEECH_WINDOW_MS) {
-        clearRollingSpeech()
         return
       }
       const afterSegs = selectActiveQuestion(speechSegmentsRef.current)
@@ -2806,7 +3105,7 @@ export default function App() {
       if (phoneParity && after) speechBufferRef.current = after
       handleAskRef.current?.(null, { auto: true, source: 'speech' })
     }, leadIn)
-  }, [clearRollingSpeech, isStillReadingAnswerAloud, shouldBlockAutoReadback, isPhoneAutoParity])
+  }, [clearRollingSpeech, isStillReadingAnswerAloud, shouldBlockAutoReadback, isPhoneAutoParity, requestQuestionDetection])
 
   const maybeTriggerFromScreen = useCallback(() => {
     if (!sessionOnRef.current) return
@@ -2824,6 +3123,9 @@ export default function App() {
         : opts.source === 'speech-failsafe'
           ? 'speech-failsafe'
           : 'speech'
+      const isAutoSpeech = isAuto && assistSource !== 'screen'
+      const detectedQuestion = isAutoSpeech ? String(opts.detected?.question || '').trim() : ''
+      lastAskWasAutoRef.current = isAuto
       if (responseLockRef.current) {
         if (import.meta.env.DEV) console.log('BLOCKED: response in-flight')
         return
@@ -2861,16 +3163,15 @@ export default function App() {
       bypassCaptureOnceRef.current = false
 
       lastAskRef.current = { q: q?.trim() || null, opts: { source: opts.source, auto: isAuto, skillSlug } }
-      micPausedForAskRef.current = true
+      if (!isAuto) micPausedForAskRef.current = true
 
       void (async () => {
         try {
           if (isProcessingAskRef.current || isThinkingRef.current || responseLockRef.current) return
 
           isProcessingAskRef.current = true
-          // Echo guard: pause mic chunk processing while the AI streams so the
-          // spoken/displayed answer is not captured back into the transcript.
-          micPausedForAskRef.current = true
+          // Echo guard is Ctrl+Enter only. Auto-answer keeps recording like InterviewMan.
+          if (!isAuto) micPausedForAskRef.current = true
 
           // Close the active utterance before taking the immutable Ask snapshot. Capture remains
           // live, so speech arriving after this watermark belongs to the next turn.
@@ -2883,7 +3184,9 @@ export default function App() {
             (hasSys && Date.now() - (pathSpeechAtRef.current.sys || 0) < SPEECH_ENDED_HOLD_MS)
           const hasLocalPendingBlobs =
             (sttPendingRef.current.mic?.blobs?.length || 0) > 0 || (sttPendingRef.current.sys?.blobs?.length || 0) > 0
-          const skipFlush = hasText && !isAuto && !hasSpeechBuff && !hasRecentSpeechActivity && !hasLocalPendingBlobs
+          const skipFlush =
+            (hasText && !isAuto && !hasSpeechBuff && !hasRecentSpeechActivity && !hasLocalPendingBlobs) ||
+            (isAutoSpeech && !!detectedQuestion)
 
           const flushChannels = []
           if (!skipFlush) {
@@ -2923,7 +3226,7 @@ export default function App() {
             lastTriggerTimeRef.current = Date.now()
             lastSentSpeechRef.current = bufferedSpeech
           }
-          applySpeechSilenceWindow()
+          if (!isAutoSpeech) applySpeechSilenceWindow()
 
           // Assemble speech context for this turn.
           const hasSpeechSnapshot =
@@ -2935,7 +3238,7 @@ export default function App() {
             assistTrigger,
           } = resolveAskContextPriority({
             hasTypedQuestion: !!trimmed,
-            noScreen: !!opts.noScreen,
+            noScreen: isAutoSpeech || !!opts.noScreen,
             isVisionAsk,
             isScreenRead,
             hasSpeech: hasSpeechSnapshot,
@@ -2952,19 +3255,38 @@ export default function App() {
             promptMode === 'screen' && !includeSpeechWithScreen
               ? ''
               : preparedTranscript || legacyTranscript
-          const rawSpeech =
+          let rawSpeech =
             promptMode === 'screen' && !includeSpeechWithScreen ? '' : segmentedTranscript
-          const transcriptToSend =
+          let transcriptToSend =
             String(rawSpeech || '').trim() || (isAuto && bufferedSpeech ? bufferedSpeech : rawSpeech)
+          const memorySeconds = transcriptDurationRef.current
+          if (isAutoSpeech) {
+            const liveLines = autoDetectLines(segmentSnapshot)
+            const liveTail = clipTranscriptTail(
+              liveLines.join('\n') || bufferedSpeech,
+              memorySeconds,
+            )
+            rawSpeech = liveTail
+            transcriptToSend = liveTail
+          } else if (String(rawSpeech || '').trim()) {
+            const clipped = clipTranscriptTail(rawSpeech, memorySeconds)
+            rawSpeech = clipped
+            transcriptToSend = clipped
+          }
           const consumesTranscriptSnapshot = !!String(transcriptToSend || '').trim()
 
-          const finalPrompt = buildStructuredUserPrompt({
-            rawSpeech,
-            micFallback: transcriptToSend,
-            screenText: '',
-            typedQuestion: trimmed,
-            mode: promptMode,
-          })
+          const finalPrompt = isAutoSpeech
+            ? buildAutoAnswerUserPrompt(transcriptToSend, detectedQuestion, {
+                durationSeconds: transcriptDurationRef.current,
+                answeredQuestions: answeredLedgerRef.current.list(),
+              })
+            : buildStructuredUserPrompt({
+                rawSpeech,
+                micFallback: transcriptToSend,
+                screenText: '',
+                typedQuestion: trimmed,
+                mode: promptMode,
+              })
 
           if (hasText || skillSlug) {
             setMessages((m) => capMessages([...m, { role: 'user', text: q?.trim() || `/${skillSlug}`, id: ++msgId.current }]))
@@ -2977,7 +3299,7 @@ export default function App() {
             transcript: transcriptToSend,
             structuredUserPrompt: finalPrompt,
             mode: promptMode,
-            noScreen: !!opts.noScreen,
+            noScreen: isAutoSpeech || !!opts.noScreen,
             bypassCaptureCooldown: !!opts.bypassCaptureCooldown,
             promptSummary: {
               hasTypedQuestion: !!trimmed,
@@ -2988,11 +3310,19 @@ export default function App() {
             source: opts.source === 'action-chip' ? 'action-chip' : trimmed ? 'typed' : rawSpeech ? 'speech' : 'screen',
             skillSlug: skillSlug || undefined,
             pastMeetingContext: opts.pastMeetingContext || undefined,
-            transcriptWatermarkAt: consumesTranscriptSnapshot ? transcriptWatermarkAt : undefined,
-            preserveTranscript: !consumesTranscriptSnapshot,
+            answeredQuestions: answeredLedgerRef.current.list(),
+            // Question detector verdict (auto-answer): routes resume/JD in and out of the prompt.
+            detectedQuestion: opts.detected?.question || undefined,
+            detectedRequiresPersonalInfo:
+              typeof opts.detected?.requiresPersonalInfo === 'boolean' ? opts.detected.requiresPersonalInfo : undefined,
+            // Lets the main process tell an Auto-answer from a manual Assist.
+            auto: isAuto,
+            transcriptWatermarkAt: isAutoSpeech || !consumesTranscriptSnapshot ? undefined : transcriptWatermarkAt,
+            preserveTranscript: isAutoSpeech || !consumesTranscriptSnapshot,
             _llmTriggerAt: perfAskT0Ref.current,
           }
 
+          let leftoverAfterAuto = ''
           try {
             responseLockRef.current = true
             activeTurnMetaRef.current = {
@@ -3000,16 +3330,47 @@ export default function App() {
             }
             const askP = ipc?.invoke('ask-ai-with-transcript', trimmed, transcriptToSend, meta)
             const askResult = askP ? await askP : null
-            // Consume only on a confirmed successful turn — on failure both sides
-            // keep the speech, so retrying the ask does not lose the question.
-            if (consumesTranscriptSnapshot && askResult?.ok === true) {
-              consumeRollingSpeechThrough(transcriptWatermarkId)
+            // Manual asks wipe the live transcript. Auto-answer keeps the rolling
+            // transcript (InterviewMan `cx`) so follow-ups that arrived while generating stay visible.
+            if (askResult?.ok === true && !isAuto) {
+              clearRollingSpeech()
+            }
+            // Auto-answer only (not Ctrl+Enter): judge leftover speech after this answer.
+            // Hold the text until the lock drops — endpoint while busy would stash it and
+            // never emit if resume() already ran.
+            if (
+              askResult?.ok === true &&
+              isAutoSpeech &&
+              assistAutoTriggerRef.current &&
+              detectionEngineRef.current === 'ai'
+            ) {
+              lastDetectKeyRef.current = ''
+              pendingFollowUpRef.current = ''
+              pendingFollowUpImmediateRef.current = false
+              // The same collapsed tail the detector uses. Stripping the answered question by
+              // verbatim match dropped the follow-up whenever speech-to-text had reworded it.
+              const leftoverLines = autoDetectLines(speechSegmentsRef.current)
+              const leftoverRaw = leftoverLines.length
+                ? leftoverLines.join('\n')
+                : `Participant: ${String(speechBufferRef.current || '').trim()}`
+              leftoverAfterAuto = clipTranscriptTail(leftoverRaw, transcriptDurationRef.current)
+            }
+            // Remember what was answered so a reworded repeat or half-repeated fragment of the same
+            // question is not answered twice. Only after a confirmed turn: a failed ask must stay retryable.
+            if (askResult?.ok === true && isAuto && assistSource === 'speech') {
+              const answeredText =
+                opts.detected?.question || selectActiveQuestion(segmentSnapshot) || bufferedSpeech
+              answeredLedgerRef.current.add(String(answeredText || '').slice(-300))
             }
           } catch (err) {
             console.warn('[ask-ai-with-transcript]', err)
           } finally {
             responseLockRef.current = false
             isProcessingAskRef.current = false
+            if (leftoverAfterAuto) {
+              detectSchedulerRef.current?.endpoint(leftoverAfterAuto)
+              detectSchedulerRef.current?.resume()
+            }
             // Backstop for turns where ai-thinking(false) never arrives (error/no-output);
             // matches the normal 400ms echo-guard release in onThinking.
             setTimeout(() => {
@@ -3023,7 +3384,7 @@ export default function App() {
         }
       })()
     },
-    [scrollBottom, applySpeechSilenceWindow, consumeRollingSpeechThrough],
+    [scrollBottom, applySpeechSilenceWindow, clearRollingSpeech],
   )
   useEffect(() => {
     handleAskRef.current = handleAsk
@@ -3125,6 +3486,8 @@ export default function App() {
     speechFailsafeIntervalRef.current = window.setInterval(() => {
       if (!sessionOnRef.current) return
       if (!assistAutoTriggerRef.current || responseLockRef.current || isThinkingRef.current) return
+      // Auto-answer AI path matches InterviewMan: only the transcript scheduler fires, not this poll.
+      if (detectionEngineRef.current === 'ai') return
       // Phone parity: never fire mid-utterance failsafe — utterance-ready + silence only.
       if (isPhoneAutoParity()) return
       if (isStillReadingAnswerAloud()) return
@@ -3348,6 +3711,7 @@ export default function App() {
                 overlayTeleprompter={overlayTeleprompter}
                 overlayAnswerPinToTop={overlayAnswerPinToTop}
                 overlayAnswerAutoScroll={overlayAnswerAutoScroll}
+                autoAnswerStream={autoAnswerStream}
                 overlayAnswerView={overlayAnswerView}
                 onAbort={onAbortGeneration}
                 onRetry={onRetryLastAsk}

@@ -7,22 +7,15 @@ import { useBrand } from '../shared/branding'
 
 const ipc = createIpcShim()
 
-export default function PrivacySettingsPanel({ onSelectIntelligenceTab }) {
+export default function PrivacySettingsPanel() {
   const { name } = useBrand()
   const [confirmDelete, setConfirmDelete] = useState(false)
   return (
     <SettingsPage title="Privacy" description="What stays on your device and how to export or delete local data.">
-      <SettingsSection title="Intelligence & memory">
+      <SettingsSection title="Conversation">
         <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          Context routing, long-term memory, Hindsight recall, and smart mode suggestions live under{' '}
-          <button
-            type="button"
-            onClick={() => onSelectIntelligenceTab?.()}
-            className="text-accent underline underline-offset-2 hover:opacity-90"
-          >
-            Advance → Intelligence
-          </button>
-          .
+          Conversation Memory in General keeps a short tail of the live transcript and the questions already
+          answered in this session. It does not keep earlier answer text. Resumes and documents stay in Profile.
         </p>
       </SettingsSection>
 

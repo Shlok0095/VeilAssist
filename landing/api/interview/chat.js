@@ -9,7 +9,7 @@ const PROVIDERS = {
   },
   groq: {
     base: 'https://api.groq.com/openai/v1',
-    defaultModel: 'llama-3.3-70b-versatile',
+    defaultModel: 'qwen/qwen3.8-27b',
   },
   openai: {
     base: 'https://api.openai.com/v1',

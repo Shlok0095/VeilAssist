@@ -1,6 +1,6 @@
 {
   "name": "veilassist",
-  "version": "2026.918.1",
+  "version": "2026.1101.301",
   "description": "Undetectable AI for live meetings — discreet on-screen meeting assistant",
   "author": "VeilAssist",
   "license": "UNLICENSED",
@@ -47,6 +47,11 @@
     "test:transcript-lifecycle": "node --test scripts/test-transcript-lifecycle.cjs",
     "test:chat-fallback": "node --test scripts/test-chat-stream-fallback.cjs",
     "test:ask-context": "node --test scripts/test-ask-context-priority.cjs",
+    "test:question-detector": "node --test scripts/test-question-detector.cjs",
+    "test:autoanswer-parity": "node --test scripts/test-autoanswer-parity.cjs",
+    "test:autoanswer-followups": "node --test scripts/test-autoanswer-followups.cjs",
+    "test:autoanswer-e2e": "node --test scripts/test-stt-revision.cjs scripts/test-autoanswer-transcript.cjs && node scripts/e2e-autoanswer-session.cjs",
+    "test:chat-fallback-provider": "node --test scripts/test-chat-fallback-provider.cjs",
     "test:native-audio": "node scripts/test-native-audio-resample.cjs",
     "test:ci": "node scripts/run-ci-tests.mjs",
     "test:web": "npm --prefix landing run typecheck",
@@ -89,8 +94,9 @@
       "**/*.node",
       "native/veilassist-audio/**/*.node",
       "node_modules/koffi/**",
-      "node_modules/sqlite-vec*/**",
-      "node_modules/onnxruntime-node/**"
+      "node_modules/onnxruntime-node/**",
+      "node_modules/@napi-rs/canvas/**",
+      "node_modules/pdfjs-dist/**"
     ],
     "icon": "logo.png",
     "directories": {
@@ -138,8 +144,8 @@
         "LSUIElement": true
       },
       "artifactName": "VeilAssist${version}-${arch}.${ext}",
-      "bundleShortVersion": "2026.918.1",
-      "bundleVersion": "2026.918.1"
+      "bundleShortVersion": "2026.1101.301",
+      "bundleVersion": "2026.1101.301"
     },
     "linux": {
       "icon": "build/icons",
@@ -188,7 +194,7 @@
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.7.15",
     "@huggingface/transformers": "^3.8.1",
-    "@vectorize-io/hindsight-client": "^0.8.4",
+    "@napi-rs/canvas": "^1.1.0",
     "better-sqlite3": "^12.11.1",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.8.3",
@@ -197,10 +203,10 @@
     "lucide-react": "^0.525.0",
     "openai": "^4.20.0",
     "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-qr-code": "^2.2.0",
-    "sqlite-vec": "^0.1.9",
     "ws": "^8.21.3"
   },
   "overrides": {

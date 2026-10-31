@@ -395,11 +395,12 @@ export function SaveStatusBadge({ status = 'idle' }) {
   return null
 }
 
-export function SegmentedControl({ options, value, onChange, disabled = false, className = '' }) {
+export function SegmentedControl({ options, value, onChange, disabled = false, className = '', ariaLabel = '' }) {
   return (
     <div
       className={`settings-segmented ${disabled ? 'opacity-45 pointer-events-none' : ''} ${className}`}
       role="radiogroup"
+      aria-label={ariaLabel || undefined}
       aria-disabled={disabled || undefined}
     >
       {options.map((opt) => {

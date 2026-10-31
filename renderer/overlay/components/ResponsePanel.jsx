@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, memo, useState } from 'react'
 import { SpeakerTranscriptBlock } from '../../shared/SpeakerTranscriptText'
 import { createIpcShim } from '../../shared/ipcShim'
-import { splitStreamTakeaway, stripMarkdownForStreamDisplay } from '../streamAnswerDisplay.js'
+import { stripMarkdownForStreamDisplay } from '../streamAnswerDisplay.js'
 import { useStreamPreview } from '../streamPreviewStore.js'
 
 const ipc = createIpcShim()
@@ -764,7 +764,6 @@ function ComposingShell({ onAbort, teleprompter = false, heardText = '' }) {
  */
 function StreamingAnswerPreview({
   streamPreview = '',
-  answerStyle = 'brief',
   teleprompter = false,
   fontSize = 'medium',
   heardText = '',
@@ -773,16 +772,11 @@ function StreamingAnswerPreview({
   const heard = String(heardText || '').trim()
   const raw = String(streamPreview || '').trim()
   const plain = useMemo(() => stripMarkdownForStreamDisplay(raw), [raw])
-  const { takeaway, rest } = useMemo(() => splitStreamTakeaway(plain), [plain])
   const baseClass = streamFontClass(teleprompter, fontSize)
-  const isBrief = answerStyle === 'brief'
-  const showTakeaway = isBrief && takeaway.length > 12 && (rest.length > 20 || takeaway.length > 80)
 
   if (!plain) {
     return <ComposingShell onAbort={onAbort} teleprompter={teleprompter} heardText={heardText} />
   }
-
-  const bodyText = showTakeaway ? rest : plain
 
   return (
     <div className={`mx-auto w-full ${teleprompter ? 'max-w-[46rem]' : 'max-w-[44rem]'}`}>
@@ -807,45 +801,39 @@ function StreamingAnswerPreview({
         ) : null}
       </div>
       <div className="crystal-answer-shell crystal-stream-shell space-y-3 px-3.5 py-3.5">
-        {showTakeaway ? (
-          <div className="crystal-takeaway rounded-xl px-3.5 py-3">
-            <p className="crystal-sublabel mb-1.5 text-[10px] font-semibold uppercase tracking-wider normal-case">
-              Takeaway
-            </p>
-            <p className={`crystal-answer-text crystal-stream-text font-medium ${baseClass}`}>{takeaway}</p>
-          </div>
-        ) : null}
-        {bodyText ? (
-          <p className={`crystal-answer-text crystal-stream-text whitespace-pre-wrap ${baseClass}`}>{bodyText}</p>
-        ) : showTakeaway ? (
-          <p className={`crystal-answer-text crystal-stream-text whitespace-pre-wrap ${baseClass}`}>{takeaway}</p>
-        ) : null}
+        <p className={`crystal-answer-text crystal-stream-text whitespace-pre-wrap ${baseClass}`}>{plain}</p>
       </div>
     </div>
   )
 }
 
-const STREAM_SCROLL_MIN_MS = 120
-const STREAM_SCROLL_MAX_STEP_PX = 28
+const STREAM_SCROLL_MIN_MS = 16
+/** InterviewMan helper_auto_scroll: stop following after the user leaves the bottom (~50px). */
+const STREAM_SCROLL_AWAY_PX = 50
 
 /** Isolated live stream block — only this subtree re-renders on token preview updates. */
 const ActiveStreamBlock = memo(function ActiveStreamBlock({
   scrollContainerRef,
   overlayAnswerAutoScroll,
-  overlayAnswerPinToTop,
+  autoAnswerStream = false,
   answerStyle,
   overlayTeleprompter,
   fontSize,
   heardText,
   onAbort,
 }) {
+  // InterviewMan helper_auto_scroll: auto-answer only. Ctrl+Enter never follows the stream.
+  const followStream = overlayAnswerAutoScroll === true && autoAnswerStream === true
   const streamPreview = useStreamPreview()
   const streamBlockRef = useRef(null)
   const scrollStreamLastAtRef = useRef(0)
   const scrollStreamPendingRef = useRef(null)
+  const followPausedRef = useRef(false)
+  const programmaticScrollRef = useRef(false)
+  const hadStreamRef = useRef(false)
 
   const scrollStreamIntoView = useCallback(() => {
-    if (!overlayAnswerAutoScroll) return
+    if (!followStream || followPausedRef.current) return
     const run = () => {
       const container = scrollContainerRef.current
       const block = streamBlockRef.current
@@ -855,11 +843,11 @@ const ActiveStreamBlock = memo(function ActiveStreamBlock({
         const blockBottom = block.offsetTop + block.offsetHeight
         const viewBottom = container.scrollTop + container.clientHeight
         if (blockBottom > viewBottom - 12) {
-          const target = Math.max(0, blockBottom - container.clientHeight + 12)
-          const delta = target - container.scrollTop
-          if (delta > 0) {
-            container.scrollTop += Math.min(delta, STREAM_SCROLL_MAX_STEP_PX)
-          }
+          programmaticScrollRef.current = true
+          container.scrollTop = Math.max(0, blockBottom - container.clientHeight + 12)
+          requestAnimationFrame(() => {
+            programmaticScrollRef.current = false
+          })
         }
       })
     }
@@ -873,7 +861,7 @@ const ActiveStreamBlock = memo(function ActiveStreamBlock({
       scrollStreamPendingRef.current = null
       run()
     }, STREAM_SCROLL_MIN_MS - elapsed)
-  }, [overlayAnswerAutoScroll, scrollContainerRef])
+  }, [followStream, scrollContainerRef])
 
   useEffect(() => () => {
     if (scrollStreamPendingRef.current != null) {
@@ -883,11 +871,28 @@ const ActiveStreamBlock = memo(function ActiveStreamBlock({
   }, [])
 
   useEffect(() => {
-    if (overlayAnswerAutoScroll) scrollStreamIntoView()
-    else if (scrollContainerRef.current && overlayAnswerPinToTop) {
-      scrollContainerRef.current.scrollTop = 0
+    if (!followStream) return
+    const container = scrollContainerRef.current
+    if (!container) return
+    const onScroll = () => {
+      if (programmaticScrollRef.current) return
+      const gap = container.scrollHeight - container.scrollTop - container.clientHeight
+      followPausedRef.current = gap > STREAM_SCROLL_AWAY_PX
     }
-  }, [streamPreview, overlayAnswerAutoScroll, overlayAnswerPinToTop, scrollStreamIntoView, scrollContainerRef])
+    container.addEventListener('scroll', onScroll, { passive: true })
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [followStream, scrollContainerRef])
+
+  useEffect(() => {
+    if (!followStream) return
+    const has = !!String(streamPreview || '').trim()
+    if (has && !hadStreamRef.current) followPausedRef.current = false
+    hadStreamRef.current = has
+  }, [followStream, streamPreview])
+
+  useEffect(() => {
+    if (followStream) scrollStreamIntoView()
+  }, [streamPreview, followStream, scrollStreamIntoView])
 
   return (
     <div ref={streamBlockRef} className="mx-auto mb-2 w-full max-w-full">
@@ -912,6 +917,7 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
     overlayTeleprompter = false,
     overlayAnswerPinToTop = true,
     overlayAnswerAutoScroll = true,
+    autoAnswerStream = false,
     overlayAnswerView = 'latest',
     onAbort,
     onRetry,
@@ -969,10 +975,10 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
     const streamStarted = isThinking && !previousThinkingRef.current
     previousThinkingRef.current = isThinking
     if (!streamStarted) return
-    if (!overlayAnswerAutoScroll && scrollRef.current && overlayAnswerPinToTop) {
+    if (!(overlayAnswerAutoScroll && autoAnswerStream) && scrollRef.current && overlayAnswerPinToTop) {
       scrollRef.current.scrollTop = 0
     }
-  }, [isThinking, overlayAnswerPinToTop, overlayAnswerAutoScroll])
+  }, [isThinking, overlayAnswerPinToTop, overlayAnswerAutoScroll, autoAnswerStream])
 
   /** Newest exchange at top. Latest-only keeps the current turn; History keeps the session. */
   const visibleTurns = useMemo(() => {
@@ -1006,7 +1012,7 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
           <ActiveStreamBlock
             scrollContainerRef={scrollRef}
             overlayAnswerAutoScroll={overlayAnswerAutoScroll}
-            overlayAnswerPinToTop={overlayAnswerPinToTop}
+            autoAnswerStream={autoAnswerStream}
             answerStyle={answerStyle}
             overlayTeleprompter={overlayTeleprompter}
             fontSize={fontSize}

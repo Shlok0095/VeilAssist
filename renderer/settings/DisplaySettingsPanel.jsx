@@ -15,7 +15,14 @@ import {
   SettingsSection,
   ToggleSwitch,
 } from './SettingsComponents'
-import { QUESTION_DETECTION_LEVELS, ANSWER_STRUCTURES, RESPONSE_FORMATS, ANSWER_LENGTHS } from '../shared/interviewSettings'
+import {
+  QUESTION_DETECTION_LEVELS,
+  QUESTION_DETECTION_ENGINES,
+  QUESTION_REPEAT_SENSITIVITIES,
+  ANSWER_STRUCTURES,
+  RESPONSE_FORMATS,
+  ANSWER_LENGTHS,
+} from '../shared/interviewSettings'
 import { listAiResponseLanguages } from '../../lib/aiResponseLanguage.js'
 import { useBrand } from '../shared/branding'
 
@@ -29,6 +36,8 @@ const STRUCTURE_OPTS = ANSWER_STRUCTURES.map((o) => ({ id: o.value, label: o.lab
 const FORMAT_OPTS = RESPONSE_FORMATS.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
 const LENGTH_OPTS = ANSWER_LENGTHS.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
 const DETECTION_OPTS = QUESTION_DETECTION_LEVELS.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
+const DETECTION_ENGINE_OPTS = QUESTION_DETECTION_ENGINES.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
+const REPEAT_FILTER_OPTS = QUESTION_REPEAT_SENSITIVITIES.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
 const FONT_OPTS = [
   { id: 'small', label: 'Small' },
   { id: 'medium', label: 'Medium' },
@@ -37,6 +46,12 @@ const FONT_OPTS = [
 const HISTORY_OPTS = [
   { id: 'latest', label: 'Latest only', detail: 'Keep the overlay on the current exchange' },
   { id: 'history', label: 'Full history', detail: 'Keep earlier replies visible' },
+]
+const MEMORY_OPTS = [
+  { id: '30', label: '30s' },
+  { id: '60', label: '1m' },
+  { id: '120', label: '2m' },
+  { id: '180', label: '3m' },
 ]
 const SNAP_OPTS = OVERLAY_POSITION_PRESETS.map((p) => ({
   id: p,
@@ -66,14 +81,18 @@ export default function DisplaySettingsPanel({
   onInterviewCustomInstructionsBlur,
   aiResponseLanguageUi,
   onAiResponseLanguageChange,
-  conversationFollowUpsEnabled,
-  onConversationFollowUpsChange,
+  transcriptDurationSeconds = 30,
+  onTranscriptDurationChange,
   overlayAnswerViewUi,
   onAnswerViewChange,
   assistAutoTriggerUi,
   onAssistAutoTriggerChange,
   questionDetectionUi,
   onQuestionDetectionChange,
+  questionDetectionEngineUi = 'ai',
+  onQuestionDetectionEngineChange,
+  questionRepeatSensitivityUi = 'balanced',
+  onQuestionRepeatSensitivityChange,
   overlayAnswerAutoScrollUi,
   onOverlayAnswerAutoScrollChange,
   openAtLoginUi,
@@ -135,6 +154,22 @@ export default function DisplaySettingsPanel({
       </SettingsSection>
 
       <SettingsSection title="Answers" description="How Ask AI writes what you say next.">
+        <SettingsRow
+          label="Conversation Memory"
+          hint={
+            Number(transcriptDurationSeconds) > 60
+              ? 'How much of the conversation the AI remembers. Longer memory may slow responses.'
+              : 'How much of the conversation the AI remembers. Longer = better context but slower.'
+          }
+        >
+          <SegmentedControl
+            value={['30', '60', '120', '180'].includes(String(transcriptDurationSeconds)) ? String(transcriptDurationSeconds) : '30'}
+            onChange={(id) => onTranscriptDurationChange?.(Number(id))}
+            options={MEMORY_OPTS}
+            ariaLabel="Conversation Memory"
+          />
+        </SettingsRow>
+
         <div className="border-b border-white/[0.06] py-3.5">
           <SettingsFieldLabel>Custom instructions</SettingsFieldLabel>
           <SettingsFieldHint>Optional. Appended to every answer.</SettingsFieldHint>
@@ -158,7 +193,7 @@ export default function DisplaySettingsPanel({
           />
         </SettingsRow>
 
-        <SettingsRow label="Response format" hint="Bullets, spoken fillers, or example-driven.">
+        <SettingsRow label="Response format" hint="Bullets, spoken (hmm/uh), or example-driven.">
           <CheckmarkSelect
             value={responseFormatUi}
             onChange={onResponseFormatChange}
@@ -170,7 +205,7 @@ export default function DisplaySettingsPanel({
 
         <SettingsRow
           label="Answer length"
-          hint="Short / Medium / Long. Font follows this when auto-scroll is on."
+          hint="1–3 sentences, a paragraph, or longer. Font follows this when auto-scroll is on."
         >
           <CheckmarkSelect
             value={answerLengthUi}
@@ -188,13 +223,6 @@ export default function DisplaySettingsPanel({
             menuMinWidth={260}
             aria-label="Response language"
           />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Conversation follow-ups"
-          hint="Resolve short continuations against this session."
-        >
-          <ToggleSwitch checked={conversationFollowUpsEnabled} onChange={onConversationFollowUpsChange} />
         </SettingsRow>
 
         <SettingsRow label="Auto-answer questions" hint="Ask AI after speech silence.">
@@ -306,7 +334,7 @@ export default function DisplaySettingsPanel({
         <div className="space-y-0">
           <SettingsRow
             label="Do not save meetings"
-            hint="When on, Stop Listen will not write session recaps or long-term memory entries."
+            hint="When on, Stop Listen will not write session recaps."
           >
             <ToggleSwitch checked={doNotSaveMeetingsEnabled} onChange={onDoNotSaveMeetingsChange} />
           </SettingsRow>
@@ -322,6 +350,30 @@ export default function DisplaySettingsPanel({
                 disabled={!assistAutoTriggerUi}
                 options={DETECTION_OPTS}
                 aria-label="Question detection"
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Detection engine"
+              hint="AI-assisted waits for a complete, new question instead of a fixed pause, and skips repeats. Uses your chat model for a short check."
+            >
+              <CheckmarkSelect
+                value={questionDetectionEngineUi}
+                onChange={onQuestionDetectionEngineChange}
+                disabled={!assistAutoTriggerUi}
+                options={DETECTION_ENGINE_OPTS}
+                aria-label="Detection engine"
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Repeat filter"
+              hint="How alike a question must be to one already answered to be skipped. Lenient answers more rewordings."
+            >
+              <CheckmarkSelect
+                value={questionRepeatSensitivityUi}
+                onChange={onQuestionRepeatSensitivityChange}
+                disabled={!assistAutoTriggerUi}
+                options={REPEAT_FILTER_OPTS}
+                aria-label="Repeat filter"
               />
             </SettingsRow>
           </div>

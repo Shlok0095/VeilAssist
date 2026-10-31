@@ -49,13 +49,13 @@ const suffix = catalog.buildInterviewAnswerSuffix({
   responseFormat: 'conversational',
   answerLength: 'medium',
 })
-if (/STAR/i.test(suffix) && /filler|conversational|Hmm/i.test(suffix) && /180 words/i.test(suffix)) {
+if (/STAR \(Situation, Task, Action, Result\)/i.test(suffix) && /hmm/i.test(suffix) && /paragraph-length/i.test(suffix)) {
   pass('buildInterviewAnswerSuffix includes structure + format + medium length')
 } else {
   fail('buildInterviewAnswerSuffix includes structure + format + medium length', suffix.slice(0, 120))
 }
 
-if (/INTERVIEW OUTPUT CONTRACT/i.test(suffix) && /HARD MAX LENGTH/i.test(suffix)) {
+if (/INTERVIEW OUTPUT CONTRACT/i.test(suffix) && /The answer should be:/i.test(suffix)) {
   pass('buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT')
 } else {
   fail('buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT', suffix.slice(0, 160))
@@ -220,6 +220,18 @@ if (tail.includes('differently') && !/migration project/.test(tail)) {
   pass('stripSelfReadback keeps genuine follow-up tail')
 } else {
   fail('stripSelfReadback keeps genuine follow-up tail', tail)
+}
+const mlAnswer =
+  'Deep learning is a subset of machine learning that uses neural networks with many layers.'
+if (!isLikelySelfReadback('what is machine learning?', mlAnswer)) {
+  pass('a new "what is machine learning?" is not treated as reading the deep-learning answer')
+} else {
+  fail('a new "what is machine learning?" is not treated as reading the deep-learning answer')
+}
+if (stripSelfReadback('what is machine learning?', mlAnswer) === 'what is machine learning?') {
+  pass('stripSelfReadback keeps what is machine learning?')
+} else {
+  fail('stripSelfReadback keeps what is machine learning?')
 }
 if (overlayApp.includes('assistAutoTriggerRef.current') && overlayApp.includes('stripSelfReadback')) {
   pass('overlay App.jsx gates self-readback on auto-answer')

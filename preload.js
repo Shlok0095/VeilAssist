@@ -12,7 +12,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 const INVOKE_CHANNELS = new Set([
   'abort-ai', 'accept-mode-suggestion', 'apply-overlay-display', 'ask-ai-with-transcript',
   'branding:get', 'clipboard-write-text', 'cloud-stt:transcribe-rest', 'consent:complete', 'consent:decline',
-  'debug-log:open-file', 'delete-all-data-relaunch', 'dismiss-mode-suggestion', 'export-user-data',
+  'debug-log:open-file', 'delete-all-data-relaunch', 'detect-question', 'dismiss-mode-suggestion', 'export-user-data',
   'get-all-settings', 'get-app-info', 'get-chat-model-catalog', 'get-desktop-source-id', 'get-hotkeys',
   'get-intelligence-flags', 'get-provider-metadata', 'get-store', 'get-stt-policy',
   'get-stt-provider-metadata', 'get-transcription-config', 'get-window-bounds',
@@ -24,7 +24,7 @@ const INVOKE_CHANNELS = new Set([
   'logs:open-folder', 'long-term-memory:clear', 'meeting-sessions:clear', 'meeting-sessions:delete',
   'meeting-sessions:export', 'meeting-sessions:follow-up-draft', 'meeting-sessions:get',
   'meeting-sessions:list', 'meeting-sessions:update-speakers', 'memory:search-past-meetings',
-  'nvidia-nim:transcribe-wav', 'overlay:set-ignore-mouse-events', 'parse-playbook',
+  'mode-document:parse', 'nvidia-nim:transcribe-wav', 'overlay:set-ignore-mouse-events', 'parse-playbook', 'resume-profile:parse',
   'phone-link:regenerate-token', 'phone-link:status', 'phone-mirror:list-devices', 'phone-mirror:probe',
   'phone-mirror:start', 'phone-mirror:status', 'phone-mirror:stop', 'protection:get', 'protection:set',
   'quit-confirm:ready', 'resize-window', 'session-active', 'session-start-confirmed', 'session-transcript-append',

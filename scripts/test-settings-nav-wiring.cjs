@@ -98,10 +98,10 @@ if (tabSrc.includes("activeTab === 'advance'") && tabSrc.includes('AdvanceSettin
   fail('SettingsTabContent advance route')
 }
 
-if (profileSrc.includes('Modes & background') && profileSrc.includes('SkillsSettingsPanel')) {
-  pass('Profile tab contains modes, background, and skills')
+if (profileSrc.includes('InterviewResumesSection') && profileSrc.includes('mode-interview') && !profileSrc.includes('SkillsSettingsPanel')) {
+  pass('Profile tab contains modes and interview resumes')
 } else {
-  fail('Profile tab missing modes/background or the skills panel entry point')
+  fail('Profile tab missing interview resumes, or still mounts the skills panel')
 }
 
 if (!advanceSrc.includes('ProfileModesPanel') && !advanceSrc.includes('SkillsSettingsPanel')) {
@@ -110,10 +110,20 @@ if (!advanceSrc.includes('ProfileModesPanel') && !advanceSrc.includes('SkillsSet
   fail('Advance still contains profile/skills')
 }
 
-for (const section of ['AI Providers', 'Audio', 'Phone', 'Intelligence', 'Overlay']) {
+for (const section of ['AI Providers', 'Audio', 'Phone', 'Overlay']) {
   if (advanceSrc.includes(`title: '${section}'`) || advanceSrc.includes(`title="${section}"`)) {
     pass(`Advance section: ${section}`)
   } else fail(`Advance section missing: ${section}`)
+}
+if (advanceSrc.includes('title="Intelligence"') || advanceSrc.includes('IntelligenceSettingsPanel')) {
+  fail('Advance still has an Intelligence section')
+} else {
+  pass('Advance has no Intelligence section')
+}
+if (displaySrc.includes('Conversation Memory') && displaySrc.includes('ariaLabel="Conversation Memory"')) {
+  pass('General has Conversation Memory')
+} else {
+  fail('General missing Conversation Memory')
 }
 
 if (!displaySrc.includes('title="Advanced"')) {

@@ -23,6 +23,8 @@ const plainTests = [
   'scripts/test-phone-auto-answer.cjs',
   'scripts/test-playbook-context.mjs',
   'scripts/verify-background-process-config.cjs',
+  'scripts/test-landing-windows-package.cjs',
+  'scripts/e2e-auto-manual-profile.cjs',
 ]
 
 const nodeTestFiles = [
@@ -31,6 +33,10 @@ const nodeTestFiles = [
   'scripts/test-conversation-memory.cjs',
   'scripts/test-nvidia-streaming-stt.cjs',
   'scripts/test-nvidia-chat-models.cjs',
+  'scripts/test-question-detector.cjs',
+  'scripts/test-autoanswer-parity.cjs',
+  'scripts/test-autoanswer-followups.cjs',
+  'scripts/test-chat-fallback-provider.cjs',
   'scripts/test-rolling-transcript.cjs',
   'scripts/test-transcript-consume.cjs',
   'scripts/test-transcript-lifecycle.cjs',

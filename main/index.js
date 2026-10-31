@@ -104,7 +104,6 @@ const {
   normalizePromptsList,
   formatActivePromptBlock,
   formatNotesTemplateBlock,
-  formatReferenceFilesBlock,
   getActivePrompt,
   pushPromptHistory,
   KNOWLEDGE_BASE_MAX,
@@ -113,54 +112,87 @@ const hotkeys = require('../lib/hotkeys')
 const screenCapture = require('../lib/screenCapture')
 const screenshotQueue = require('../lib/screenshotQueue')
 const providers = require('../lib/providers')
-const { isMultimodalChatModel } = require('../lib/chatMultimodalModels')
+const { isMultimodalChatModel, DEFAULT_GROQ_CHAT_MODEL } = require('../lib/chatMultimodalModels')
 const { formatUserFacingChatError } = require('../lib/chatStreamFallback')
-const { nvidiaFallbackModelsFor } = require('../lib/nvidiaChatModels.cjs')
+const { nvidiaFallbackModelsFor, nvidiaFastFallbackModelsFor } = require('../lib/nvidiaChatModels.cjs')
 const {
   getTranscriptionRequestConfig,
   NATIVE_STT_PROVIDER_IDS,
 } = require('../lib/transcriptionRouting')
 const sessionMemory = require('../lib/sessionMemory')
 const sessionRecorder = require('../lib/sessionRecorder')
-const { createConversationMemoryService } = require('../lib/conversationMemoryService')
-const {
-  normalizeFollowUpQuestion,
-  resolveConversationFollowUp,
-} = require('../lib/followUpResolver')
+const { normalizeFollowUpQuestion } = require('../lib/followUpResolver')
 const { extractStructuredActiveQuestion } = require('../lib/transcriptQuestionSelector.cjs')
 const { createMeetingSessionsStore } = require('../lib/meetingSessions')
 const { generateMeetingSummary } = require('../lib/meetingSummary')
 const { parsePlaybookFile } = require('../lib/playbookParser')
-const contextVectorStore = require('../lib/contextVectorStore')
 const { detectMeetingForegroundOrScan, MEETING_POLL_MS } = require('../lib/meetingForegroundWindows')
 const googleCalendar = require('../lib/googleCalendar')
 const {
   routeContext,
+  applyPersonalInfoSignal,
+  stripEmbeddedProfileSections,
   formatAnswerContractBlock,
   formatSpeakerIdentityBlock,
   formatDomainRoutingBlock,
-  LAYER_BUDGET,
 } = require('../lib/contextRouter')
 const { modeTemplateFromPrompt } = require('../lib/answerPlanner')
-const meetingRecall = require('../lib/meetingRecall')
-const { createLongTermMemoryStore } = require('../lib/longTermMemory')
-const { detectMeetingMode, findPromptForTemplate, buildPromptFromStarterTemplate } = require('../lib/meetingModeDetector')
+const {
+  detectQuestion,
+  clipTranscriptTail,
+  normalizeDetectionEngine,
+  normalizeRepeatSensitivity,
+  normalizeSensitivity: normalizeDetectionSensitivity,
+} = require('../lib/questionDetector.cjs')
+const {
+  normalizeTranscriptDurationSeconds,
+  formatAnsweredQuestionsBlock,
+} = require('../lib/autoAnswerTranscript.cjs')
+const {
+  normalizeFallbackProviderId,
+  buildFallbackAttempt,
+  dedupeAttempts,
+  createUnavailableModelMemo,
+  completeWithFallback,
+} = require('../lib/chatFallbackProvider.cjs')
+const { SCREEN_QUESTION_RULES, AUTO_SPEECH_TRANSCRIPT_RULES, TRANSCRIPT_ERROR_NOTE } = require('../lib/screenQuestionRules.cjs')
+const { detectMeetingMode } = require('../lib/meetingModeDetector')
+const { builtinIdForDetectorTemplate, INTERVIEW_MODE_ID } = require('../lib/builtinModes.cjs')
+const {
+  parseResumeProfileResponse,
+  buildResumeParseMessages,
+  requestParsedCv,
+  cvFileUploadSupported,
+  normalizeResumeLibrary,
+  normalizeResumeProfile,
+  activeResume,
+  topicFromResume,
+  newResumeId,
+} = require('../lib/resumeProfile.cjs')
+const {
+  usesNvidiaDocumentParse,
+  extractResumeFromPdfPages,
+} = require('../lib/nvidiaDocumentParse.cjs')
+const {
+  MEETING_MODE_ID,
+  GENERAL_MODE_ID,
+  buildAnswerContext,
+  buildDocumentParseMessages,
+  parseDocumentResponse,
+  normalizeDocument,
+  normalizeDocumentLibrary,
+  normalizePurposeLibrary,
+  newContextId,
+} = require('../lib/modeContext.cjs')
 const { parseTranscriptEchoForDisplay } = require('../lib/transcriptEchoDisplay')
 const localStt = require('../lib/localStt')
 const streamingStt = require('../lib/streamingSttRouter')
-const { parseResumeTree, parseJdTree, formatResumeBlock, formatJdBlock, formatResumeBlockV2, formatJdBlockV2, buildProfileTreeV2VoiceGuard } = require('../lib/profileTreeService')
-const { retrieveProfileEvidence, charsFromTokenBudget, clipTextToBudget } = require('../lib/profileEvidence')
 const debugLog = require('../lib/debugLog')
 const perfMarks = require('../lib/perfMarks')
 const { sessionToMarkdown } = require('../lib/sessionExport')
-const { createHindsightClient } = require('../lib/hindsightClient')
-const { createHindsightAdapter } = require('../lib/hindsightAdapter')
 const { buildAiResponseLanguageBlock } = require('../lib/aiResponseLanguage.cjs')
 const { generateFollowUpDraft } = require('../lib/followUpDraft')
 const { createSkillsService } = require('../lib/skillsService')
-const { createVectorMemoryStore } = require('../lib/vectorMemory')
-const embeddingClient = require('../lib/embedding/embeddingClient')
-const { createHindsightLocalServer, DEFAULT_PORT: HINDSIGHT_LOCAL_PORT } = require('../lib/hindsightLocalServer')
 const { createPhoneLinkManager } = require('../lib/phoneLinkManager')
 const { createPhoneLinkMicIngest } = require('../lib/phoneLinkMicIngest')
 const { createPhoneMirrorManager } = require('../lib/phoneMirror/phoneMirrorManager')
@@ -216,6 +248,12 @@ function profileContextCacheKey(query, routeDecision) {
     (store.get('contextPrompts') || []).length,
     String(store.get('resumeContext') || '').length,
     String(store.get('jdContext') || '').length,
+    String(store.get('activeResumeId') || ''),
+    String(store.get('interviewTopic') || '').length,
+    String(store.get('meetingPrompt') || '').length,
+    String(store.get('activeMeetingDocumentId') || ''),
+    String(store.get('activeGeneralPurposeId') || ''),
+    (store.get('generalPurposes') || []).length,
     store.get('profileTreeV2Enabled') === true ? 1 : 0,
     store.get('intelligenceRoutingEnabled') === false ? 0 : 1,
     String(store.get('knowledgeBase') || '').length,
@@ -224,32 +262,8 @@ function profileContextCacheKey(query, routeDecision) {
 }
 
 const meetingSessions = createMeetingSessionsStore(store)
-const conversationMemory = createConversationMemoryService()
 const skillsService = createSkillsService({
   skillsRoot: path.join(app.getPath('userData'), 'skills'),
-})
-const vectorMemory = createVectorMemoryStore({
-  memoryRoot: path.join(app.getPath('userData'), 'memory'),
-  store,
-  embedClient: embeddingClient,
-})
-const longTermMemory = createLongTermMemoryStore(store)
-const hindsightAdapter = createHindsightAdapter({ store })
-const hindsight = createHindsightClient({
-  store,
-  longTermMemory,
-  meetingRecall,
-  meetingSessions,
-  sessionRecorder,
-  contextVectorStore,
-  vectorMemory,
-  hindsightAdapter,
-})
-const hindsightLocalServer = createHindsightLocalServer({
-  storeGet: (k) => store.get(k),
-  longTermMemory,
-  vectorMemory,
-  port: HINDSIGHT_LOCAL_PORT,
 })
 const phoneLinkMic = createPhoneLinkMicIngest({
   storeGet: (k) => store.get(k),
@@ -274,25 +288,6 @@ const phoneLink = createPhoneLinkManager({
 const phoneMirror = createPhoneMirrorManager({
   storeGet: (k) => store.get(k),
 })
-try {
-  contextVectorStore.indexAllPrompts(store.get('contextPrompts') || [], store)
-  scheduleReferenceVectorEnrichment()
-} catch (e) {
-  console.warn('[context-index] startup:', e?.message || e)
-}
-
-function scheduleReferenceVectorEnrichment() {
-  if (store.get('referenceVectorIndexEnabled') !== true) return
-  setImmediate(() => {
-    contextVectorStore
-      .enrichAllPromptEmbeddings(store.get('contextPrompts') || [], store, embeddingClient)
-      .then((r) => {
-        if (r?.embedded) console.log('[context-vector] embedded reference chunks:', r.embedded)
-      })
-      .catch((e) => console.warn('[context-vector] enrich:', e?.message || e))
-  })
-}
-
 let aiClientModule = null
 function getAiClient() {
   if (!aiClientModule) aiClientModule = require('../lib/aiClient')
@@ -618,22 +613,11 @@ function maybeDetectMeetingMode() {
     if (now - dismissedAt < MODE_DETECT_AFTER_DISMISS_MS) return
   }
 
-  let prompts = normalizePromptsList(store.get('contextPrompts') || [])
-  let match = findPromptForTemplate(prompts, hit.template)
-
-  if (!match) {
-    const draft = buildPromptFromStarterTemplate(hit.template, prompts)
-    if (!draft) return
-    prompts = normalizePromptsList([...prompts, draft])
-    store.set('contextPrompts', prompts)
-    try {
-      contextVectorStore.indexAllPrompts(prompts, store)
-      scheduleReferenceVectorEnrichment()
-    } catch (e) {
-      console.warn('[mode-detect] index:', e?.message || e)
-    }
-    match = draft
-  }
+  const promptId = builtinIdForDetectorTemplate(hit.template)
+  if (!promptId) return
+  const prompts = normalizePromptsList(store.get('contextPrompts') || [])
+  const match = prompts.find((prompt) => prompt.id === promptId)
+  if (!match) return
 
   const activeId = store.get('activeContextPromptId')
   if (activeId === match.id) return
@@ -648,7 +632,7 @@ function maybeDetectMeetingMode() {
     confidence: hit.confidence,
     reason: hit.reason,
     template: hit.template,
-    autoCreated: !!match.autoProvisioned,
+    autoCreated: false,
   })
 }
 
@@ -901,7 +885,6 @@ function createOverlayWindow() {
     overlayMinimumSize = null
     overlayMouseCaptureApplied = null
     stopMousePassthroughPoll()
-    conversationMemory.clearSession('overlay')
   })
   return overlayWindow
 }
@@ -2029,16 +2012,9 @@ async function shutdownApplication() {
   try {
     localStt.shutdown()
     streamingStt.stopListening()
-    hindsightLocalServer.stop()
     phoneLink.stop()
     phoneLinkMic.stop()
     phoneMirror.stop()
-  } catch (_) {}
-  try {
-    embeddingClient.shutdown()
-  } catch (_) {}
-  try {
-    vectorMemory.close()
   } catch (_) {}
   stopMeetingForegroundPoll()
   closeMeetingToastWindow()
@@ -2496,32 +2472,6 @@ async function syncPhoneLinkAutoStart() {
   }
 }
 
-async function syncHindsightAutoStart() {
-  const enabled = store.get('hindsightAutoStartEnabled') === true
-  if (!enabled) {
-    hindsightLocalServer.stop()
-    if (
-      store.get('hindsightProvider') === 'gateway' &&
-      /^http:\/\/127\.0\.0\.1:8888\/?$/i.test(String(store.get('hindsightApiUrl') || '').trim())
-    ) {
-      store.set('hindsightProvider', 'off')
-    }
-    return { ok: true, running: false }
-  }
-  try {
-    const out = await hindsightLocalServer.start()
-    const url = out?.url || `http://127.0.0.1:${HINDSIGHT_LOCAL_PORT}`
-    if (!String(store.get('hindsightApiUrl') || '').trim()) {
-      store.set('hindsightApiUrl', url)
-    }
-    store.set('hindsightProvider', 'gateway')
-    return { ok: true, running: true, url }
-  } catch (e) {
-    console.warn('[hindsight-local] start failed:', e?.message || e)
-    return { ok: false, error: e?.message || String(e) }
-  }
-}
-
 function createLauncherWindow() {
   if (launcherWindow && !launcherWindow.isDestroyed()) {
     launcherWindow.focus()
@@ -2622,21 +2572,6 @@ function ensureDebugLogFileExists(filePath) {
   } catch (_) {}
 }
 
-function scheduleVectorMemoryMaintenance() {
-  setImmediate(async () => {
-    if (store.get('vectorMemoryEnabled') !== true) return
-    try {
-      if (!store.get('vectorMemoryMigrationV1')) {
-        const r = await vectorMemory.migrateExistingSessions(meetingSessions.list())
-        store.set('vectorMemoryMigrationV1', true)
-        console.log('[vector-memory] migration done', r)
-      }
-    } catch (e) {
-      console.warn('[vector-memory] migration failed:', e?.message || e)
-    }
-  })
-}
-
 function getSessionRecorderMeta() {
   try {
     const prompts = normalizePromptsList(store.get('contextPrompts') || [])
@@ -2688,51 +2623,6 @@ async function finalizeMeetingSession(snapshot) {
     broadcastMeetingSummaryStatus({ state: 'generating' })
     const summaryResult = await generateMeetingSummary(snapshot, { store, getAiClient })
     const record = meetingSessions.save(snapshot, summaryResult)
-    try {
-      const summaryText = String(summaryResult?.text || '').trim()
-      if (summaryText) {
-        longTermMemory.retain({
-          content: summaryText,
-          source: 'meeting_summary',
-          mode: record.modeName,
-          meetingId: record.id,
-        })
-        hindsight.retain({
-          content: summaryText,
-          source: 'meeting_summary',
-          mode: record.modeName,
-          timestamp: record.endedAt || Date.now(),
-          scope: { userId: 'local', meetingId: record.id },
-        })
-      }
-      if (snapshot.exchanges?.length) {
-        const snippet = snapshot.exchanges
-          .slice(-6)
-          .map((e) => `Q: ${e.question}\nA: ${String(e.answer || '').slice(0, 500)}`)
-          .join('\n\n')
-        longTermMemory.retain({
-          content: snippet,
-          source: 'meeting_exchanges',
-          mode: record.modeName,
-          meetingId: record.id,
-          tags: ['qa'],
-        })
-        hindsight.retain({
-          content: snippet,
-          source: 'meeting_exchanges',
-          mode: record.modeName,
-          timestamp: record.endedAt || Date.now(),
-          scope: { userId: 'local', meetingId: record.id },
-        })
-      }
-    } catch (ltmErr) {
-      console.warn('[ltm] retain failed:', ltmErr?.message || ltmErr)
-    }
-    trackVectorWrite(
-      vectorMemory.indexSession(record).catch((err) => {
-        console.warn('[vector-memory] index session failed:', err?.message || err)
-      })
-    )
     broadcastMeetingSummaryStatus({
       state: 'ready',
       session: {
@@ -2773,7 +2663,6 @@ async function stopSession() {
 
   const snapshot = sessionRecorder.end()
   sessionMemory.wipe()
-  conversationMemory.clearSession('overlay')
   sendToOverlay('session-purge')
   phoneLink.handleDesktopEvent('session-purge')
   updateTrayIcon()
@@ -2789,7 +2678,6 @@ function startSession() {
   modeSuggestionDismissedAt.clear()
   lastModeDetectAt = Date.now()
   sessionMemory.wipe()
-  conversationMemory.clearSession('overlay')
   sessionRecorder.begin(getSessionRecorderMeta())
   updateTrayIcon()
   if (tray?.updateTrayMenu) tray.updateTrayMenu()
@@ -2817,7 +2705,6 @@ const CONTEXT_ROUTING_RULES = `
 async function buildProfileContextBlock({
   query = '',
   routeDecision = null,
-  skipAsyncReferenceRetrieval = false,
 } = {}) {
   const cacheKey = profileContextCacheKey(query, routeDecision)
   const cached = profileContextCache.get(cacheKey)
@@ -2827,197 +2714,49 @@ async function buildProfileContextBlock({
     const prompts = normalizePromptsList(store.get('contextPrompts') || [])
     const activeId = store.get('activeContextPromptId') || null
     const activePrompt = getActivePrompt(prompts, activeId)
-    const routingOn = store.get('intelligenceRoutingEnabled') !== false && routeDecision
-    const useAll = !routingOn
-    const domainTag = routeDecision?.domainTag || 'general'
-    const interviewDomain = domainTag === 'interview' || domainTag === 'meeting'
-    // Sprint B: profileTreeV2 on by default; still force for interview/meeting domains.
-    const profileTreeV2 =
-      store.get('profileTreeV2Enabled') !== false || interviewDomain
-    const q = String(query || '').trim()
-    const resumeBudget = charsFromTokenBudget(LAYER_BUDGET.resume)
-    const jdBudget = charsFromTokenBudget(LAYER_BUDGET.jd)
-    const refBudget = charsFromTokenBudget(LAYER_BUDGET.reference_files)
-    const modeBudget = charsFromTokenBudget(LAYER_BUDGET.active_mode)
-
+    const mode = modeTemplateFromPrompt(activePrompt)
+    const isInterview =
+      activePrompt?.id === INTERVIEW_MODE_ID ||
+      mode === 'looking-for-work' ||
+      mode === 'technical-interview'
+    const modeId = isInterview
+      ? INTERVIEW_MODE_ID
+      : activePrompt?.id === MEETING_MODE_ID || mode === 'team-meet'
+        ? MEETING_MODE_ID
+        : activePrompt?.id === GENERAL_MODE_ID || mode === 'general'
+          ? GENERAL_MODE_ID
+          : activePrompt?.id || ''
+    const routingOn = !!routeDecision
     let out = ''
-    let resumeEvidenceCount = 0
-    let jdEvidenceCount = 0
-    let resumeUsedEmbedding = false
-    let jdUsedEmbedding = false
-
-    if (useAll || routeDecision.useActiveMode) {
-      const modeBlock = formatActivePromptBlock(activePrompt)
-      out += clipTextToBudget(modeBlock, modeBudget + 2000)
-    }
-
-    // Reference/resume/JD retrieval and hybridRecall are independent lookups (each already
-    // has its own timeout cap) — run them concurrently instead of sequentially so this stage
-    // costs the slowest one, not the sum of all four, then assemble `out` in the original order.
-    const wantReference = useAll || routeDecision.useReferenceFiles
-    const wantResume = useAll || routeDecision.useResume
-    const wantJd = useAll || routeDecision.useJd
-    const wantRecall =
-      routingOn && (routeDecision.useMeetingSummary || routeDecision.useHindsightRecall || routeDecision.useHybridRag)
-
-    const referenceTask = wantReference
-      ? (async () => {
-          if (
-            activePrompt &&
-            !skipAsyncReferenceRetrieval &&
-            contextVectorStore.referenceNeedsRetrieval(activePrompt)
-          ) {
-            const chunks = await contextVectorStore.retrieveChunksAsync(
-              activePrompt.id,
-              q,
-              { maxChars: refBudget },
-              store,
-              embeddingClient,
-            )
-            return contextVectorStore.formatRetrievedReferenceBlock(chunks) || formatReferenceFilesBlock(activePrompt)
-          }
-          return formatReferenceFilesBlock(activePrompt)
-        })()
-      : Promise.resolve('')
-
-    const resumeTask = wantResume
-      ? (async () => {
-          const resume = String(store.get('resumeContext') || '').trim()
-          if (!resume) return null
-          const tree = store.get('resumeTree') || parseResumeTree(resume)
-          let block = ''
-          let evidenceCount = 0
-          let usedEmbedding = false
-          if (profileTreeV2 || q) {
-            const evidence = await retrieveProfileEvidence({
-              tree,
-              raw: resume,
-              query: q,
-              maxChars: resumeBudget,
-              topK: 6,
-              embedClient: embeddingClient,
-            })
-            evidenceCount = evidence.evidenceCount
-            usedEmbedding = evidence.usedEmbedding
-            block = evidence.text || (profileTreeV2
-              ? formatResumeBlockV2(tree, resume, q)
-              : formatResumeBlock(tree, resume))
-          } else {
-            block = formatResumeBlock(tree, resume)
-          }
-          block = clipTextToBudget(block, resumeBudget)
-          if (block && !evidenceCount) evidenceCount = 1
-          return { block, evidenceCount, usedEmbedding }
-        })()
-      : Promise.resolve(null)
-
-    const jdTask = wantJd
-      ? (async () => {
-          const jd = String(store.get('jdContext') || '').trim()
-          if (!jd) return null
-          const tree = store.get('jdTree') || parseJdTree(jd)
-          let block = ''
-          let evidenceCount = 0
-          let usedEmbedding = false
-          if (profileTreeV2 || q) {
-            const evidence = await retrieveProfileEvidence({
-              tree: { ...tree, kind: 'jd' },
-              raw: jd,
-              query: q,
-              maxChars: jdBudget,
-              topK: 5,
-              embedClient: embeddingClient,
-            })
-            evidenceCount = evidence.evidenceCount
-            usedEmbedding = evidence.usedEmbedding
-            block = evidence.text || (profileTreeV2
-              ? formatJdBlockV2(tree, jd, q)
-              : formatJdBlock(tree, jd))
-          } else {
-            block = formatJdBlock(tree, jd)
-          }
-          block = clipTextToBudget(block, jdBudget)
-          if (block && !evidenceCount) evidenceCount = 1
-          return { block, evidenceCount, usedEmbedding }
-        })()
-      : Promise.resolve(null)
-
-    const recallTask = wantRecall
-      ? (async () => {
-          const softVector =
-            store.get('vectorMemoryEnabled') === true ||
-            domainTag === 'interview' ||
-            domainTag === 'meeting'
-          return hindsight.hybridRecall({
-            query: String(query || '').trim(),
-            useMeetingSummary: routeDecision.useMeetingSummary,
-            useHindsightRecall: routeDecision.useHindsightRecall,
-            useHybridRag: routeDecision.useHybridRag,
-            forceVectorMemory: softVector,
-            promptId: activePrompt?.id,
-            maxResults: 6,
-            timeoutMs: routeDecision.hindsightRecallTimeoutMs || 800,
-          })
-        })()
-      : Promise.resolve(null)
-
-    const [referenceResult, resumeResult, jdResult, recallResult] = await Promise.all([
-      referenceTask,
-      resumeTask,
-      jdTask,
-      recallTask,
-    ])
-
-    let referenceBlock = referenceResult || ''
-    if (wantReference) out += clipTextToBudget(referenceBlock, refBudget + 400)
-
-    if (resumeResult?.block) {
-      resumeEvidenceCount = resumeResult.evidenceCount
-      resumeUsedEmbedding = resumeResult.usedEmbedding
-      out += `\n\n---\n## RESUME / BACKGROUND\n${resumeResult.block}`
-    }
-
-    if (jdResult?.block) {
-      jdEvidenceCount = jdResult.evidenceCount
-      jdUsedEmbedding = jdResult.usedEmbedding
-      out += `\n\n---\n## JOB DESCRIPTION\n${jdResult.block}`
-    }
-
-    if (out.includes('## RESUME') || out.includes('## JOB DESCRIPTION')) {
-      out += buildProfileTreeV2VoiceGuard()
-    }
-
-    if (useAll || routeDecision.useActiveMode) {
+    if (!routingOn || routeDecision.useActiveMode) {
+      let modeBlock = formatActivePromptBlock(activePrompt)
+      // Auto-answer on a definition: the mode body often has the resume pasted under ## RESUME.
+      // Retrieval is already off; this removes that copy so the model cannot invent "in my last role".
+      if (routeDecision?.stripEmbeddedProfile) modeBlock = stripEmbeddedProfileSections(modeBlock)
+      out += modeBlock
       out += formatNotesTemplateBlock(activePrompt)
     }
-
-    if (recallResult) {
-      out += recallResult.block
-    }
-
-    if (!referenceBlock && (useAll || routeDecision.useReferenceFiles)) {
-      const kb = String(store.get('knowledgeBase') || '').trim()
-      if (kb) {
-        const clipped = kb.length > KNOWLEDGE_BASE_MAX ? `${kb.slice(0, KNOWLEDGE_BASE_MAX)}\n…` : kb
-        out += `\n\n---\n## REFERENCE (facts only — do not invent beyond this)\n${clipTextToBudget(clipped, refBudget)}`
-      }
-    }
-
+    const appendix = buildAnswerContext({
+      modeId,
+      question: String(query || ''),
+      requiresPersonalInfo: routeDecision?.requiresPersonalInfo,
+      resumeLibrary: store.get('resumeLibrary'),
+      activeResumeId: store.get('activeResumeId'),
+      meetingPrompt: store.get('meetingPrompt'),
+      meetingDocuments: store.get('meetingDocuments'),
+      activeMeetingDocumentId: store.get('activeMeetingDocumentId'),
+      generalPurposes: store.get('generalPurposes'),
+      activeGeneralPurposeId: store.get('activeGeneralPurposeId'),
+    })
+    out += appendix
     console.log(
       '[profile-evidence]',
       JSON.stringify({
-        domainTag,
-        resumeEvidenceCount,
-        jdEvidenceCount,
-        resumeUsedEmbedding,
-        jdUsedEmbedding,
-        profileTreeV2,
-        hasResumeBlock: out.includes('## RESUME'),
-        hasJdBlock: out.includes('## JOB DESCRIPTION'),
+        modeId: activePrompt?.id || '',
+        personalInfo: appendix.includes('My personal information is:'),
         outChars: out.length,
       }),
     )
-
     profileContextCache.set(cacheKey, out)
     return out
   } catch (e) {
@@ -3027,7 +2766,6 @@ async function buildProfileContextBlock({
 }
 
 function resolveContextRouteDecision({ userQuery, audioTranscript, _askMeta, hasLiveTranscript }) {
-  if (store.get('intelligenceRoutingEnabled') === false) return null
   try {
     const prompts = normalizePromptsList(store.get('contextPrompts') || [])
     const activePrompt = getActivePrompt(prompts, store.get('activeContextPromptId') || null)
@@ -3041,7 +2779,7 @@ function resolveContextRouteDecision({ userQuery, audioTranscript, _askMeta, has
     if (_askMeta?.assistTrigger === 'speech' || _askMeta?.assistTrigger === 'screen') source = 'what_to_answer'
     else if (_askMeta?.source === 'transcript') source = 'transcript'
 
-    const decision = routeContext({
+    let decision = routeContext({
       userQuery: String(userQuery || '').trim(),
       mode,
       profileAvailable: !!resume,
@@ -3050,6 +2788,15 @@ function resolveContextRouteDecision({ userQuery, audioTranscript, _askMeta, has
       hasLiveTranscript: !!hasLiveTranscript,
       source,
     })
+    // Auto-answer asks carry the question detector's judgement of whether the answer needs facts
+    // about the user. It corrects the regex planner in both directions (see applyPersonalInfoSignal).
+    if (typeof _askMeta?.detectedRequiresPersonalInfo === 'boolean') {
+      decision = applyPersonalInfoSignal(decision, _askMeta.detectedRequiresPersonalInfo, {
+        resumeAvailable: !!resume,
+        question: String(_askMeta.detectedQuestion || userQuery || ''),
+      })
+      decision.requiresPersonalInfo = _askMeta.detectedRequiresPersonalInfo
+    }
     console.log('[context-router]', decision.reason)
     return decision
   } catch (e) {
@@ -3070,6 +2817,128 @@ function deriveDisplayAskSource({ hasQuestion, hasAudio, includeScreen, hasVisio
   if (hasAudio) return 'audio'
   if (scr) return 'screen'
   return 'context'
+}
+
+/** Models that answered 410/404 to a detection call; skipped for a few minutes (see chatFallbackProvider). */
+const detectModelMemo = createUnavailableModelMemo()
+
+/**
+ * Auto-answer question gate. The overlay sends its rolling transcript and the questions already
+ * answered this session; the model returns a structured verdict (see lib/questionDetector.cjs).
+ * Never throws and never touches the Ask abort controller — on any failure the renderer falls back
+ * to its rule-based gates, so auto-answer keeps working without the model.
+ */
+async function handleDetectQuestion(payload) {
+  try {
+    if (!isSessionActive()) return { ok: false, reason: 'session_inactive' }
+    if (normalizeDetectionEngine(store.get('questionDetectionEngine')) === 'rules') {
+      return { ok: false, reason: 'engine_rules' }
+    }
+    const p = payload && typeof payload === 'object' ? payload : {}
+    const duration = normalizeTranscriptDurationSeconds(store.get('transcriptDurationSeconds'))
+    const transcript = clipTranscriptTail(typeof p.transcript === 'string' ? p.transcript : '', duration)
+    if (!transcript.trim()) return { ok: false, reason: 'empty_transcript' }
+
+    const provider = store.get('provider') || 'nvidia'
+    const apiKey = store.get(providers.getApiKeyField(provider))
+    if (!apiKey) return { ok: false, reason: 'no_api_key' }
+
+    const getStore = (k) => store.get(k)
+    const model =
+      String(store.get('questionDetectionModel') || '').trim() ||
+      providers.getModelForProvider(provider, getStore)
+    const answeredQuestions = Array.isArray(p.answeredQuestions)
+      ? p.answeredQuestions.filter((q) => typeof q === 'string').slice(-24).map((q) => q.slice(0, 300))
+      : []
+    const silenceMs = Number.isFinite(Number(p.silenceMs))
+      ? Math.min(60000, Math.max(0, Number(p.silenceMs)))
+      : 0
+
+    let topic = ''
+    try {
+      const prompts = normalizePromptsList(store.get('contextPrompts') || [])
+      const active = getActivePrompt(prompts, store.get('activeContextPromptId') || null)
+      topic = String(active?.name || '')
+      if (active?.id === INTERVIEW_MODE_ID) {
+        const suggested = String(store.get('interviewTopic') || '').trim()
+        if (suggested) topic = suggested
+      }
+    } catch (_) {
+      /* the topic is optional context */
+    }
+
+    // Same safety net as answers: a 403/410/429/5xx or hang on the primary hands over to the other
+    // NVIDIA models (the answer path's bench-ranked chain, minus slow reasoning models that cannot
+    // finish inside the detector's budget), then Groq (NVIDIA primary + a Groq key) and the opted-in
+    // fallback provider. Without the NVIDIA chain a retired primary model (410) left the detector with
+    // nothing to try, so it never worked and the rules took over.
+    const nvidiaChain =
+      provider === 'nvidia'
+        ? nvidiaFastFallbackModelsFor(model)
+            .filter((id) => id !== model)
+            .map((id) => ({ provider: 'nvidia', apiKey, model: id }))
+        : []
+    const groqKey = String(store.get(providers.getApiKeyField('groq')) || '').trim()
+    const userFallback = buildFallbackAttempt({
+      primaryProvider: provider,
+      fallbackProvider: store.get('chatFallbackProvider'),
+      getStore,
+    })
+    const attempts = detectModelMemo.filter(
+      dedupeAttempts([
+        { provider, apiKey, model },
+        ...nvidiaChain,
+        ...(provider === 'nvidia' && groqKey
+          ? [{ provider: 'groq', apiKey: groqKey, model: DEFAULT_GROQ_CHAT_MODEL }]
+          : []),
+        ...(userFallback ? [userFallback] : []),
+      ]),
+    )
+
+    const verdict = await detectQuestion({
+      complete: (messages, { maxTokens, signal }) =>
+        completeWithFallback({
+          attempts,
+          signal,
+          complete: (attempt, { signal: attemptSignal }) =>
+            getAiClient()
+              .completeChat(
+                attempt.provider,
+                attempt.apiKey,
+                { messages, model: attempt.model, maxTokens, signal: attemptSignal },
+                getStore,
+              )
+              .catch((err) => {
+                // A retired / not-hosted model is skipped on the next checks instead of retried every time.
+                if (detectModelMemo.mark(attempt, err)) {
+                  console.warn('[question-detect] model unavailable, skipping for a while:', attempt.provider, attempt.model)
+                }
+                throw err
+              }),
+        }),
+      transcript,
+      topic,
+      answeredQuestions,
+      transcriptDurationSeconds: duration,
+      sensitivity: normalizeDetectionSensitivity(p.sensitivity ?? store.get('questionDetection')),
+      repeatSensitivity: store.get('questionRepeatSensitivity'),
+      silenceMs,
+    })
+    // Log the shape of the verdict, never its content — transcripts are private.
+    console.log(
+      '[question-detect]',
+      verdict.source,
+      `final=${verdict.questionFinal}`,
+      `dup=${verdict.duplicate}`,
+      `personal=${verdict.requiresPersonalInfo}`,
+      `${verdict.latencyMs}ms`,
+      verdict.error || '',
+    )
+    return verdict
+  } catch (e) {
+    console.warn('[question-detect] failed:', e?.message || e)
+    return { ok: false, reason: 'error' }
+  }
 }
 
 async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
@@ -3108,7 +2977,15 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
   let audioCombined = overlayAudio
   const structuredHasSegmentedAudio =
     !!structured && (structured.includes('## ACTIVE QUESTION') || /\[(INTERVIEWER|ME)\]:/i.test(structured))
-  if (!String(audioCombined).trim() && !isScreenMode && !structuredHasSegmentedAudio) {
+  const skipStaleSessionTranscript =
+    _askMeta?.auto === true &&
+    (_askMeta?.source === 'speech' || _askMeta?.source === 'speech-failsafe')
+  if (
+    !String(audioCombined).trim() &&
+    !isScreenMode &&
+    !structuredHasSegmentedAudio &&
+    !skipStaleSessionTranscript
+  ) {
     if (userQ) {
       audioCombined = sessionMemory.getTranscriptIfRecent(SESSION_TRANSCRIPT_MAX_AGE_MS) || audioCombined
     } else {
@@ -3128,41 +3005,12 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     .filter(Boolean)
     .join(' ')
 
-  const conversationSessionId = aiEventTarget === 'global_chat' ? 'global_chat' : 'overlay'
   const structuredActiveQuestion = extractStructuredActiveQuestion(structured)
-  const currentQuestion = normalizeFollowUpQuestion(userQ || structuredActiveQuestion || audioCombined)
-  // Action-chip presets (e.g. "Clarify") are self-contained intents, not ambiguous
-  // pronoun references — never route them through follow-up/clarification resolution.
-  const isActionChipAsk = _askMeta?.source === 'action-chip'
-  const followUp =
-    !isActionChipAsk && store.get('conversationFollowUpsEnabled') === true
-      ? resolveConversationFollowUp({
-          question: currentQuestion,
-          sessionId: conversationSessionId,
-          memory: conversationMemory,
-        })
-      : null
-  if (followUp?.needsClarification) {
-    const clarification = followUp.clarificationText
-    sendToAiEventTarget('ai-start', {
-      askSource: 'prompt',
-      // Only echo the question when it came from audio — typed/chip asks already show
-      // an identical `role: 'user'` bubble in the overlay, so echoing it again would duplicate it.
-      transcriptEcho: !userQ ? currentQuestion || null : null,
-      transcriptEchoContext: null,
-      screenContext: null,
-    })
-    sendToAiEventTarget('ai-token', clarification)
-    lastResponse = clarification
-    currentAbortController = null
-    sendToAiEventTarget('ai-thinking', false)
-    // Clarification turn: main kept its transcript, so the overlay must too.
-    return { ok: false }
-  }
-
-  const routingQuery = followUp?.turn
-    ? `${currentQuestion} ${followUp.turn.userMessage}`.trim()
-    : currentQuestion || retrievalQuery
+  // An answer fired by Auto-answer from live speech (not a typed or hotkey ask).
+  const isAutoSpeechAsk = _askMeta?.auto === true && _askMeta?.source === 'speech'
+  const detectedQuestion = isAutoSpeechAsk ? String(_askMeta?.detectedQuestion || '').trim() : ''
+  const currentQuestion = normalizeFollowUpQuestion(userQ || structuredActiveQuestion || detectedQuestion || audioCombined)
+  const routingQuery = currentQuestion || retrievalQuery
 
   const routeDecision = resolveContextRouteDecision({
     userQuery: routingQuery,
@@ -3174,8 +3022,9 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
   const profileQuery = currentQuestion || retrievalQuery
   const skipAsyncReferenceRetrieval = isScreenMode && !String(profileQuery).trim()
 
-  // noScreen: true = Natively's Ctrl+Shift+Enter (audio/text only — skip all screenshot capture)
-  const noScreen = !!_askMeta?.noScreen
+  // noScreen: true = audio/text only — skip all screenshot capture.
+  // InterviewMan auto-answer is transcript-only. Ctrl+Enter still captures unless the overlay asked not to.
+  const noScreen = !!_askMeta?.noScreen || isAutoSpeechAsk
   const wantVision = !noScreen && providers.supportsVision(provider)
   let visionB64 = null
 
@@ -3226,14 +3075,10 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     }
   }
 
-  const effectiveAnswerContract =
-    followUp?.kind === 'coding' ? 'coding_answer' : routeDecision?.answerContract
+  const effectiveAnswerContract = routeDecision?.answerContract
   const contractBlock = effectiveAnswerContract ? formatAnswerContractBlock(effectiveAnswerContract) : ''
   const speakerIdentityBlock = formatSpeakerIdentityBlock(routeDecision)
-  const domainBlock =
-    routeDecision?.domainTag && store.get('intelligenceRoutingEnabled') !== false
-      ? formatDomainRoutingBlock(routeDecision.domainTag)
-      : ''
+  const domainBlock = routeDecision?.domainTag ? formatDomainRoutingBlock(routeDecision.domainTag) : ''
   let skillBlock = ''
   if (_askMeta?.skillBlock && String(_askMeta.skillBlock).trim()) {
     skillBlock = `\n\n---\n${String(_askMeta.skillBlock).trim()}`
@@ -3260,7 +3105,9 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     const segmentedTranscript =
       structured.includes('## ACTIVE QUESTION') || /\[(INTERVIEWER|ME)\]:/i.test(structured)
     const nativelyLabeled = /\[(INTERVIEWER|ME)\]:/i.test(structured)
-    fullSystem = `${fullSystem}\n\n---\n${isScreenMode
+    fullSystem = `${fullSystem}\n\n---\n${isAutoSpeechAsk
+      ? 'You will be given an interview transcript, which might contain some transcript errors.'
+      : isScreenMode
       ? 'This is a screen-led request. Analyze the attached screenshot and solve the visible problem completely. If ## QUESTION is present, answer it directly and use the screen as evidence.'
       : segmentedTranscript
         ? nativelyLabeled
@@ -3269,8 +3116,17 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
         : 'Respond ONLY to the last clear question in QUESTION, AUDIO, or TRANSCRIPT. SCREEN is supporting context and must not override an unrelated spoken or typed request.'
     }`
   }
-  if (followUp) {
-    fullSystem += '\n\n---\nThis is a same-session follow-up. Resolve it against the supplied prior exchange. Any attached screenshot is supplementary and must not replace the referenced conversation.'
+  if (isScreenMode) {
+    fullSystem += `\n\n---\n${SCREEN_QUESTION_RULES}`
+  }
+  if (isAutoSpeechAsk) {
+    fullSystem += `\n\n---\n${AUTO_SPEECH_TRANSCRIPT_RULES}`
+    if (routeDecision?.stripEmbeddedProfile && routeDecision?.plan?.answerType === 'technical_concept_answer') {
+      fullSystem += '\n\n---\nThis question does not ask about the candidate\'s own experience. Answer it from general knowledge. Do not invent an employer, job, project, or "in my last role" story.'
+    }
+  }
+  if (structured || String(audioCombined || '').trim()) {
+    fullSystem += `\n\n---\n${TRANSCRIPT_ERROR_NOTE}`
   }
 
   const getStore = (k) => store.get(k)
@@ -3327,7 +3183,13 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     }
     userTurnText = contextParts.join('\n\n')
   }
-  if (followUp?.contextBlock) userTurnText = followUp.contextBlock
+  if (!String(userTurnText).includes('<answered_questions>')) {
+    const memoryBlock = formatAnsweredQuestionsBlock(
+      _askMeta?.answeredQuestions,
+      store.get('transcriptDurationSeconds'),
+    )
+    if (memoryBlock) userTurnText = `${userTurnText}\n\n${memoryBlock}`
+  }
   // Last-user reminder — helps OpenRouter/OpenAI/Anthropic/etc. honor General answer settings
   // the same way NVIDIA Nemotron tends to (shared for every chat provider).
   userTurnText = `${userTurnText}\n\n${getAnswerOutputRulesReminderFromStore(store)}`
@@ -3417,13 +3279,25 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
             maxTokens,
           }))
       : []
-    // Text-only fallback: when no screenshot is attached and all NVIDIA models are vision-only,
-    // Groq (qwen3.6-27b) can handle pure text requests. Appended last so vision models run first.
-    const groqTextFallback =
-      provider === 'nvidia' && !visionB64 && groqKey
-        ? [{ provider: 'groq', apiKey: groqKey, model: 'qwen/qwen3.6-27b', maxTokens }]
+    // Groq Qwen 3.8 is multimodal, so it can cover text or a screenshot if NVIDIA fails.
+    const groqFallback =
+      provider === 'nvidia' && groqKey
+        ? [{ provider: 'groq', apiKey: groqKey, model: DEFAULT_GROQ_CHAT_MODEL, maxTokens }]
         : []
-    const fallbacks = [...nvFallbacks, ...groqTextFallback]
+    // Opt-in second provider (Settings → AI Providers → Fallback provider): works for any primary
+    // provider and for screenshot asks when the fallback supports vision. Appended last.
+    const userFallback = buildFallbackAttempt({
+      primaryProvider: provider,
+      fallbackProvider: store.get('chatFallbackProvider'),
+      getStore,
+      hasVision: !!visionB64 || !!phoneVisionB64,
+      maxTokens,
+    })
+    const fallbacks = dedupeAttempts([
+      ...nvFallbacks,
+      ...groqFallback,
+      ...(userFallback ? [userFallback] : []),
+    ])
     let activeStreamProvider = provider
     let streamFinishMeta = null
     const requestStartedAt = Date.now()
@@ -3491,20 +3365,6 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
           transcriptEcho ||
           (structured ? 'Assist (session context)' : hasVision ? 'Assist (screen)' : 'Assist')
         sessionRecorder.recordExchange(qLabel, fullText)
-        if (store.get('conversationFollowUpsEnabled') === true) {
-          conversationMemory.record({
-            sessionId: conversationSessionId,
-            userMessage: currentQuestion || qLabel,
-            assistantAnswer: fullText,
-            mode: _askMeta?.mode || routeDecision?.domainTag,
-            timestamp: Date.now(),
-            contextSourcesUsed: [
-              ...(effectiveAnswerContract === 'coding_answer' || /```[\s\S]*```/.test(fullText) ? ['coding'] : []),
-              ...(hasVision ? ['screen'] : []),
-              ...(hasAudio ? ['audio'] : []),
-            ],
-          })
-        }
       }
     }
   } catch (err) {
@@ -3623,6 +3483,18 @@ function toggleMousePassthrough() {
   syncOverlayMouseCapture()
 }
 
+function setAssistAutoTriggerEnabled(enabled) {
+  const v = !!enabled
+  store.set('assistAutoTrigger', v)
+  sendToOverlay('overlay-display-update', { assistAutoTrigger: v })
+  sendToSettingsWindow('overlay-display-update', { assistAutoTrigger: v })
+  return v
+}
+
+function toggleAssistAutoTrigger() {
+  return setAssistAutoTriggerEnabled(store.get('assistAutoTrigger') !== true)
+}
+
 function setupHotkeys() {
   hotkeys.register('toggleOverlay', toggleOverlay)
   hotkeys.register('hideOverlay', hideOverlay)
@@ -3647,9 +3519,11 @@ function setupHotkeys() {
   hotkeys.register('clearChat', () => {
     sendToOverlay('clear-conversation')
     lastResponse = ''
-    conversationMemory.clearSession('overlay')
   })
   hotkeys.register('toggleSession', () => (sessionActive ? stopSession() : requestSessionStart()))
+  hotkeys.register('toggleAutoAnswer', () => {
+    toggleAssistAutoTrigger()
+  })
   hotkeys.register('moveUp', () => moveOverlay(0, -40))
   hotkeys.register('moveDown', () => moveOverlay(0, 40))
   hotkeys.register('moveLeft', () => moveOverlay(-40, 0))
@@ -3903,26 +3777,213 @@ function setupIPC() {
     return { ok: true }
   })
   ipcMain.handle('long-term-memory:clear', async () => {
-    const keyword = longTermMemory.clearAll()
-    const vector = vectorMemory.clearAll()
-    const remote = await hindsightAdapter.clearAll()
+    store.set('longTermMemory', [])
+    return { ok: true, keyword: { ok: true } }
+  })
+  ipcMain.handle('vector-memory:clear', () => ({ ok: true, skipped: true, removed: 0 }))
+  ipcMain.handle('vector-memory:stats', () => ({ skipped: true, chunks: 0 }))
+  ipcMain.handle('memory:search-past-meetings', async () => ({ hits: [] }))
+  ipcMain.handle('resume-profile:parse', async (_, payload) => {
+    let text = String(payload?.text || '').trim().slice(0, 50000)
+    let pdfBase64 = ''
+    const pickedPath = String(payload?.filePath || '')
+    if (pickedPath) {
+      const abs = path.resolve(pickedPath)
+      const pickedAt = dialogPickTimestamps.get(abs)
+      if (!dialogPickedPaths.has(abs) || !pickedAt || Date.now() - pickedAt > 5 * 60 * 1000) {
+        return { ok: false, error: 'File not selected via the picker' }
+      }
+      if (path.extname(abs).toLowerCase() === '.pdf') {
+        const buf = fs.readFileSync(abs)
+        if (!buf.length) {
+          return { ok: false, error: 'No data could be extracted from the CV. Please ensure the file is readable.' }
+        }
+        if (buf.length > 12 * 1024 * 1024) {
+          return { ok: false, error: 'Unable to process this CV. The file may be corrupted or in an unsupported format. Please try a different file.' }
+        }
+        pdfBase64 = buf.toString('base64')
+      }
+      if (!text) {
+        try {
+          text = String(await parsePlaybookFile(abs) || '').trim().slice(0, 50000)
+        } catch (e) {
+          if (!pdfBase64) {
+            return { ok: false, error: 'No data could be extracted from the CV. Please ensure the file is readable.' }
+          }
+        }
+      }
+    }
+    if (!pdfBase64 && !text) return { ok: false, error: 'That file had no readable text.' }
+    const provider = store.get('provider') || 'nvidia'
+    const apiKey = store.get(providers.getApiKeyField(provider))
+    if (!apiKey) return { ok: false, error: 'Add an API key in Advance, then upload the resume again.' }
+    let profile = null
+    try {
+      const model = providers.getModelForProvider(provider, (key) => store.get(key))
+      const baseURL = providers.resolveBaseURL(provider, (key) => store.get(key))
+      if (pdfBase64 && cvFileUploadSupported(baseURL)) {
+        try {
+          profile = await requestParsedCv({
+            baseURL,
+            apiKey,
+            model,
+            pdfBase64,
+          })
+        } catch (e) {
+          console.warn('[resume-profile] pdf upload rejected:', e?.status || 'network', e?.message || e)
+          if (e?.code !== 'RESPONSES_UNSUPPORTED') throw e
+          if (!text) throw new Error('No data could be extracted from the CV. Please ensure the file is readable.')
+        }
+      }
+      if (!profile && pdfBase64 && usesNvidiaDocumentParse(baseURL)) {
+        try {
+          const visual = await extractResumeFromPdfPages({
+            pdfBuffer: Buffer.from(pdfBase64, 'base64'),
+            apiKey,
+          })
+          if (visual) text = visual
+        } catch (e) {
+          console.warn('[resume-profile] page parse rejected:', e?.message || e)
+        }
+      }
+      if (!profile && text) {
+        try {
+          profile = await requestParsedCv({
+            baseURL,
+            apiKey,
+            model,
+            resumeText: text,
+          })
+        } catch (e) {
+          console.warn('[resume-profile] text parse rejected:', e?.status || 'network', e?.message || e)
+          if (e?.code !== 'RESPONSES_UNSUPPORTED') throw e
+        }
+      }
+      if (!profile && text) {
+        const raw = await getAiClient().completeChat(
+          provider,
+          apiKey,
+          { messages: buildResumeParseMessages(text), model, maxTokens: 4096 },
+          (key) => store.get(key),
+        )
+        profile = parseResumeProfileResponse(raw)
+      }
+    } catch (e) {
+      console.warn('[resume-profile] parse failed:', e?.message || e)
+      return { ok: false, error: e?.message || 'Failed to parse CV. Please try again.' }
+    }
+    if (!profile) return { ok: false, error: 'Could not extract any information from the CV' }
+    const now = Date.now()
+    profile = normalizeResumeProfile({
+      ...profile,
+      id: newResumeId(),
+      sourceFileName: String(payload?.sourceName || '').slice(0, 200),
+      createdAt: now,
+      updatedAt: now,
+    })
+    const library = [profile, ...normalizeResumeLibrary(store.get('resumeLibrary'))].slice(0, 20)
+    store.set('resumeLibrary', library)
+    store.set('activeResumeId', profile.id)
+    store.set('resumeProfile', profile)
+    store.set('interviewTopic', topicFromResume(profile))
+    profileContextCache.clear()
     return {
-      ok: keyword?.ok !== false && vector?.ok !== false && (remote?.ok !== false || remote?.skipped),
-      keyword,
-      vector,
-      remote,
+      ok: true,
+      profile,
+      library,
+      activeResumeId: profile.id,
+      topic: store.get('interviewTopic') || '',
     }
   })
-  ipcMain.handle('vector-memory:clear', () => vectorMemory.clearAll())
-  ipcMain.handle('vector-memory:stats', () => vectorMemory.stats())
-  ipcMain.handle('memory:search-past-meetings', async (_, query) => {
-    const q = String(query || '').trim()
-    if (!q) return { hits: [] }
-    const hits = await vectorMemory.searchPastMeetings(q, {
-      maxResults: 8,
-      meetingSessions: meetingSessions.list(),
+  ipcMain.handle('mode-document:parse', async (_, payload) => {
+    let text = String(payload?.text || '').trim().slice(0, 50000)
+    let pdfBase64 = ''
+    const kind = payload?.kind === 'general' ? 'general' : 'meeting'
+    const pickedPath = String(payload?.filePath || '')
+    if (pickedPath) {
+      const abs = path.resolve(pickedPath)
+      const pickedAt = dialogPickTimestamps.get(abs)
+      if (!dialogPickedPaths.has(abs) || !pickedAt || Date.now() - pickedAt > 5 * 60 * 1000) {
+        return { ok: false, error: 'File not selected via the picker' }
+      }
+      if (path.extname(abs).toLowerCase() === '.pdf') {
+        try {
+          const buf = fs.readFileSync(abs)
+          if (buf.length && buf.length <= 12 * 1024 * 1024) pdfBase64 = buf.toString('base64')
+        } catch {
+          pdfBase64 = ''
+        }
+      }
+      if (!text) {
+        try {
+          text = String(await parsePlaybookFile(abs) || '').trim().slice(0, 50000)
+        } catch (e) {
+          if (!pdfBase64) return { ok: false, error: 'That file had no readable text.' }
+        }
+      }
+    }
+    const provider = store.get('provider') || 'nvidia'
+    const apiKey = store.get(providers.getApiKeyField(provider))
+    if (!apiKey) return { ok: false, error: 'Add an API key in Advance, then upload the document again.' }
+    const model = providers.getModelForProvider(provider, (key) => store.get(key))
+    const baseURL = providers.resolveBaseURL(provider, (key) => store.get(key))
+    if ((!text || text.length < 40) && pdfBase64 && usesNvidiaDocumentParse(baseURL)) {
+      try {
+        const visual = await extractResumeFromPdfPages({
+          pdfBuffer: Buffer.from(pdfBase64, 'base64'),
+          apiKey,
+        })
+        if (visual) text = visual
+      } catch (e) {
+        console.warn('[mode-document] page parse rejected:', e?.message || e)
+      }
+    }
+    if (!text) return { ok: false, error: 'That file had no readable text.' }
+    let document = null
+    try {
+      const raw = await getAiClient().completeChat(
+        provider,
+        apiKey,
+        { messages: buildDocumentParseMessages(text), model, maxTokens: 4096 },
+        (key) => store.get(key),
+      )
+      document = parseDocumentResponse(raw)
+    } catch (e) {
+      console.warn('[mode-document] parse failed:', e?.message || e)
+      return { ok: false, error: e?.message || 'Could not structure that document.' }
+    }
+    if (!document) return { ok: false, error: 'Could not structure that document.' }
+    const now = Date.now()
+    document = normalizeDocument({
+      ...document,
+      id: newContextId('doc'),
+      sourceFileName: String(payload?.sourceName || '').slice(0, 200),
+      createdAt: now,
+      updatedAt: now,
     })
-    return { hits }
+    if (kind === 'meeting') {
+      const library = [document, ...normalizeDocumentLibrary(store.get('meetingDocuments'))].slice(0, 20)
+      store.set('meetingDocuments', library)
+      store.set('activeMeetingDocumentId', document.id)
+      profileContextCache.clear()
+      return { ok: true, document, documents: library, activeId: document.id }
+    }
+    const purposeId = String(payload?.purposeId || '')
+    const purposes = normalizePurposeLibrary(store.get('generalPurposes'))
+    const index = purposes.findIndex((purpose) => purpose.id === purposeId)
+    if (index < 0) return { ok: false, error: 'Save a purpose first, then upload its document.' }
+    const documents = [document, ...normalizeDocumentLibrary(purposes[index].documents)].slice(0, 20)
+    purposes[index] = {
+      ...purposes[index],
+      documents,
+      activeDocumentId: document.id,
+      document,
+      updatedAt: now,
+    }
+    store.set('generalPurposes', purposes)
+    store.set('activeGeneralPurposeId', purposeId)
+    profileContextCache.clear()
+    return { ok: true, document, purposes, activeId: purposeId }
   })
   ipcMain.handle('meeting-sessions:list', () => meetingSessions.list())
   ipcMain.handle('meeting-sessions:get', (_, id) => meetingSessions.get(String(id || '')))
@@ -3935,14 +3996,8 @@ function setupIPC() {
     const result = await generateFollowUpDraft(session, { store, getAiClient })
     return { ok: true, ...result }
   })
-  ipcMain.handle('meeting-sessions:delete', (_, id) => {
-    vectorMemory.removeSession(String(id || ''))
-    return meetingSessions.remove(id)
-  })
-  ipcMain.handle('meeting-sessions:clear', () => {
-    vectorMemory.clearAll()
-    return meetingSessions.clearAll()
-  })
+  ipcMain.handle('meeting-sessions:delete', (_, id) => meetingSessions.remove(id))
+  ipcMain.handle('meeting-sessions:clear', () => meetingSessions.clearAll())
   ipcMain.handle('launcher:toggle-session', async () => {
     if (sessionActive) await stopSession()
     else requestSessionStart()
@@ -3961,13 +4016,8 @@ function setupIPC() {
     return true
   })
   ipcMain.handle('hindsight-local:status', () => ({
-    running: hindsightLocalServer.isRunning(),
-    port: HINDSIGHT_LOCAL_PORT,
-    autoStart: store.get('hindsightAutoStartEnabled') === true,
-    url: String(store.get('hindsightApiUrl') || '').trim(),
-    provider: String(store.get('hindsightProvider') || 'off'),
-    vector: vectorMemory.stats(),
-    hindsight: hindsightAdapter.status(),
+    running: false,
+    skipped: true,
   }))
   ipcMain.handle('phone-link:status', () => phoneLink.getStatus())
   ipcMain.handle('phone-link:regenerate-token', async () => {
@@ -4076,9 +4126,7 @@ function setupIPC() {
   ipcMain.handle('set-store', (_, key, value) => {
     let stored = value
     if (key === 'assistAutoTrigger') {
-      const v = !!value
-      store.set('assistAutoTrigger', v)
-      sendToOverlay('overlay-display-update', { assistAutoTrigger: v })
+      setAssistAutoTriggerEnabled(value)
       return true
     }
     if (key === 'answerStyle') {
@@ -4110,6 +4158,27 @@ function setupIPC() {
       const v = normalizeQuestionDetection(value)
       store.set('questionDetection', v)
       sendToOverlay('overlay-display-update', { questionDetection: v })
+      return true
+    }
+    if (key === 'questionDetectionEngine') {
+      const v = normalizeDetectionEngine(value)
+      store.set('questionDetectionEngine', v)
+      sendToOverlay('overlay-display-update', { questionDetectionEngine: v })
+      return true
+    }
+    if (key === 'questionRepeatSensitivity') {
+      // Read by the main process at detection time — nothing to push to the overlay.
+      store.set('questionRepeatSensitivity', normalizeRepeatSensitivity(value))
+      return true
+    }
+    if (key === 'transcriptDurationSeconds') {
+      const v = normalizeTranscriptDurationSeconds(value)
+      store.set('transcriptDurationSeconds', v)
+      sendToOverlay('overlay-display-update', { transcriptDurationSeconds: v })
+      return true
+    }
+    if (key === 'chatFallbackProvider') {
+      store.set('chatFallbackProvider', normalizeFallbackProviderId(value))
       return true
     }
     if (key === 'meetingListenLanguage') {
@@ -4158,8 +4227,7 @@ function setupIPC() {
       return true
     }
     if (key === 'hindsightAutoStartEnabled') {
-      store.set('hindsightAutoStartEnabled', !!value)
-      void syncHindsightAutoStart()
+      store.set('hindsightAutoStartEnabled', false)
       return true
     }
     if (key === 'phoneLinkEnabled') {
@@ -4173,16 +4241,12 @@ function setupIPC() {
       return true
     }
     if (key === 'referenceVectorIndexEnabled') {
-      store.set('referenceVectorIndexEnabled', !!value)
-      // Cached profile blocks may embed retrieval results from the old setting.
+      store.set('referenceVectorIndexEnabled', false)
       profileContextCache.clear()
-      if (!!value) scheduleReferenceVectorEnrichment()
       return true
     }
     if (key === 'vectorMemoryEnabled') {
-      store.set('vectorMemoryEnabled', !!value)
-      // Turning it on mid-session: run migration/maintenance now instead of next launch.
-      if (!!value) scheduleVectorMemoryMaintenance()
+      store.set('vectorMemoryEnabled', false)
       return true
     }
     if (key === 'openAtLogin') {
@@ -4230,14 +4294,70 @@ function setupIPC() {
     if (key === 'resumeContext') {
       stored = String(value || '').slice(0, 50000)
       store.set('resumeContext', stored)
-      store.set('resumeTree', parseResumeTree(stored))
+      profileContextCache.clear()
+      return true
+    }
+    if (key === 'resumeLibrary') {
+      stored = normalizeResumeLibrary(value)
+      store.set('resumeLibrary', stored)
+      const activeId = String(store.get('activeResumeId') || '')
+      const stillThere = stored.some((resume) => resume.id === activeId)
+      const nextId = stillThere ? activeId : stored[0]?.id || ''
+      store.set('activeResumeId', nextId)
+      store.set('interviewTopic', topicFromResume(activeResume(stored, nextId)))
+      store.set('resumeProfile', activeResume(stored, nextId) || {})
+      profileContextCache.clear()
+      return true
+    }
+    if (key === 'activeResumeId') {
+      const library = normalizeResumeLibrary(store.get('resumeLibrary'))
+      const nextId = library.some((resume) => resume.id === String(value || ''))
+        ? String(value || '')
+        : library[0]?.id || ''
+      store.set('activeResumeId', nextId)
+      store.set('interviewTopic', topicFromResume(activeResume(library, nextId)))
+      store.set('resumeProfile', activeResume(library, nextId) || {})
+      profileContextCache.clear()
+      return true
+    }
+    if (key === 'meetingPrompt') {
+      store.set('meetingPrompt', String(value || '').slice(0, 4000))
+      profileContextCache.clear()
+      return true
+    }
+    if (key === 'meetingDocuments') {
+      const library = normalizeDocumentLibrary(value)
+      store.set('meetingDocuments', library)
+      const activeId = String(store.get('activeMeetingDocumentId') || '')
+      store.set('activeMeetingDocumentId', library.some((doc) => doc.id === activeId) ? activeId : '')
+      profileContextCache.clear()
+      return true
+    }
+    if (key === 'activeMeetingDocumentId') {
+      const library = normalizeDocumentLibrary(store.get('meetingDocuments'))
+      const nextId = library.some((doc) => doc.id === String(value || '')) ? String(value || '') : ''
+      store.set('activeMeetingDocumentId', nextId)
+      profileContextCache.clear()
+      return true
+    }
+    if (key === 'generalPurposes') {
+      const library = normalizePurposeLibrary(value)
+      store.set('generalPurposes', library)
+      const activeId = String(store.get('activeGeneralPurposeId') || '')
+      store.set('activeGeneralPurposeId', library.some((purpose) => purpose.id === activeId) ? activeId : '')
+      profileContextCache.clear()
+      return true
+    }
+    if (key === 'activeGeneralPurposeId') {
+      const library = normalizePurposeLibrary(store.get('generalPurposes'))
+      const nextId = library.some((purpose) => purpose.id === String(value || '')) ? String(value || '') : ''
+      store.set('activeGeneralPurposeId', nextId)
       profileContextCache.clear()
       return true
     }
     if (key === 'jdContext') {
       stored = String(value || '').slice(0, 30000)
       store.set('jdContext', stored)
-      store.set('jdTree', parseJdTree(stored))
       profileContextCache.clear()
       return true
     }
@@ -4250,12 +4370,6 @@ function setupIPC() {
       stored = normalizePromptsList(Array.isArray(value) ? value : [])
       store.set('contextPrompts', stored)
       profileContextCache.clear()
-      try {
-        contextVectorStore.indexAllPrompts(stored, store)
-        scheduleReferenceVectorEnrichment()
-      } catch (e) {
-        console.warn('[context-index] reindex:', e?.message || e)
-      }
       const activeId = store.get('activeContextPromptId')
       if (activeId && !stored.some((p) => p.id === activeId)) {
         store.set('activeContextPromptId', stored[0]?.id || '')
@@ -4567,6 +4681,7 @@ function setupIPC() {
     return { ok: false }
   })
   ipcMain.handle('ask-ai-with-transcript', (_, q, t, meta) => handleAskAI(q, t, meta))
+  ipcMain.handle('detect-question', (_, payload) => handleDetectQuestion(payload))
   ipcMain.handle('session-active', () => sessionActive)
   ipcMain.handle('get-hotkeys', () => store.get('hotkeys') || hotkeys.DEFAULT_HOTKEYS)
   ipcMain.handle('update-hotkey', (_, action, acc) => hotkeys.updateHotkey(action, acc))
@@ -4763,14 +4878,17 @@ function setupIPC() {
         sendToOverlay('overlay-display-update', overlayFontPayloadForAutoScrollToggle(store, v))
       }
       if (opts.assistAutoTrigger != null) {
-        const v = !!opts.assistAutoTrigger
-        store.set('assistAutoTrigger', v)
-        sendToOverlay('overlay-display-update', { assistAutoTrigger: v })
+        setAssistAutoTriggerEnabled(opts.assistAutoTrigger)
       }
       if (opts.questionDetection) {
         const v = normalizeQuestionDetection(opts.questionDetection)
         store.set('questionDetection', v)
         sendToOverlay('overlay-display-update', { questionDetection: v })
+      }
+      if (opts.questionDetectionEngine) {
+        const v = normalizeDetectionEngine(opts.questionDetectionEngine)
+        store.set('questionDetectionEngine', v)
+        sendToOverlay('overlay-display-update', { questionDetectionEngine: v })
       }
       if (opts.answerStructure) {
         store.set('answerStructure', normalizeAnswerStructure(opts.answerStructure))
@@ -4883,7 +5001,6 @@ async function initApp() {
   })
   createOverlayWindow()
   showOverlay()
-  void syncHindsightAutoStart()
   void syncPhoneLinkAutoStart()
   applyTaskbarVisibility()
 
@@ -4892,7 +5009,6 @@ async function initApp() {
   setTimeout(() => {
     startMeetingForegroundPoll()
     startCalendarReminderPoll()
-    scheduleVectorMemoryMaintenance()
   }, 3000)
 
   // Display topology changes: keep the overlay on-screen when monitors are
@@ -5064,8 +5180,6 @@ app.on('will-quit', () => {
   phoneLink.stop()
   phoneLinkMic.stop()
   phoneMirror.stop()
-  embeddingClient.shutdown()
-  vectorMemory.close()
 })
 app.on('second-instance', () => {
   if (!overlayWindow || overlayWindow.isDestroyed()) {

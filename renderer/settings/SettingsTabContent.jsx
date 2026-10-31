@@ -59,14 +59,18 @@ export default function SettingsTabContent(props) {
         onInterviewCustomInstructionsBlur={props.onInterviewCustomInstructionsBlur}
         aiResponseLanguageUi={props.aiResponseLanguageUi}
         onAiResponseLanguageChange={props.onAiResponseLanguageChange}
-        conversationFollowUpsEnabled={props.conversationFollowUpsEnabled}
-        onConversationFollowUpsChange={props.onConversationFollowUpsChange}
+        transcriptDurationSeconds={props.transcriptDurationSeconds}
+        onTranscriptDurationChange={props.onTranscriptDurationChange}
         overlayAnswerViewUi={props.overlayAnswerViewUi}
         onAnswerViewChange={props.onAnswerViewChange}
         assistAutoTriggerUi={props.assistAutoTriggerUi}
         onAssistAutoTriggerChange={props.onAssistAutoTriggerChange}
         questionDetectionUi={props.questionDetectionUi}
         onQuestionDetectionChange={props.onQuestionDetectionChange}
+        questionDetectionEngineUi={props.questionDetectionEngineUi}
+        onQuestionDetectionEngineChange={props.onQuestionDetectionEngineChange}
+        questionRepeatSensitivityUi={props.questionRepeatSensitivityUi}
+        onQuestionRepeatSensitivityChange={props.onQuestionRepeatSensitivityChange}
         overlayAnswerAutoScrollUi={props.overlayAnswerAutoScrollUi}
         onOverlayAnswerAutoScrollChange={props.onOverlayAnswerAutoScrollChange}
         openAtLoginUi={props.openAtLoginUi}
@@ -145,7 +149,7 @@ export default function SettingsTabContent(props) {
 
   if (activeTab === 'privacy') {
     return (
-      <PrivacySettingsPanel onSelectIntelligenceTab={() => props.onSelectIntelligenceTab?.()} />
+      <PrivacySettingsPanel />
     )
   }
 

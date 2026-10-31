@@ -208,7 +208,7 @@ export default function MeetingDetailsModal({ sessionId, onClose, followUpDraftE
             disabled={!session || followUpBusy}
             onClick={() => void draftFollowUp()}
             className="btn-glow px-4 py-2 text-xs"
-            title={followUpDraftEnabled ? 'AI draft when chat key is set' : 'Enable Smart follow-up drafts in Intelligence'}
+            title={followUpDraftEnabled ? 'AI draft when chat key is set' : 'Turn on follow-up drafts in Meeting settings'}
           >
             {followUpBusy ? 'Drafting…' : 'Follow-up email'}
           </button>

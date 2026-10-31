@@ -43,6 +43,21 @@ export default function AiProviderPanel({
     [chatOpts],
   )
 
+  // Opt-in second provider for when the active one fails (403 / rate limit / timeout). Only providers
+  // with a saved key are offered, and never the active one.
+  const fallbackOptions = useMemo(
+    () => [
+      { id: 'none', label: 'None' },
+      ...(providerMeta || [])
+        .filter((pm) => pm.id !== provider && keySetMap?.[pm.keyField])
+        .map((pm) => ({ id: pm.id, label: pm.label })),
+    ],
+    [providerMeta, provider, keySetMap],
+  )
+  const fallbackValue = fallbackOptions.some((o) => o.id === snap?.chatFallbackProvider)
+    ? snap.chatFallbackProvider
+    : 'none'
+
   return (
     <SettingsPanelShell embedded={embedded}>
       {!snap || !providerMeta.length ? (
@@ -227,6 +242,31 @@ export default function AiProviderPanel({
                 </p>
               )}
             </>
+          ) : null}
+
+          {chatVendor && snap ? (
+            <div className="settings-advance-ai-block settings-advance-ai-divider settings-advance-ai-model-row">
+              <div className="min-w-0 flex-1">
+                <p className="settings-advance-ai-label">Fallback provider</p>
+                <p className="settings-advance-ai-hint" style={{ marginTop: 2 }}>
+                  Used if {chatVendor.label} fails before answering (403, rate limit, timeout) — for answers
+                  and auto-answer detection. Only providers with a saved key are listed. Screen asks need a
+                  vision-capable fallback.
+                </p>
+              </div>
+              <CheckmarkSelect
+                value={fallbackValue}
+                onChange={(v) => {
+                  const next = v === 'none' ? '' : v
+                  onPatchSnap('chatFallbackProvider', next)
+                  onSave('chatFallbackProvider', next)
+                }}
+                options={fallbackOptions}
+                menuMinWidth={220}
+                className="settings-advance-model-dd"
+                aria-label="Fallback provider"
+              />
+            </div>
           ) : null}
         </div>
       )}

@@ -6,9 +6,26 @@ const {
   resolveNvidiaChatModel,
   filterActiveNvidiaChatModels,
   nvidiaFallbackModelsFor,
+  isReasoningNvidiaModel,
+  nvidiaFastFallbackModelsFor,
   catalogNvidiaVisionModels,
   DEFAULT_NVIDIA_CHAT_MODEL,
 } = require('../lib/nvidiaChatModels.cjs')
+
+test('reasoning models are recognised by name', () => {
+  assert.equal(isReasoningNvidiaModel('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'), true)
+  assert.equal(isReasoningNvidiaModel('vendor/some-thinking-model'), true)
+  assert.equal(isReasoningNvidiaModel('meta/llama-3.2-11b-vision-instruct'), false)
+  assert.equal(isReasoningNvidiaModel(''), false)
+})
+
+test('latency-bound fallbacks keep the answer chain order but drop reasoning models', () => {
+  const full = nvidiaFallbackModelsFor(DEFAULT_NVIDIA_CHAT_MODEL)
+  const fast = nvidiaFastFallbackModelsFor(DEFAULT_NVIDIA_CHAT_MODEL)
+  assert.ok(full.some(isReasoningNvidiaModel), 'the answer chain does include a reasoning model')
+  assert.ok(fast.length > 0 && !fast.some(isReasoningNvidiaModel))
+  assert.deepEqual(fast, full.filter((id) => !isReasoningNvidiaModel(id)), 'order is preserved')
+})
 
 test('mistral-small-4 is marked deprecated on NIM', () => {
   assert.equal(isDeprecatedNvidiaChatModel('mistralai/mistral-small-4-119b-2603'), true)

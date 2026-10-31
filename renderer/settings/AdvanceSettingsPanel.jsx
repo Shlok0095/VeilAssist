@@ -1,15 +1,14 @@
 // Copyright (c) 2026 VeilAssist. Advanced settings.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, Brain, Mic, Monitor, Smartphone } from 'lucide-react'
+import { Bot, Mic, Monitor, Smartphone } from 'lucide-react'
 import OverlayAdvancePanel from './OverlayAdvancePanel'
 import { SettingsCollapsible, SettingsPage } from './SettingsComponents'
 import AiProviderPanel from './AiProviderPanel'
 import SpeechSettingsPanel from './SpeechSettingsPanel'
 import PhoneLinkSettingsPanel from './PhoneLinkSettingsPanel'
-import IntelligenceSettingsPanel from './IntelligenceSettingsPanel'
 
-const SECTION_IDS = ['ai', 'speech', 'phone', 'intelligence', 'overlay']
+const SECTION_IDS = ['ai', 'speech', 'phone', 'overlay']
 
 function resolveOpenSection(advanceOpenSection) {
   const target = String(advanceOpenSection || '').toLowerCase()
@@ -45,21 +44,17 @@ export default function AdvanceSettingsPanel(props) {
       props.sttModeUi === 'cloud' && props.currentSttMeta?.label
         ? `${sttMode} · ${props.currentSttMeta.label}`
         : sttMode
-    const recall = props.snap?.hindsightProvider
-    const intelligence =
-      recall === 'hindsight' ? 'Hindsight' : recall === 'gateway' ? 'Gateway' : 'Local'
     const overlay =
       props.overlayTeleprompterUi || props.overlayFocusModeUi
         ? props.overlayTeleprompterUi
           ? 'Teleprompter'
           : 'Focus'
         : 'Standard'
-    return { ai, sttName, intelligence, overlay }
+    return { ai, sttName, overlay }
   }, [
     props.chatKeySaved,
     props.sttModeUi,
     props.currentSttMeta,
-    props.snap?.hindsightProvider,
     props.overlayTeleprompterUi,
     props.overlayFocusModeUi,
   ])
@@ -170,34 +165,6 @@ export default function AdvanceSettingsPanel(props) {
             onPhoneMirrorMaxSizeChange={props.onPhoneMirrorMaxSizeChange}
             phoneMirrorIncludeInAsk={props.phoneMirrorIncludeInAsk}
             onPhoneMirrorIncludeInAskChange={props.onPhoneMirrorIncludeInAskChange}
-          />
-        </SettingsCollapsible>
-
-        <SettingsCollapsible
-          variant="advance"
-          title="Intelligence"
-          description="Route, recall, meetings"
-          icon={Brain}
-          badge={status.intelligence}
-          open={expanded === 'intelligence'}
-          onOpenChange={() => toggleSection('intelligence')}
-          className="settings-advance-section"
-        >
-          <IntelligenceSettingsPanel
-            embedded
-            snap={props.snap}
-            onPatchSnap={props.onPatchSnap}
-            onSave={props.onSave}
-            intelligenceFlags={props.intelligenceFlags}
-            advancedGroupOrder={props.advancedGroupOrder}
-            hindsightApiUrl={props.hindsightApiUrl}
-            onHindsightApiUrlChange={props.onHindsightApiUrlChange}
-            onHindsightApiUrlBlur={props.onHindsightApiUrlBlur}
-            hindsightApiKey={props.hindsightApiKey}
-            onHindsightApiKeyChange={props.onHindsightApiKeyChange}
-            onSaveHindsightApiKey={props.onSaveHindsightApiKey}
-            hindsightKeySaved={props.hindsightKeySaved}
-            onHindsightAutoStartChange={props.onHindsightAutoStartChange}
           />
         </SettingsCollapsible>
 

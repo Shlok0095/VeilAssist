@@ -79,6 +79,17 @@ export default function Settings() {
   const [draftName, setDraftName] = useState('')
   const [draftContent, setDraftContent] = useState('')
   const [draftNotesSections, setDraftNotesSections] = useState([])
+  const [resumeLibrary, setResumeLibrary] = useState([])
+  const [activeResumeId, setActiveResumeId] = useState('')
+  const [resumeBusy, setResumeBusy] = useState(false)
+  const [resumeError, setResumeError] = useState('')
+  const [meetingPrompt, setMeetingPrompt] = useState('')
+  const [meetingDocuments, setMeetingDocuments] = useState([])
+  const [activeMeetingDocumentId, setActiveMeetingDocumentId] = useState('')
+  const [generalPurposes, setGeneralPurposes] = useState([])
+  const [activeGeneralPurposeId, setActiveGeneralPurposeId] = useState('')
+  const [documentBusy, setDocumentBusy] = useState(false)
+  const [documentError, setDocumentError] = useState('')
   const [resumeContext, setResumeContext] = useState('')
   const [jdContext, setJdContext] = useState('')
   const [resumeSourceName, setResumeSourceName] = useState('')
@@ -112,12 +123,14 @@ export default function Settings() {
   const [responseFormatUi, setResponseFormatUi] = useState('bullets')
   const [answerLengthUi, setAnswerLengthUi] = useState('medium')
   const [questionDetectionUi, setQuestionDetectionUi] = useState('high')
+  const [questionDetectionEngineUi, setQuestionDetectionEngineUi] = useState('ai')
+  const [questionRepeatSensitivityUi, setQuestionRepeatSensitivityUi] = useState('balanced')
   const [assistAutoTriggerUi, setAssistAutoTriggerUi] = useState(false)
   const [overlayAnswerAutoScrollUi, setOverlayAnswerAutoScrollUi] = useState(true)
   const [meetingListenLanguageUi, setMeetingListenLanguageUi] = useState('en')
   const [aiResponseLanguageUi, setAiResponseLanguageUi] = useState('')
   const [interviewCustomInstructionsUi, setInterviewCustomInstructionsUi] = useState('')
-  const [conversationFollowUpsEnabled, setConversationFollowUpsEnabled] = useState(false)
+  const [transcriptDurationSeconds, setTranscriptDurationSeconds] = useState(30)
   const [overlayAnswerViewUi, setOverlayAnswerViewUi] = useState('latest')
   const [overlayTeleprompterUi, setOverlayTeleprompterUi] = useState(false)
   const [overlayFocusModeUi, setOverlayFocusModeUi] = useState(false)
@@ -141,9 +154,6 @@ export default function Settings() {
   const [calendarRemindersEnabled, setCalendarRemindersEnabled] = useState(true)
   const [calendarReminderMinutes, setCalendarReminderMinutes] = useState(5)
   const [meetingForegroundDetectionEnabled, setMeetingForegroundDetectionEnabled] = useState(true)
-  const [intelligenceFlagsMeta, setIntelligenceFlagsMeta] = useState({ flags: [], coreFlagKeys: [], advancedGroupOrder: [] })
-  const [hindsightApiUrl, setHindsightApiUrl] = useState('')
-  const [hindsightApiKey, setHindsightApiKey] = useState('')
   const [openAtLoginUi, setOpenAtLoginUi] = useState(false)
   const [verboseDebugLogging, setVerboseDebugLogging] = useState(false)
   const [doNotSaveMeetingsEnabled, setDoNotSaveMeetingsEnabled] = useState(false)
@@ -301,8 +311,6 @@ export default function Settings() {
         setGoogleCalendarConnectedEmail(s.googleCalendarConnectedEmail || '')
         setCalendarRemindersEnabled(s.calendarRemindersEnabled !== false)
         setMeetingForegroundDetectionEnabled(s.meetingForegroundDetectionEnabled !== false)
-        setHindsightApiUrl(String(s.hindsightApiUrl || ''))
-        setHindsightApiKey(s.hindsightApiKey ? '••••••••' : '')
         setOpenAtLoginUi(s.openAtLogin === true)
         setVerboseDebugLogging(s.verboseDebugLogging === true)
         setDoNotSaveMeetingsEnabled(s.doNotSaveMeetingsEnabled === true)
@@ -323,6 +331,13 @@ export default function Settings() {
         setContextPrompts(Array.isArray(s.contextPrompts) ? s.contextPrompts : [])
         setActiveContextPromptId(s.activeContextPromptId || '')
         setContextPromptHistory(Array.isArray(s.contextPromptHistory) ? s.contextPromptHistory : [])
+        setResumeLibrary(Array.isArray(s.resumeLibrary) ? s.resumeLibrary : [])
+        setActiveResumeId(String(s.activeResumeId || ''))
+        setMeetingPrompt(String(s.meetingPrompt || ''))
+        setMeetingDocuments(Array.isArray(s.meetingDocuments) ? s.meetingDocuments : [])
+        setActiveMeetingDocumentId(String(s.activeMeetingDocumentId || ''))
+        setGeneralPurposes(Array.isArray(s.generalPurposes) ? s.generalPurposes : [])
+        setActiveGeneralPurposeId(String(s.activeGeneralPurposeId || ''))
         setResumeContext(String(s.resumeContext || ''))
         setJdContext(String(s.jdContext || ''))
         setResumeSourceName(String(s.resumeSourceName || ''))
@@ -343,12 +358,18 @@ export default function Settings() {
         setResponseFormatUi(s.responseFormat === 'conversational' || s.responseFormat === 'example' ? s.responseFormat : 'bullets')
         setAnswerLengthUi(s.answerLength === 'short' || s.answerLength === 'long' ? s.answerLength : 'medium')
         setQuestionDetectionUi(s.questionDetection === 'low' || s.questionDetection === 'medium' ? s.questionDetection : 'high')
+        setQuestionDetectionEngineUi(s.questionDetectionEngine === 'rules' ? 'rules' : 'ai')
+        setQuestionRepeatSensitivityUi(
+          s.questionRepeatSensitivity === 'strict' || s.questionRepeatSensitivity === 'lenient'
+            ? s.questionRepeatSensitivity
+            : 'balanced',
+        )
         setAssistAutoTriggerUi(s.assistAutoTrigger === true)
         setOverlayAnswerAutoScrollUi(s.overlayAnswerAutoScroll !== false)
         setMeetingListenLanguageUi(String(s.meetingListenLanguage || s.micListenLanguage || 'en'))
         setAiResponseLanguageUi(String(s.aiResponseLanguage || ''))
         setInterviewCustomInstructionsUi(String(s.interviewCustomInstructions || ''))
-        setConversationFollowUpsEnabled(s.conversationFollowUpsEnabled === true)
+        setTranscriptDurationSeconds([30, 60, 120, 180].includes(Number(s.transcriptDurationSeconds)) ? Number(s.transcriptDurationSeconds) : 30)
         setOverlayAnswerViewUi(s.overlayAnswerView === 'history' ? 'history' : 'latest')
         setOverlayTeleprompterUi(s.overlayTeleprompter === true)
         setOverlayFocusModeUi(s.overlayFocusMode === true)
@@ -421,25 +442,11 @@ export default function Settings() {
       .catch(console.error)
   }, [])
 
-  useEffect(() => {
-    if (!ipc) return
-    ipc.invoke('get-intelligence-flags')
-      .then((meta) => {
-        if (meta && typeof meta === 'object') setIntelligenceFlagsMeta(meta)
-      })
-      .catch(console.error)
-  }, [])
-
-
   const selectSettingsTab = useCallback((tabId, section = '') => {
     const nextTab = normalizeSettingsTabId(tabId)
     setActiveTab(nextTab)
     if (section) setAdvanceOpenSection(String(section).toLowerCase())
   }, [])
-
-  const selectIntelligenceTab = useCallback(() => {
-    selectSettingsTab('advance', 'intelligence')
-  }, [selectSettingsTab])
 
   useEffect(() => {
     if (!ipc) return
@@ -460,6 +467,9 @@ export default function Settings() {
     if (!ipc) return
     const onStealth = (_, v) => setStealthModeUi(!!v)
     const unsubStealth = ipc.on('stealth-mode-update', onStealth)
+    const unsubDisplay = ipc.on('overlay-display-update', (_, p) => {
+      if (p?.assistAutoTrigger != null) setAssistAutoTriggerUi(!!p.assistAutoTrigger)
+    })
     // ipcShim listeners receive (event, ...args) — payload is the second argument.
     const unsubToast = ipc.on('settings-toast', (_, payload) => {
       if (!payload || typeof payload !== 'object') return
@@ -471,6 +481,7 @@ export default function Settings() {
     })
     return () => {
       unsubStealth?.()
+      unsubDisplay?.()
       unsubToast?.()
     }
   }, [])
@@ -648,6 +659,13 @@ export default function Settings() {
     resumeContextRef.current = v
     setResumeContext(v)
     await save('resumeContext', v)
+    if (ipc) {
+      try {
+        await ipc.invoke('resume-profile:parse', { text: v })
+      } catch (e) {
+        console.warn('[profile] resume parse:', e?.message || e)
+      }
+    }
     if (sourceName !== undefined) {
       const n = String(sourceName || '').slice(0, 200)
       resumeSourceNameRef.current = n
@@ -691,6 +709,94 @@ export default function Settings() {
         window.setTimeout(() => setProfileSaveStatus('idle'), 2000)
       })
     }, 400)
+  }
+
+  const saveResumeLibrary = (next, activeId = activeResumeId) => {
+    setResumeLibrary(next)
+    const stillSelected = next.some((resume) => resume.id === activeId)
+    const nextActive = stillSelected ? activeId : next[0]?.id || ''
+    setActiveResumeId(nextActive)
+    void save('resumeLibrary', next)
+    if (nextActive !== activeId) void save('activeResumeId', nextActive)
+  }
+
+  const uploadInterviewResume = async () => {
+    if (!ipc) return
+    setResumeError('')
+    const { canceled, filePaths } = await ipc.invoke('show-open-dialog', {
+      properties: ['openFile'],
+      filters: [{ name: 'Documents', extensions: ['pdf', 'txt', 'md'] }],
+    })
+    if (canceled || !filePaths?.[0]) return
+    setResumeBusy(true)
+    try {
+      const result = await ipc.invoke('resume-profile:parse', {
+        filePath: filePaths[0],
+        sourceName: basename(filePaths[0]),
+      })
+      if (!result?.ok) {
+        setResumeError(result?.error || 'Could not extract that resume.')
+        return
+      }
+      setResumeLibrary(Array.isArray(result.library) ? result.library : [])
+      setActiveResumeId(String(result.activeResumeId || ''))
+    } catch (e) {
+      console.error('[profile] resume upload:', e)
+      setResumeError(e?.message || 'Upload failed.')
+    } finally {
+      setResumeBusy(false)
+    }
+  }
+
+  const uploadModeDocument = async (kind, purposeId) => {
+    if (!ipc) return
+    setDocumentError('')
+    const { canceled, filePaths } = await ipc.invoke('show-open-dialog', {
+      properties: ['openFile'],
+      filters: [{ name: 'Documents', extensions: ['pdf', 'txt', 'md'] }],
+    })
+    if (canceled || !filePaths?.[0]) return
+    setDocumentBusy(true)
+    try {
+      const result = await ipc.invoke('mode-document:parse', {
+        filePath: filePaths[0],
+        sourceName: basename(filePaths[0]),
+        kind,
+        purposeId,
+      })
+      if (!result?.ok) {
+        setDocumentError(result?.error || 'Could not structure that document.')
+        return
+      }
+      if (kind === 'meeting') {
+        setMeetingDocuments(Array.isArray(result.documents) ? result.documents : [])
+        setActiveMeetingDocumentId(String(result.activeId || ''))
+      } else {
+        setGeneralPurposes(Array.isArray(result.purposes) ? result.purposes : [])
+        setActiveGeneralPurposeId(String(result.activeId || ''))
+      }
+    } catch (e) {
+      console.error('[profile] document upload:', e)
+      setDocumentError(e?.message || 'Upload failed.')
+    } finally {
+      setDocumentBusy(false)
+    }
+  }
+
+  const saveMeetingDocuments = async (next, activeId = activeMeetingDocumentId) => {
+    setMeetingDocuments(next)
+    const nextActive = next.some((doc) => doc.id === activeId) ? activeId : ''
+    setActiveMeetingDocumentId(nextActive)
+    await save('meetingDocuments', next)
+    if (nextActive !== activeId) await save('activeMeetingDocumentId', nextActive)
+  }
+
+  const saveGeneralPurposes = async (next, activeId = activeGeneralPurposeId) => {
+    setGeneralPurposes(next)
+    const nextActive = next.some((purpose) => purpose.id === activeId) ? activeId : ''
+    setActiveGeneralPurposeId(nextActive)
+    await save('generalPurposes', next)
+    if (nextActive !== activeId) await save('activeGeneralPurposeId', nextActive)
   }
 
   const uploadProfileDoc = async (kind) => {
@@ -905,6 +1011,22 @@ export default function Settings() {
     await ipc?.invoke('apply-overlay-display', { questionDetection: next })
   }
 
+  const applyQuestionDetectionEngine = async (v) => {
+    const next = v === 'rules' ? 'rules' : 'ai'
+    setQuestionDetectionEngineUi(next)
+    patchSnap('questionDetectionEngine', next)
+    await save('questionDetectionEngine', next)
+    await ipc?.invoke('apply-overlay-display', { questionDetectionEngine: next })
+  }
+
+  const applyQuestionRepeatSensitivity = async (v) => {
+    const next = v === 'strict' || v === 'lenient' ? v : 'balanced'
+    setQuestionRepeatSensitivityUi(next)
+    patchSnap('questionRepeatSensitivity', next)
+    // Read by the main process at detection time, so no overlay push is needed.
+    await save('questionRepeatSensitivity', next)
+  }
+
   const applyAssistAutoTrigger = async (v) => {
     const enabled = !!v
     setAssistAutoTriggerUi(enabled)
@@ -954,13 +1076,6 @@ export default function Settings() {
 
   const onInterviewCustomInstructionsBlur = () => {
     void applyInterviewCustomInstructions()
-  }
-
-  const applyConversationFollowUps = async (v) => {
-    const enabled = !!v
-    setConversationFollowUpsEnabled(enabled)
-    patchSnap('conversationFollowUpsEnabled', enabled)
-    await save('conversationFollowUpsEnabled', enabled)
   }
 
   const applyOverlayAnswerView = async (v) => {
@@ -1032,11 +1147,11 @@ export default function Settings() {
     await save('uiColorScheme', next)
   }
 
-  const applyHindsightAutoStart = async (v) => {
-    const enabled = !!v
-    patchSnap('hindsightAutoStartEnabled', enabled)
-    if (enabled) patchSnap('hindsightProvider', 'gateway')
-    await save('hindsightAutoStartEnabled', enabled)
+  const applyTranscriptDuration = async (seconds) => {
+    const next = [30, 60, 120, 180].includes(Number(seconds)) ? Number(seconds) : 30
+    setTranscriptDurationSeconds(next)
+    patchSnap('transcriptDurationSeconds', next)
+    await save('transcriptDurationSeconds', next)
   }
 
   const applyPhoneLinkEnabled = async (v) => {
@@ -1236,7 +1351,6 @@ export default function Settings() {
           <SettingsTabContent
             activeTab={normalizeSettingsTabId(activeTab)}
             onSelectTab={selectSettingsTab}
-            onSelectIntelligenceTab={selectIntelligenceTab}
             advanceOpenSection={advanceOpenSection}
             snap={snap}
             providerMeta={providerMeta}
@@ -1272,8 +1386,8 @@ export default function Settings() {
             interviewCustomInstructionsUi={interviewCustomInstructionsUi}
             onInterviewCustomInstructionsChange={onInterviewCustomInstructionsChange}
             onInterviewCustomInstructionsBlur={onInterviewCustomInstructionsBlur}
-            conversationFollowUpsEnabled={conversationFollowUpsEnabled}
-            onConversationFollowUpsChange={applyConversationFollowUps}
+            transcriptDurationSeconds={transcriptDurationSeconds}
+            onTranscriptDurationChange={applyTranscriptDuration}
             showSetupBanner={showSetupBanner}
             onLaunchFromSetup={launchFromSetup}
             audioEnabled={audioEnabled}
@@ -1326,6 +1440,10 @@ export default function Settings() {
             onAssistAutoTriggerChange={applyAssistAutoTrigger}
             questionDetectionUi={questionDetectionUi}
             onQuestionDetectionChange={applyQuestionDetection}
+            questionDetectionEngineUi={questionDetectionEngineUi}
+            onQuestionDetectionEngineChange={applyQuestionDetectionEngine}
+            questionRepeatSensitivityUi={questionRepeatSensitivityUi}
+            onQuestionRepeatSensitivityChange={applyQuestionRepeatSensitivity}
             overlayAnswerAutoScrollUi={overlayAnswerAutoScrollUi}
             onOverlayAnswerAutoScrollChange={applyOverlayAnswerAutoScroll}
             openAtLoginUi={openAtLoginUi}
@@ -1377,21 +1495,6 @@ export default function Settings() {
             onCalendarReminderMinutesChange={(v) => { setCalendarReminderMinutes(v); save('calendarReminderMinutes', v) }}
             meetingForegroundDetectionEnabled={meetingForegroundDetectionEnabled}
             onMeetingForegroundDetectionChange={(v) => { setMeetingForegroundDetectionEnabled(v); save('meetingForegroundDetectionEnabled', v) }}
-            intelligenceFlags={intelligenceFlagsMeta.flags}
-            advancedGroupOrder={intelligenceFlagsMeta.advancedGroupOrder}
-            hindsightApiUrl={hindsightApiUrl}
-            onHindsightApiUrlChange={setHindsightApiUrl}
-            onHindsightApiUrlBlur={() => save('hindsightApiUrl', hindsightApiUrl.trim())}
-            hindsightApiKey={hindsightApiKey}
-            onHindsightApiKeyChange={setHindsightApiKey}
-            onSaveHindsightApiKey={() => {
-              if (hindsightApiKey.trim() && hindsightApiKey !== '••••••••') {
-                saveKey('hindsightApiKey', hindsightApiKey)
-                setHindsightApiKey('••••••••')
-              }
-            }}
-            hindsightKeySaved={!!keySetMap.hindsightApiKey}
-            onHindsightAutoStartChange={applyHindsightAutoStart}
             phoneLinkEnabled={snap?.phoneLinkEnabled === true}
             onPhoneLinkEnabledChange={applyPhoneLinkEnabled}
             phoneLinkRemoteMicEnabled={snap?.phoneLinkRemoteMicEnabled === true}
@@ -1419,6 +1522,54 @@ export default function Settings() {
             logoSrc={brandLogo}
             appVersion={appVersion}
             profilePanel={{
+              resumeLibrary,
+              activeResumeId,
+              resumeBusy,
+              resumeError,
+              onUploadResume: () => void uploadInterviewResume(),
+              onSelectResume: (id) => {
+                setActiveResumeId(id)
+                void save('activeResumeId', id)
+              },
+              onChangeResumes: (next) => saveResumeLibrary(next, activeResumeId),
+              onDeleteResume: (id) => saveResumeLibrary(resumeLibrary.filter((resume) => resume.id !== id), activeResumeId),
+              meetingPrompt,
+              meetingDocuments,
+              activeMeetingDocumentId,
+              generalPurposes,
+              activeGeneralPurposeId,
+              documentBusy,
+              documentError,
+              onMeetingPromptChange: (text) => {
+                setMeetingPrompt(text)
+                void save('meetingPrompt', text)
+              },
+              onUploadMeetingDocument: () => void uploadModeDocument('meeting'),
+              onSelectMeetingDocument: (id) => {
+                setActiveMeetingDocumentId(id)
+                void save('activeMeetingDocumentId', id)
+              },
+              onChangeMeetingDocuments: (next) => saveMeetingDocuments(next, activeMeetingDocumentId),
+              onDeleteMeetingDocument: (id) => saveMeetingDocuments(meetingDocuments.filter((doc) => doc.id !== id), activeMeetingDocumentId),
+              onCreatePurpose: ({ name, prompt }) => {
+                const id = `purpose-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+                const next = [
+                  { id, name, prompt, documents: [], activeDocumentId: '', document: null, createdAt: Date.now(), updatedAt: Date.now() },
+                  ...generalPurposes,
+                ].slice(0, 20)
+                void saveGeneralPurposes(next, id)
+              },
+              onUploadPurposeDocument: (id) => void uploadModeDocument('general', id),
+              onSelectPurpose: (id) => {
+                setActiveGeneralPurposeId(id)
+                void save('activeGeneralPurposeId', id)
+              },
+              onChangePurpose: (purpose) =>
+                saveGeneralPurposes(
+                  generalPurposes.map((item) => (item.id === purpose.id ? { ...item, ...purpose, updatedAt: Date.now() } : item)),
+                  activeGeneralPurposeId,
+                ),
+              onDeletePurpose: (id) => saveGeneralPurposes(generalPurposes.filter((purpose) => purpose.id !== id), activeGeneralPurposeId),
               contextPrompts,
               activeContextPromptId,
               activePrompt,
@@ -1443,27 +1594,6 @@ export default function Settings() {
               onUploadFile: uploadReferenceFile,
               onRemoveFile: removeReferenceFile,
               onToggleTemplates: () => setShowModeTemplates((v) => !v),
-              onResumeChange,
-              onResumeBlur: () => {
-                if (resumeSaveTimerRef.current) {
-                  clearTimeout(resumeSaveTimerRef.current)
-                  resumeSaveTimerRef.current = null
-                }
-                void saveResumeContext(resumeContextRef.current, resumeSourceNameRef.current)
-              },
-              onJdChange,
-              onJdBlur: () => {
-                if (jdSaveTimerRef.current) {
-                  clearTimeout(jdSaveTimerRef.current)
-                  jdSaveTimerRef.current = null
-                }
-                void saveJdContext(jdContextRef.current)
-              },
-              onUploadResume: () => void uploadProfileDoc('resume'),
-              onUploadJd: () => void uploadProfileDoc('jd'),
-              onClearResume: () => void saveResumeContext('', ''),
-              onClearJd: () => void saveJdContext(''),
-              profileSaveStatus,
             }}
           />
           )}
