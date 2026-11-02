@@ -210,21 +210,9 @@ if (store.get('brandName')) {
 
 function overlayFontPayloadForAnswerLength(store, answerLength) {
   const payload = { answerLength }
-  if (store.get('overlayAnswerAutoScroll') !== false) {
-    const fs = fontSizeFromAnswerLength(answerLength)
-    store.set('overlayFontSize', fs)
-    payload.overlayFontSize = fs
-  }
-  return payload
-}
-
-function overlayFontPayloadForAutoScrollToggle(store, enabled) {
-  const payload = { overlayAnswerAutoScroll: enabled }
-  if (enabled) {
-    const fs = fontSizeFromAnswerLength(store.get('answerLength'))
-    store.set('overlayFontSize', fs)
-    payload.overlayFontSize = fs
-  }
+  const fs = fontSizeFromAnswerLength(answerLength)
+  store.set('overlayFontSize', fs)
+  payload.overlayFontSize = fs
   return payload
 }
 
@@ -2397,6 +2385,11 @@ function createSettingsWindow(navOpts = null) {
   { search })
   settingsWindow.on('closed', () => {
     settingsWindow = null
+    // Keybind capture can leave global shortcuts suspended if the renderer
+    // never finishes cleanup — always restore on settings close.
+    try {
+      hotkeys.setSuspended(false)
+    } catch (_) {}
     applyTaskbarVisibility()
   })
   settingsWindow.on('minimize', applyTaskbarVisibility)
@@ -3349,12 +3342,13 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     if (!abortController.signal.aborted) {
       askCompleted = true
       lastResponse = fullText
-      if (_askMeta?.preserveTranscript === true) {
-        // This turn did not include transcript context (for example, a
-        // screen-only answer), so its speech belongs to a later turn.
-      } else if (Number.isFinite(Number(_askMeta?.transcriptWatermarkAt))) {
+      if (_askMeta?.auto === true && _askMeta?.preserveTranscript === true) {
+        // Auto-answer (retired) kept rolling speech for follow-ups.
+      } else if (_askMeta?.auto === true && Number.isFinite(Number(_askMeta?.transcriptWatermarkAt))) {
         sessionMemory.clearTranscriptThrough(Number(_askMeta.transcriptWatermarkAt))
       } else {
+        // Manual Ask: always drop session speech so the next turn cannot mix
+        // leftover STT from this answer into the prompt.
         sessionMemory.clearTranscript()
       }
       screenshotQueue.clearQueue().catch(() => {})
@@ -3483,18 +3477,6 @@ function toggleMousePassthrough() {
   syncOverlayMouseCapture()
 }
 
-function setAssistAutoTriggerEnabled(enabled) {
-  const v = !!enabled
-  store.set('assistAutoTrigger', v)
-  sendToOverlay('overlay-display-update', { assistAutoTrigger: v })
-  sendToSettingsWindow('overlay-display-update', { assistAutoTrigger: v })
-  return v
-}
-
-function toggleAssistAutoTrigger() {
-  return setAssistAutoTriggerEnabled(store.get('assistAutoTrigger') !== true)
-}
-
 function setupHotkeys() {
   hotkeys.register('toggleOverlay', toggleOverlay)
   hotkeys.register('hideOverlay', hideOverlay)
@@ -3521,9 +3503,6 @@ function setupHotkeys() {
     lastResponse = ''
   })
   hotkeys.register('toggleSession', () => (sessionActive ? stopSession() : requestSessionStart()))
-  hotkeys.register('toggleAutoAnswer', () => {
-    toggleAssistAutoTrigger()
-  })
   hotkeys.register('moveUp', () => moveOverlay(0, -40))
   hotkeys.register('moveDown', () => moveOverlay(0, 40))
   hotkeys.register('moveLeft', () => moveOverlay(-40, 0))
@@ -4126,7 +4105,9 @@ function setupIPC() {
   ipcMain.handle('set-store', (_, key, value) => {
     let stored = value
     if (key === 'assistAutoTrigger') {
-      setAssistAutoTriggerEnabled(value)
+      // Auto-answer removed — keep store false and ignore enable attempts.
+      store.set('assistAutoTrigger', false)
+      sendToOverlay('overlay-display-update', { assistAutoTrigger: false })
       return true
     }
     if (key === 'answerStyle') {
@@ -4188,9 +4169,8 @@ function setupIPC() {
       return true
     }
     if (key === 'overlayAnswerAutoScroll') {
-      const v = !!value
-      store.set('overlayAnswerAutoScroll', v)
-      sendToOverlay('overlay-display-update', overlayFontPayloadForAutoScrollToggle(store, v))
+      store.set('overlayAnswerAutoScroll', false)
+      sendToOverlay('overlay-display-update', { overlayAnswerAutoScroll: false })
       return true
     }
     if (key === 'overlayAnswerView') {
@@ -4683,9 +4663,12 @@ function setupIPC() {
   ipcMain.handle('ask-ai-with-transcript', (_, q, t, meta) => handleAskAI(q, t, meta))
   ipcMain.handle('detect-question', (_, payload) => handleDetectQuestion(payload))
   ipcMain.handle('session-active', () => sessionActive)
-  ipcMain.handle('get-hotkeys', () => store.get('hotkeys') || hotkeys.DEFAULT_HOTKEYS)
+  ipcMain.handle('get-hotkeys', () => hotkeys.resolveHotkeysMap())
   ipcMain.handle('update-hotkey', (_, action, acc) => hotkeys.updateHotkey(action, acc))
   ipcMain.handle('hotkeys:set-suspended', (_, next) => hotkeys.setSuspended(!!next))
+  ipcMain.handle('hotkeys:status', () => hotkeys.getStatus())
+  ipcMain.handle('hotkeys:invoke', (_, action) => hotkeys.invoke(String(action || '')))
+  ipcMain.handle('hotkeys:reregister', () => hotkeys.registerAll())
   ipcMain.handle('clear-all-data', () => { store.clear(); hotkeys.registerAll() })
   ipcMain.handle('get-desktop-source-id', () => screenCapture.getDesktopSourceId())
   /** Returns true when the current provider+model supports direct image (vision) input. */
@@ -4873,12 +4856,12 @@ function setupIPC() {
         sendToOverlay('overlay-display-update', { overlayAnswerPinToTop: v })
       }
       if (opts.overlayAnswerAutoScroll != null) {
-        const v = !!opts.overlayAnswerAutoScroll
-        store.set('overlayAnswerAutoScroll', v)
-        sendToOverlay('overlay-display-update', overlayFontPayloadForAutoScrollToggle(store, v))
+        store.set('overlayAnswerAutoScroll', false)
+        sendToOverlay('overlay-display-update', { overlayAnswerAutoScroll: false })
       }
       if (opts.assistAutoTrigger != null) {
-        setAssistAutoTriggerEnabled(opts.assistAutoTrigger)
+        store.set('assistAutoTrigger', false)
+        sendToOverlay('overlay-display-update', { assistAutoTrigger: false })
       }
       if (opts.questionDetection) {
         const v = normalizeQuestionDetection(opts.questionDetection)
@@ -5147,7 +5130,11 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  hotkeys.unregisterAll()
+  // Tray / background app stays alive on Windows/Linux — do NOT strip global
+  // shortcuts here. Unregister only happens on real quit (will-quit / shutdown).
+  if (process.platform === 'darwin') {
+    // macOS may keep the process; keep hotkeys so Dock re-activate still works.
+  }
 })
 // macOS convention: clicking the Dock icon re-opens the overlay.
 app.on('activate', () => {

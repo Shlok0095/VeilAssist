@@ -732,8 +732,8 @@ export default function App() {
   const [overlayLiveTranscriptEnabled, setOverlayLiveTranscriptEnabled] = useState(true)
   const [overlayTranscriptAutoScroll, setOverlayTranscriptAutoScroll] = useState(true)
   const [overlayAnswerPinToTop, setOverlayAnswerPinToTop] = useState(true)
-  const [overlayAnswerAutoScroll, setOverlayAnswerAutoScroll] = useState(true)
-  /** InterviewMan helper_auto_scroll applies only to auto-answer streams, never Ctrl+Enter. */
+  const [overlayAnswerAutoScroll, setOverlayAnswerAutoScroll] = useState(false)
+  /** Retired with auto-answer — always false so ResponsePanel never follows the stream. */
   const [autoAnswerStream, setAutoAnswerStream] = useState(false)
   const [globalMeetingSearchEnabled, setGlobalMeetingSearchEnabled] = useState(false)
   const [focusInputOpen, setFocusInputOpen] = useState(false)
@@ -886,7 +886,7 @@ export default function App() {
   const lastSpeechTimeRef = useRef(0)
   const lastChunkRef = useRef('')
   const assistAutoTriggerRef = useRef(false)
-  const overlayAnswerAutoScrollRef = useRef(true)
+  const overlayAnswerAutoScrollRef = useRef(false)
   /** Phone-parity mode: both Auto-answer + Auto-scroll on. */
   const isPhoneAutoParity = useCallback(
     () => assistAutoTriggerRef.current === true && overlayAnswerAutoScrollRef.current === true,
@@ -997,6 +997,9 @@ export default function App() {
     })
   }, [])
 
+  /** Drop delayed STT finals that would re-fill the panel after a flush. */
+  const suppressTranscriptUntilRef = useRef(0)
+
   const clearRollingSpeech = useCallback(() => {
     if (speechTriggerDelayRef.current != null) {
       clearTimeout(speechTriggerDelayRef.current)
@@ -1022,6 +1025,11 @@ export default function App() {
     rollingByChannelRef.current = { mic: '', sys: '' }
     answerCompletedAtRef.current = 0
     rollingBarDisplayRef.current = { text: '', label: '', speaker: 'other' }
+    // Keep mic/latest refs in sync — otherwise the next Ask still sees the old text.
+    micTranscriptRef.current = ''
+    latestTranscriptRef.current = ''
+    // Late Whisper/local finals from the previous utterance often arrive after clear.
+    suppressTranscriptUntilRef.current = Date.now() + 2000
     if (liveTranscriptUiFlushRef.current != null) {
       clearTimeout(liveTranscriptUiFlushRef.current)
       liveTranscriptUiFlushRef.current = null
@@ -1380,8 +1388,10 @@ export default function App() {
 
   useEffect(() => {
     if (!ipc) return
-    ipc.invoke('get-store', 'assistAutoTrigger').then((v) => {
-      assistAutoTriggerRef.current = v === true
+    // Auto-answer retired — never enable from store.
+    assistAutoTriggerRef.current = false
+    ipc.invoke('get-store', 'assistAutoTrigger').then(() => {
+      assistAutoTriggerRef.current = false
     })
     ipc.invoke('get-store', 'questionDetection').then((v) => {
       questionDetectionRef.current = v === 'low' || v === 'medium' ? v : 'high'
@@ -1397,11 +1407,8 @@ export default function App() {
       micSensitivityRef.current = v === 'boost' ? 'boost' : 'standard'
       syncMinSpeechThreshold()
     })
-    ipc.invoke('get-store', 'overlayAnswerAutoScroll').then((v) => {
-      const enabled = v !== false
-      overlayAnswerAutoScrollRef.current = enabled
-      setOverlayAnswerAutoScroll(enabled)
-    })
+    overlayAnswerAutoScrollRef.current = false
+    setOverlayAnswerAutoScroll(false)
   }, [])
 
 
@@ -1785,14 +1792,10 @@ export default function App() {
     ipc.invoke('get-store', 'uiAccentTheme').then((id) => applyUiAccentTheme(document.documentElement, normalizeUiAccentId(id)))
     ipc.invoke('get-store', 'overlayOpacity').then((o) => o != null && setOpacity(o))
     Promise.all([
-      ipc.invoke('get-store', 'overlayFontSize'),
       ipc.invoke('get-store', 'answerLength'),
-      ipc.invoke('get-store', 'overlayAnswerAutoScroll'),
       ipc.invoke('get-store', 'responseFormat'),
-    ]).then(([font, length, autoScroll, responseFormat]) => {
-      const size =
-        autoScroll !== false ? fontSizeFromAnswerLength(length) : font && ['small', 'medium', 'large'].includes(font) ? font : 'medium'
-      setFontSize(size)
+    ]).then(([length, responseFormat]) => {
+      setFontSize(fontSizeFromAnswerLength(length))
       const derivedStyle = overlayDisplayStyleFromFormat(responseFormat)
       answerStyleRef.current = derivedStyle
       setAnswerStyle(derivedStyle)
@@ -1858,8 +1861,8 @@ export default function App() {
       if (p?.overlayTranscriptAutoScroll != null) setOverlayTranscriptAutoScroll(!!p.overlayTranscriptAutoScroll)
       if (p?.overlayAnswerPinToTop != null) setOverlayAnswerPinToTop(!!p.overlayAnswerPinToTop)
       if (p?.overlayAnswerAutoScroll != null) {
-        overlayAnswerAutoScrollRef.current = !!p.overlayAnswerAutoScroll
-        setOverlayAnswerAutoScroll(!!p.overlayAnswerAutoScroll)
+        overlayAnswerAutoScrollRef.current = false
+        setOverlayAnswerAutoScroll(false)
       }
       if (p?.questionDetection === 'low' || p?.questionDetection === 'medium' || p?.questionDetection === 'high') {
         questionDetectionRef.current = p.questionDetection
@@ -1870,36 +1873,16 @@ export default function App() {
       }
       if (p?.questionDetectionEngine != null) {
         detectionEngineRef.current = normalizeDetectionEngine(p.questionDetectionEngine)
-        // Switching engines starts fresh: forget the cached verdict and any "unavailable" backoff.
         lastDetectKeyRef.current = ''
         detectUnavailableUntilRef.current = 0
         detectFailStreakRef.current = 0
       }
       if (p?.width != null && p?.height != null) expandedSize.current = { w: p.width, h: p.height }
       if (p?.assistAutoTrigger != null) {
-        const next = !!p.assistAutoTrigger
-        const wasOn = assistAutoTriggerRef.current === true
-        assistAutoTriggerRef.current = next
-        // Session stays on. Turning Auto-answer off restores Ctrl+Enter as a full
-        // manual ask (screen capture, transcript consume) on the next Ask.
-        if (wasOn && !next) {
-          detectSchedulerRef.current?.reset()
-          lastDetectKeyRef.current = ''
-          pendingFollowUpRef.current = ''
-          pendingFollowUpImmediateRef.current = false
-          lastAskWasAutoRef.current = false
-          setAutoAnswerStream(false)
-          if (followUpHoldTimerRef.current != null) {
-            clearInterval(followUpHoldTimerRef.current)
-            followUpHoldTimerRef.current = null
-          }
-          if (speechTriggerDelayRef.current != null) {
-            clearTimeout(speechTriggerDelayRef.current)
-            speechTriggerDelayRef.current = null
-          }
-        }
+        assistAutoTriggerRef.current = false
+        lastAskWasAutoRef.current = false
+        setAutoAnswerStream(false)
       }
-      if (p?.overlayAnswerAutoScroll != null) overlayAnswerAutoScrollRef.current = !!p.overlayAnswerAutoScroll
       if (p?.micSensitivity === 'boost' || p?.micSensitivity === 'standard') {
         micSensitivityRef.current = p.micSensitivity
         syncMinSpeechThreshold()
@@ -2568,6 +2551,22 @@ export default function App() {
     if (!trimmedChunk) return
 
     const tChunk = Date.now()
+    // Manual Ask flush: ignore STT that would rebuild the rolling transcript while an
+    // answer is in flight, during the echo-guard, or inside the post-clear suppress window.
+    // (Auto-answer is retired; this path is the normal Ctrl+Enter / typed Ask flow.)
+    const manualAskBusy =
+      lastAskWasAutoRef.current !== true &&
+      (responseLockRef.current ||
+        isProcessingAskRef.current ||
+        isThinkingRef.current ||
+        micPausedForAskRef.current ||
+        tChunk < suppressTranscriptUntilRef.current)
+    if (manualAskBusy) {
+      const key = audioPathKey === 'sys' ? 'sys' : audioPathKey === 'mic' ? 'mic' : null
+      if (key) pathSpeechAtRef.current[key] = tChunk
+      return
+    }
+
     const silenceBeforeMs = lastSpeechTimeRef.current > 0 ? tChunk - lastSpeechTimeRef.current : 0
     let speaker
     if (audioPathKey === 'mic') { speaker = 'me'; lastSpeakerRef.current = 'me' }
@@ -3116,16 +3115,18 @@ export default function App() {
 
   const handleAsk = useCallback(
     (q, opts = {}) => {
-      const isAuto = opts.auto === true
+      // Auto-answer permanently disabled — ignore auto triggers from leftover schedulers.
+      if (opts.auto === true) return
+      const isAuto = false
       const isScreenRead = opts.source === 'screen-read' || opts.source === 'screen'
       const assistSource = isScreenRead
         ? 'screen'
         : opts.source === 'speech-failsafe'
           ? 'speech-failsafe'
           : 'speech'
-      const isAutoSpeech = isAuto && assistSource !== 'screen'
-      const detectedQuestion = isAutoSpeech ? String(opts.detected?.question || '').trim() : ''
-      lastAskWasAutoRef.current = isAuto
+      const isAutoSpeech = false
+      const detectedQuestion = ''
+      lastAskWasAutoRef.current = false
       if (responseLockRef.current) {
         if (import.meta.env.DEV) console.log('BLOCKED: response in-flight')
         return
@@ -3311,15 +3312,18 @@ export default function App() {
             skillSlug: skillSlug || undefined,
             pastMeetingContext: opts.pastMeetingContext || undefined,
             answeredQuestions: answeredLedgerRef.current.list(),
-            // Question detector verdict (auto-answer): routes resume/JD in and out of the prompt.
-            detectedQuestion: opts.detected?.question || undefined,
-            detectedRequiresPersonalInfo:
-              typeof opts.detected?.requiresPersonalInfo === 'boolean' ? opts.detected.requiresPersonalInfo : undefined,
-            // Lets the main process tell an Auto-answer from a manual Assist.
-            auto: isAuto,
-            transcriptWatermarkAt: isAutoSpeech || !consumesTranscriptSnapshot ? undefined : transcriptWatermarkAt,
-            preserveTranscript: isAutoSpeech || !consumesTranscriptSnapshot,
+            detectedQuestion: undefined,
+            detectedRequiresPersonalInfo: undefined,
+            auto: false,
+            transcriptWatermarkAt: !consumesTranscriptSnapshot ? undefined : transcriptWatermarkAt,
+            preserveTranscript: !consumesTranscriptSnapshot,
             _llmTriggerAt: perfAskT0Ref.current,
+          }
+
+          // Snapshot is already captured above — wipe the live transcript immediately so
+          // the panel empties as soon as Ask starts (not only after the model finishes).
+          if (isManualAsk) {
+            clearRollingSpeech()
           }
 
           let leftoverAfterAuto = ''
@@ -3330,9 +3334,9 @@ export default function App() {
             }
             const askP = ipc?.invoke('ask-ai-with-transcript', trimmed, transcriptToSend, meta)
             const askResult = askP ? await askP : null
-            // Manual asks wipe the live transcript. Auto-answer keeps the rolling
-            // transcript (InterviewMan `cx`) so follow-ups that arrived while generating stay visible.
-            if (askResult?.ok === true && !isAuto) {
+            // Manual asks: wipe again after the turn settles (covers any race that
+            // slipped past the in-flight suppress gate).
+            if (isManualAsk) {
               clearRollingSpeech()
             }
             // Auto-answer only (not Ctrl+Enter): judge leftover speech after this answer.

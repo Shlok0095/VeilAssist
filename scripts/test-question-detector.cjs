@@ -727,21 +727,13 @@ test('wiring: the router applies the detector personal-info verdict', () => {
   assert.match(main, /Do not invent an employer, job, project/)
 })
 
-test('wiring: overlay gates auto-answer on the detector and carries the verdict to the ask', () => {
+test('wiring: overlay keeps detector helpers but hard-rejects auto asks', () => {
   const app = read('renderer', 'overlay', 'App.jsx')
   assert.match(app, /from '\.\.\/shared\/questionDetector'/)
   assert.match(app, /ipc\?\.invoke\('detect-question'/)
-  assert.match(app, /detectionEngineRef\.current === 'ai' && Date\.now\(\) >= detectUnavailableUntilRef\.current/)
-  assert.match(app, /requestQuestionDetection\(speech, silenceMs\)/)
-  // the result is routed through the tested decision function; only 'fire' reaches handleAsk
-  assert.match(app, /decideAutoAnswerAction\(\{\s*\n\s*result: res,/)
-  assert.match(app, /if \(action === 'fallback'\)/)
-  assert.match(app, /if \(action !== 'fire'\) return/)
-  // verdict reaches main, and answered questions are recorded only after a confirmed turn
-  assert.match(app, /detectedRequiresPersonalInfo:\s*\n?\s*typeof opts\.detected\?\.requiresPersonalInfo === 'boolean'/)
-  assert.match(app, /askResult\?\.ok === true && isAuto && assistSource === 'speech'[\s\S]{0,260}answeredLedgerRef\.current\.add/)
-  // the original rule-based path is still there as the fallback
-  assert.match(app, /if \(phoneParity && !isUtteranceReadyForAutoAnswer\(speech\)\) return\s*\n\s*if \(silenceMs <= SPEECH_STABILITY_MS\) return/)
+  assert.match(app, /if \(opts\.auto === true\) return/)
+  assert.match(app, /assistAutoTriggerRef\.current = false/)
+  assert.match(app, /decideAutoAnswerAction\(/)
 })
 
 test('wiring: overlay resets detector state on clear, purge, session change and engine switch', () => {
@@ -751,16 +743,14 @@ test('wiring: overlay resets detector state on clear, purge, session change and 
   assert.match(app, /get-store', 'questionDetectionEngine'/)
 })
 
-test('wiring: settings expose the engine end to end', () => {
+test('wiring: question-detection settings UI retired with auto-answer', () => {
   assert.match(read('renderer', 'shared', 'interviewSettings.js'), /export const QUESTION_DETECTION_ENGINES/)
   const settings = read('renderer', 'settings', 'App.jsx')
-  assert.match(settings, /applyQuestionDetectionEngine/)
-  assert.match(settings, /onQuestionDetectionEngineChange=\{applyQuestionDetectionEngine\}/)
-  assert.match(settings, /apply-overlay-display', \{ questionDetectionEngine: next \}/)
-  assert.match(read('renderer', 'settings', 'SettingsTabContent.jsx'), /onQuestionDetectionEngineChange=\{props\.onQuestionDetectionEngineChange\}/)
+  assert.doesNotMatch(settings, /applyQuestionDetectionEngine/)
+  assert.doesNotMatch(settings, /applyAssistAutoTrigger/)
   const panel = read('renderer', 'settings', 'DisplaySettingsPanel.jsx')
-  assert.match(panel, /label="Detection engine"/)
-  assert.match(panel, /options=\{DETECTION_ENGINE_OPTS\}/)
+  assert.doesNotMatch(panel, /label="Detection engine"/)
+  assert.doesNotMatch(panel, /Auto-answer questions/)
 })
 
 test('wiring: a finalized transcript segment triggers the AI check at once; the tick path still waits for a pause', () => {
@@ -775,41 +765,26 @@ test('wiring: a finalized transcript segment triggers the AI check at once; the 
   assert.doesNotMatch(app, /detectInFlightRef/, 'the old ad-hoc in-flight flag is gone')
 })
 
-test('wiring: auto-answer sends the transcript + detected question (no earlier answers) and does not capture the screen', () => {
+test('wiring: manual asks still send transcript context; auto speech path is disabled', () => {
   const app = read('renderer', 'overlay', 'App.jsx')
-  assert.match(app, /const isAutoSpeech = isAuto && assistSource !== 'screen'/)
-  assert.match(app, /\? buildAutoAnswerUserPrompt\(transcriptToSend, detectedQuestion, \{/)
+  assert.match(app, /const isAutoSpeech = false/)
+  assert.match(app, /buildStructuredUserPrompt\(/)
   assert.match(app, /answeredQuestions: answeredLedgerRef\.current\.list\(\)/)
-  assert.match(app, /noScreen: isAutoSpeech \|\| !!opts\.noScreen/)
-  assert.doesNotMatch(app, /skipScreenCapture/)
-  assert.match(app, /lastAutoQuestionRef\.current = String\(res\.question/)
-  const main = read('main', 'index.js')
-  assert.match(main, /skipStaleSessionTranscript/)
-  assert.match(main, /AUTO_SPEECH_TRANSCRIPT_RULES/)
-  assert.match(main, /if \(isAutoSpeechAsk\) \{\s*\n\s*fullSystem \+= `\\n\\n---\\n\$\{AUTO_SPEECH_TRANSCRIPT_RULES\}`/)
-  assert.match(main, /const noScreen = !!_askMeta\?\.noScreen \|\| isAutoSpeechAsk/)
-  const { AUTO_SPEECH_TRANSCRIPT_RULES } = require('../lib/screenQuestionRules.cjs')
-  assert.match(AUTO_SPEECH_TRANSCRIPT_RULES, /Determine the last question asked in the interview\./)
-  assert.match(AUTO_SPEECH_TRANSCRIPT_RULES, /do not extract the answer from the transcript/)
-  assert.match(AUTO_SPEECH_TRANSCRIPT_RULES, /"Last question asked" follows the transcript/)
-  assert.match(AUTO_SPEECH_TRANSCRIPT_RULES, /do not restate or announce the question/)
-  assert.match(AUTO_SPEECH_TRANSCRIPT_RULES, /Earlier questions in the transcript were already answered/)
-  assert.match(main, /\? 'You will be given an interview transcript, which might contain some transcript errors\.'/)
-  assert.doesNotMatch(AUTO_SPEECH_TRANSCRIPT_RULES, /screenshot/)
+  assert.match(app, /if \(opts\.auto === true\) return/)
   assert.match(app, /hasScreen: isVisionAsk \|\| isScreenRead/)
-  assert.doesNotMatch(app, /isAutoSpeech && !opts\.noScreen/)
+  assert.match(app, /suppressTranscriptUntilRef/)
+  assert.match(app, /clearRollingSpeech\(\)/)
+  const main = read('main', 'index.js')
+  assert.match(main, /AUTO_SPEECH_TRANSCRIPT_RULES/)
+  assert.match(main, /const noScreen = !!_askMeta\?\.noScreen \|\| isAutoSpeechAsk/)
 })
 
-test('wiring: auto-answer AI path uses InterviewMan transcript scheduler (endpoint + 2s quiet)', () => {
+test('wiring: leftover auto-answer scheduler code cannot fire asks', () => {
   const app = read('renderer', 'overlay', 'App.jsx')
   assert.match(app, /createTranscriptDetectScheduler\(/)
-  assert.match(app, /detectSchedulerRef\.current\?\.endpoint\(/)
-  assert.match(app, /detectSchedulerRef\.current\?\.interim\(/)
-  assert.match(app, /detectSchedulerRef\.current\?\.reset\(\)/)
-  assert.match(app, /detectSchedulerRef\.current\?\.resume\(\)/)
-  assert.match(app, /isBusy: \(\) => responseLockRef\.current \|\| isThinkingRef\.current/)
+  assert.match(app, /if \(opts\.auto === true\) return/)
+  assert.match(app, /assistAutoTriggerRef\.current = false/)
   assert.match(app, /clipTranscriptTail\(/)
-  assert.match(app, /if \(aiGateOn\) return/)
   assert.match(read('main', 'index.js'), /clipTranscriptTail\(/)
 })
 
@@ -835,15 +810,13 @@ test('wiring: the repeat filter and the opt-in fallback are persisted, validated
   assert.match(detect, /completeWithFallback\(\{/)
 })
 
-test('wiring: settings expose the repeat filter and the fallback provider', () => {
+test('wiring: repeat filter UI retired; fallback provider remains', () => {
   const settings = read('renderer', 'settings', 'App.jsx')
-  assert.match(settings, /applyQuestionRepeatSensitivity/)
-  assert.match(settings, /onQuestionRepeatSensitivityChange=\{applyQuestionRepeatSensitivity\}/)
-  assert.match(read('renderer', 'settings', 'SettingsTabContent.jsx'), /onQuestionRepeatSensitivityChange=\{props\.onQuestionRepeatSensitivityChange\}/)
+  assert.doesNotMatch(settings, /applyQuestionRepeatSensitivity/)
   const panel = read('renderer', 'settings', 'DisplaySettingsPanel.jsx')
-  assert.match(panel, /label="Repeat filter"/)
-  assert.match(panel, /options=\{REPEAT_FILTER_OPTS\}/)
+  assert.doesNotMatch(panel, /label="Repeat filter"/)
   assert.match(read('renderer', 'shared', 'interviewSettings.js'), /export const QUESTION_REPEAT_SENSITIVITIES/)
+  assert.match(read('lib', 'store.js'), /questionRepeatSensitivity/)
 
   const ai = read('renderer', 'settings', 'AiProviderPanel.jsx')
   assert.match(ai, /Fallback provider/)

@@ -122,11 +122,6 @@ export default function Settings() {
   const [answerStructureUi, setAnswerStructureUi] = useState('star')
   const [responseFormatUi, setResponseFormatUi] = useState('bullets')
   const [answerLengthUi, setAnswerLengthUi] = useState('medium')
-  const [questionDetectionUi, setQuestionDetectionUi] = useState('high')
-  const [questionDetectionEngineUi, setQuestionDetectionEngineUi] = useState('ai')
-  const [questionRepeatSensitivityUi, setQuestionRepeatSensitivityUi] = useState('balanced')
-  const [assistAutoTriggerUi, setAssistAutoTriggerUi] = useState(false)
-  const [overlayAnswerAutoScrollUi, setOverlayAnswerAutoScrollUi] = useState(true)
   const [meetingListenLanguageUi, setMeetingListenLanguageUi] = useState('en')
   const [aiResponseLanguageUi, setAiResponseLanguageUi] = useState('')
   const [interviewCustomInstructionsUi, setInterviewCustomInstructionsUi] = useState('')
@@ -357,15 +352,6 @@ export default function Settings() {
         setAnswerStructureUi(s.answerStructure === 'car' || s.answerStructure === 'soar' || s.answerStructure === 'par' || s.answerStructure === 'soara' ? s.answerStructure : 'star')
         setResponseFormatUi(s.responseFormat === 'conversational' || s.responseFormat === 'example' ? s.responseFormat : 'bullets')
         setAnswerLengthUi(s.answerLength === 'short' || s.answerLength === 'long' ? s.answerLength : 'medium')
-        setQuestionDetectionUi(s.questionDetection === 'low' || s.questionDetection === 'medium' ? s.questionDetection : 'high')
-        setQuestionDetectionEngineUi(s.questionDetectionEngine === 'rules' ? 'rules' : 'ai')
-        setQuestionRepeatSensitivityUi(
-          s.questionRepeatSensitivity === 'strict' || s.questionRepeatSensitivity === 'lenient'
-            ? s.questionRepeatSensitivity
-            : 'balanced',
-        )
-        setAssistAutoTriggerUi(s.assistAutoTrigger === true)
-        setOverlayAnswerAutoScrollUi(s.overlayAnswerAutoScroll !== false)
         setMeetingListenLanguageUi(String(s.meetingListenLanguage || s.micListenLanguage || 'en'))
         setAiResponseLanguageUi(String(s.aiResponseLanguage || ''))
         setInterviewCustomInstructionsUi(String(s.interviewCustomInstructions || ''))
@@ -468,7 +454,6 @@ export default function Settings() {
     const onStealth = (_, v) => setStealthModeUi(!!v)
     const unsubStealth = ipc.on('stealth-mode-update', onStealth)
     const unsubDisplay = ipc.on('overlay-display-update', (_, p) => {
-      if (p?.assistAutoTrigger != null) setAssistAutoTriggerUi(!!p.assistAutoTrigger)
     })
     // ipcShim listeners receive (event, ...args) — payload is the second argument.
     const unsubToast = ipc.on('settings-toast', (_, payload) => {
@@ -994,59 +979,11 @@ export default function Settings() {
     setAnswerLengthUi(next)
     patchSnap('answerLength', next)
     await save('answerLength', next)
-    if (overlayAnswerAutoScrollUi) {
-      const fs = fontSizeFromAnswerLength(next)
-      setOverlayFontUi(fs)
-      patchSnap('overlayFontSize', fs)
-      await save('overlayFontSize', fs)
-    }
+    const fs = fontSizeFromAnswerLength(next)
+    setOverlayFontUi(fs)
+    patchSnap('overlayFontSize', fs)
+    await save('overlayFontSize', fs)
     await ipc?.invoke('apply-overlay-display', { answerLength: next })
-  }
-
-  const applyQuestionDetection = async (v) => {
-    const next = v === 'low' || v === 'medium' ? v : 'high'
-    setQuestionDetectionUi(next)
-    patchSnap('questionDetection', next)
-    await save('questionDetection', next)
-    await ipc?.invoke('apply-overlay-display', { questionDetection: next })
-  }
-
-  const applyQuestionDetectionEngine = async (v) => {
-    const next = v === 'rules' ? 'rules' : 'ai'
-    setQuestionDetectionEngineUi(next)
-    patchSnap('questionDetectionEngine', next)
-    await save('questionDetectionEngine', next)
-    await ipc?.invoke('apply-overlay-display', { questionDetectionEngine: next })
-  }
-
-  const applyQuestionRepeatSensitivity = async (v) => {
-    const next = v === 'strict' || v === 'lenient' ? v : 'balanced'
-    setQuestionRepeatSensitivityUi(next)
-    patchSnap('questionRepeatSensitivity', next)
-    // Read by the main process at detection time, so no overlay push is needed.
-    await save('questionRepeatSensitivity', next)
-  }
-
-  const applyAssistAutoTrigger = async (v) => {
-    const enabled = !!v
-    setAssistAutoTriggerUi(enabled)
-    patchSnap('assistAutoTrigger', enabled)
-    await save('assistAutoTrigger', enabled)
-    await ipc?.invoke('apply-overlay-display', { assistAutoTrigger: enabled })
-  }
-
-  const applyOverlayAnswerAutoScroll = async (v) => {
-    const enabled = !!v
-    setOverlayAnswerAutoScrollUi(enabled)
-    patchSnap('overlayAnswerAutoScroll', enabled)
-    await save('overlayAnswerAutoScroll', enabled)
-    if (enabled) {
-      const fs = fontSizeFromAnswerLength(answerLengthUi)
-      setOverlayFontUi(fs)
-      patchSnap('overlayFontSize', fs)
-      await save('overlayFontSize', fs)
-    }
-    await ipc?.invoke('apply-overlay-display', { overlayAnswerAutoScroll: enabled })
   }
 
   const applyMeetingListenLanguage = async (v) => {
@@ -1436,16 +1373,6 @@ export default function Settings() {
             onTranscriptAutoScrollChange={applyTranscriptAutoScroll}
             overlayAnswerPinToTopUi={overlayAnswerPinToTopUi}
             onAnswerPinToTopChange={applyAnswerPinToTop}
-            assistAutoTriggerUi={assistAutoTriggerUi}
-            onAssistAutoTriggerChange={applyAssistAutoTrigger}
-            questionDetectionUi={questionDetectionUi}
-            onQuestionDetectionChange={applyQuestionDetection}
-            questionDetectionEngineUi={questionDetectionEngineUi}
-            onQuestionDetectionEngineChange={applyQuestionDetectionEngine}
-            questionRepeatSensitivityUi={questionRepeatSensitivityUi}
-            onQuestionRepeatSensitivityChange={applyQuestionRepeatSensitivity}
-            overlayAnswerAutoScrollUi={overlayAnswerAutoScrollUi}
-            onOverlayAnswerAutoScrollChange={applyOverlayAnswerAutoScroll}
             openAtLoginUi={openAtLoginUi}
             onOpenAtLoginChange={applyOpenAtLogin}
             uiColorSchemeUi={uiColorSchemeUi}

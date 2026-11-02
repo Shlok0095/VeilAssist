@@ -67,8 +67,8 @@ test('overlay paints the stream on rAF and follows the growing bubble', () => {
   assert(panel.includes('STREAM_SCROLL_AWAY_PX = 50'), 'user scroll away pauses follow, like InterviewMan')
   assert(panel.includes('followPausedRef'), 'auto-scroll does not yank back after Ctrl+Shift+Up')
   assert(
-    panel.includes('const followStream = overlayAnswerAutoScroll === true && autoAnswerStream === true'),
-    'InterviewMan helper_auto_scroll is auto-answer only',
+    panel.includes('const followStream = false'),
+    'answer auto-scroll retired — stream never follows',
   )
   assert(app.includes('autoAnswerStream={autoAnswerStream}'), 'overlay passes auto-answer stream flag')
   assert(!app.includes('overlayAnswerAutoScroll={overlayAnswerAutoScroll &&'), 'manual Ctrl+Enter is not gated at the setting prop')

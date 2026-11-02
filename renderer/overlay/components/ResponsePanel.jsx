@@ -822,8 +822,8 @@ const ActiveStreamBlock = memo(function ActiveStreamBlock({
   heardText,
   onAbort,
 }) {
-  // InterviewMan helper_auto_scroll: auto-answer only. Ctrl+Enter never follows the stream.
-  const followStream = overlayAnswerAutoScroll === true && autoAnswerStream === true
+  // Auto-answer / answer auto-scroll retired — never follow the stream.
+  const followStream = false
   const streamPreview = useStreamPreview()
   const streamBlockRef = useRef(null)
   const scrollStreamLastAtRef = useRef(0)
@@ -916,7 +916,7 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
     answerStyle = 'brief',
     overlayTeleprompter = false,
     overlayAnswerPinToTop = true,
-    overlayAnswerAutoScroll = true,
+    overlayAnswerAutoScroll = false,
     autoAnswerStream = false,
     overlayAnswerView = 'latest',
     onAbort,

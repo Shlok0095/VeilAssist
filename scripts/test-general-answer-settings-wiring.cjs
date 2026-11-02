@@ -65,7 +65,7 @@ if (comboStyle === 'detailed') pass('Conversational format → detailed overlay 
 else fail('Conversational format → detailed overlay layout', comboStyle)
 
 const comboFont = catalog.fontSizeFromAnswerLength('short')
-if (comboFont === 'small') pass('Short answer length → small overlay font when auto-scroll on')
+if (comboFont === 'small') pass('Short answer length → small overlay font')
 else fail('Short answer length → small overlay font', comboFont)
 
 // 2. Language block (default empty)
@@ -112,23 +112,23 @@ for (const prop of panelProps) {
   else fail(`General tab wires ${prop}`)
 }
 
-// 5. Main process: answer length + auto-scroll → overlay font
+// 5. Main process: answer length always → overlay font (auto-scroll retired)
 if (mainSrc.includes('fontSizeFromAnswerLength') && mainSrc.includes('overlayFontPayloadForAnswerLength')) {
-  pass('main/index.js couples answerLength → overlayFontSize when auto-scroll on')
+  pass('main/index.js couples answerLength → overlayFontSize')
 } else {
-  fail('main/index.js couples answerLength → overlayFontSize when auto-scroll on')
+  fail('main/index.js couples answerLength → overlayFontSize')
 }
-if (mainSrc.includes('overlayFontPayloadForAutoScrollToggle')) {
-  pass('main/index.js syncs font when auto-scroll toggled on')
+if (!mainSrc.includes('overlayFontPayloadForAutoScrollToggle')) {
+  pass('main/index.js no longer has auto-scroll font toggle helper')
 } else {
-  fail('main/index.js syncs font when auto-scroll toggled on')
+  fail('main/index.js no longer has auto-scroll font toggle helper')
 }
 
-// 6. Overlay resolves font from answer length on startup when auto-scroll on
-if (overlayApp.includes('fontSizeFromAnswerLength') && overlayApp.includes('overlayAnswerAutoScroll')) {
-  pass('overlay App.jsx resolves font from answer length + auto-scroll on load')
+// 6. Overlay resolves font from answer length on startup
+if (overlayApp.includes('fontSizeFromAnswerLength') && overlayApp.includes('setFontSize(fontSizeFromAnswerLength(length))')) {
+  pass('overlay App.jsx resolves font from answer length on load')
 } else {
-  fail('overlay App.jsx resolves font from answer length + auto-scroll on load')
+  fail('overlay App.jsx resolves font from answer length on load')
 }
 if (overlayApp.includes("p?.overlayFontSize")) {
   pass('overlay App.jsx applies overlayFontSize from display updates')
@@ -144,7 +144,7 @@ for (const key of storeKeys) {
 }
 
 // 8. Answers section copy matches behavior
-if (displayPanel.includes('Answers') && displayPanel.includes('auto-scroll is on')) {
+if (displayPanel.includes('Answers') && displayPanel.includes('Overlay font size follows this setting')) {
   pass('DisplaySettingsPanel documents answer-length → font coupling')
 } else {
   fail('DisplaySettingsPanel documents answer-length → font coupling')

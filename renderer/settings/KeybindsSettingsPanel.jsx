@@ -250,6 +250,19 @@ export default function KeybindsSettingsPanel({
   const primaryDefs = HOTKEY_DEFS.filter((d) => !MORE_SHORTCUT_ACTIONS.has(d.action))
   const moreDefs = HOTKEY_DEFS.filter((d) => MORE_SHORTCUT_ACTIONS.has(d.action))
 
+  // Safety net: leaving the Keybinds page (or closing settings mid-capture) must
+  // never leave global shortcuts permanently suspended.
+  useEffect(() => {
+    const unsuspend = () => { void setHotkeysSuspended(false) }
+    window.addEventListener('pagehide', unsuspend)
+    window.addEventListener('beforeunload', unsuspend)
+    return () => {
+      window.removeEventListener('pagehide', unsuspend)
+      window.removeEventListener('beforeunload', unsuspend)
+      unsuspend()
+    }
+  }, [])
+
   return (
     <SettingsPage title="Keybinds" description="Click a shortcut, then press the new keys.">
       <SettingsSection title="Shortcuts">

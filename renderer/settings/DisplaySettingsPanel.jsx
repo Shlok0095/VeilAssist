@@ -16,9 +16,6 @@ import {
   ToggleSwitch,
 } from './SettingsComponents'
 import {
-  QUESTION_DETECTION_LEVELS,
-  QUESTION_DETECTION_ENGINES,
-  QUESTION_REPEAT_SENSITIVITIES,
   ANSWER_STRUCTURES,
   RESPONSE_FORMATS,
   ANSWER_LENGTHS,
@@ -35,9 +32,6 @@ const THEME_OPTS = [
 const STRUCTURE_OPTS = ANSWER_STRUCTURES.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
 const FORMAT_OPTS = RESPONSE_FORMATS.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
 const LENGTH_OPTS = ANSWER_LENGTHS.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
-const DETECTION_OPTS = QUESTION_DETECTION_LEVELS.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
-const DETECTION_ENGINE_OPTS = QUESTION_DETECTION_ENGINES.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
-const REPEAT_FILTER_OPTS = QUESTION_REPEAT_SENSITIVITIES.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
 const FONT_OPTS = [
   { id: 'small', label: 'Small' },
   { id: 'medium', label: 'Medium' },
@@ -85,16 +79,6 @@ export default function DisplaySettingsPanel({
   onTranscriptDurationChange,
   overlayAnswerViewUi,
   onAnswerViewChange,
-  assistAutoTriggerUi,
-  onAssistAutoTriggerChange,
-  questionDetectionUi,
-  onQuestionDetectionChange,
-  questionDetectionEngineUi = 'ai',
-  onQuestionDetectionEngineChange,
-  questionRepeatSensitivityUi = 'balanced',
-  onQuestionRepeatSensitivityChange,
-  overlayAnswerAutoScrollUi,
-  onOverlayAnswerAutoScrollChange,
   openAtLoginUi,
   onOpenAtLoginChange,
   uiColorSchemeUi = 'system',
@@ -205,7 +189,7 @@ export default function DisplaySettingsPanel({
 
         <SettingsRow
           label="Answer length"
-          hint="1–3 sentences, a paragraph, or longer. Font follows this when auto-scroll is on."
+          hint="1–3 sentences, a paragraph, or longer. Overlay font size follows this setting."
         >
           <CheckmarkSelect
             value={answerLengthUi}
@@ -223,10 +207,6 @@ export default function DisplaySettingsPanel({
             menuMinWidth={260}
             aria-label="Response language"
           />
-        </SettingsRow>
-
-        <SettingsRow label="Auto-answer questions" hint="Ask AI after speech silence.">
-          <ToggleSwitch checked={assistAutoTriggerUi} onChange={onAssistAutoTriggerChange} />
         </SettingsRow>
 
         <SettingsRow label="Answer history" hint="Latest only or keep earlier replies.">
@@ -305,17 +285,13 @@ export default function DisplaySettingsPanel({
           />
         </div>
 
-        <SettingsRow label="Font size" hint="Used when auto-scroll answers is off.">
+        <SettingsRow label="Font size" hint="Answer text size in the overlay.">
           <CheckmarkSelect
             value={overlayFontUi}
             onChange={onOverlayFontChange}
             options={FONT_OPTS}
             aria-label="Font size"
           />
-        </SettingsRow>
-
-        <SettingsRow label="Auto-scroll answers" hint="Keep streaming answer in view.">
-          <ToggleSwitch checked={overlayAnswerAutoScrollUi} onChange={onOverlayAnswerAutoScrollChange} />
         </SettingsRow>
 
         <SettingsRow
@@ -328,7 +304,7 @@ export default function DisplaySettingsPanel({
 
       <SettingsCollapsible
         title="More options"
-        description="Do not save meetings, question detection, diagnostics…"
+        description="Do not save meetings, transcript panel, diagnostics…"
         icon={Terminal}
       >
         <div className="space-y-0">
@@ -338,45 +314,6 @@ export default function DisplaySettingsPanel({
           >
             <ToggleSwitch checked={doNotSaveMeetingsEnabled} onChange={onDoNotSaveMeetingsChange} />
           </SettingsRow>
-
-          <div style={!assistAutoTriggerUi ? { opacity: 0.5 } : undefined}>
-            <SettingsRow
-              label="Question detection"
-              hint="High triggers on short questions. Low waits for longer utterances."
-            >
-              <CheckmarkSelect
-                value={questionDetectionUi}
-                onChange={onQuestionDetectionChange}
-                disabled={!assistAutoTriggerUi}
-                options={DETECTION_OPTS}
-                aria-label="Question detection"
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Detection engine"
-              hint="AI-assisted waits for a complete, new question instead of a fixed pause, and skips repeats. Uses your chat model for a short check."
-            >
-              <CheckmarkSelect
-                value={questionDetectionEngineUi}
-                onChange={onQuestionDetectionEngineChange}
-                disabled={!assistAutoTriggerUi}
-                options={DETECTION_ENGINE_OPTS}
-                aria-label="Detection engine"
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Repeat filter"
-              hint="How alike a question must be to one already answered to be skipped. Lenient answers more rewordings."
-            >
-              <CheckmarkSelect
-                value={questionRepeatSensitivityUi}
-                onChange={onQuestionRepeatSensitivityChange}
-                disabled={!assistAutoTriggerUi}
-                options={REPEAT_FILTER_OPTS}
-                aria-label="Repeat filter"
-              />
-            </SettingsRow>
-          </div>
 
           <SettingsRow
             label="Live transcript panel"

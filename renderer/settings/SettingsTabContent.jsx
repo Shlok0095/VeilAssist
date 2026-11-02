@@ -63,16 +63,6 @@ export default function SettingsTabContent(props) {
         onTranscriptDurationChange={props.onTranscriptDurationChange}
         overlayAnswerViewUi={props.overlayAnswerViewUi}
         onAnswerViewChange={props.onAnswerViewChange}
-        assistAutoTriggerUi={props.assistAutoTriggerUi}
-        onAssistAutoTriggerChange={props.onAssistAutoTriggerChange}
-        questionDetectionUi={props.questionDetectionUi}
-        onQuestionDetectionChange={props.onQuestionDetectionChange}
-        questionDetectionEngineUi={props.questionDetectionEngineUi}
-        onQuestionDetectionEngineChange={props.onQuestionDetectionEngineChange}
-        questionRepeatSensitivityUi={props.questionRepeatSensitivityUi}
-        onQuestionRepeatSensitivityChange={props.onQuestionRepeatSensitivityChange}
-        overlayAnswerAutoScrollUi={props.overlayAnswerAutoScrollUi}
-        onOverlayAnswerAutoScrollChange={props.onOverlayAnswerAutoScrollChange}
         openAtLoginUi={props.openAtLoginUi}
         onOpenAtLoginChange={props.onOpenAtLoginChange}
         uiColorSchemeUi={props.uiColorSchemeUi}

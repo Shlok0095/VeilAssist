@@ -61,29 +61,28 @@ if (/INTERVIEW OUTPUT CONTRACT/i.test(suffix) && /The answer should be:/i.test(s
   fail('buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT', suffix.slice(0, 160))
 }
 
-// 3b. Conversational includes desktop spoken override (Android parity)
+// 3b. Conversational includes spoken filler guidance (IM-aligned)
 const convSuffix = catalog.buildInterviewAnswerSuffix({
   answerStructure: 'car',
   responseFormat: 'conversational',
   answerLength: 'short',
 })
-if (/SPOKEN INTERVIEW MODE/i.test(convSuffix) && /REQUIRED.*Hmm/i.test(convSuffix)) {
+if (/easy to read aloud/i.test(convSuffix) && /hmm/i.test(convSuffix) && /CAR/i.test(convSuffix)) {
   pass('conversational suffix includes spoken override for fillers')
 } else {
   fail('conversational suffix includes spoken override for fillers', convSuffix.slice(-200))
 }
 
-// 3c. Example-driven overrides Takeaway/plaintext and forbids fillers
+// 3c. Example-driven keeps CAR + example structure without conversational fillers
 const exampleSuffix = catalog.buildInterviewAnswerSuffix({
   answerStructure: 'car',
   responseFormat: 'example',
   answerLength: 'medium',
 })
 if (
-  /EXAMPLE-DRIVEN/i.test(exampleSuffix)
-  && /CAR/i.test(exampleSuffix)
-  && /Do NOT open with filler/i.test(exampleSuffix)
-  && !/REQUIRED.*Hmm/i.test(exampleSuffix)
+  /CAR/i.test(exampleSuffix)
+  && /specific, relevant example/i.test(exampleSuffix)
+  && !/Add natural sounds like 'hmm'/i.test(exampleSuffix)
 ) {
   pass('example-driven suffix includes CAR + no-filler override')
 } else {
@@ -109,22 +108,13 @@ const mockStore = {
   },
 }
 const fromStore = getInterviewAnswerSuffixFromStore(mockStore)
-if (/CAR/i.test(fromStore) && /bullet/i.test(fromStore) && /80 words/i.test(fromStore)) {
+if (/CAR/i.test(fromStore) && /bullet/i.test(fromStore) && /1-3 sentences/i.test(fromStore)) {
   pass('getInterviewAnswerSuffixFromStore (manual mode)')
 } else {
   fail('getInterviewAnswerSuffixFromStore (manual mode)', fromStore)
 }
 
-mockStore._data.assistAutoTrigger = true
-mockStore._data.overlayAnswerAutoScroll = true
-const fromStoreAuto = getInterviewAnswerSuffixFromStore(mockStore)
-if (/CAR/i.test(fromStoreAuto) && /bullet/i.test(fromStoreAuto)) {
-  pass('getInterviewAnswerSuffixFromStore (auto-answer on — same prompt rules)')
-} else {
-  fail('getInterviewAnswerSuffixFromStore (auto mode)', fromStoreAuto)
-}
-
-// 6. Language block independent of auto flags
+// 6. Language block for manual asks
 mockStore._data.aiResponseLanguage = 'hi'
 mockStore._data.assistAutoTrigger = false
 mockStore._data.overlayAnswerAutoScroll = false
@@ -133,14 +123,6 @@ if (/Respond in Hindi/i.test(manualTail) && /CAR/i.test(manualTail)) {
   pass('language + structure/format in prompt tail (manual mode)')
 } else {
   fail('language + structure/format in prompt tail (manual mode)', manualTail.slice(0, 160))
-}
-mockStore._data.assistAutoTrigger = true
-mockStore._data.overlayAnswerAutoScroll = true
-const autoTail = simulateAskPromptTail(mockStore)
-if (manualTail === autoTail) {
-  pass('prompt tail identical with auto-answer + auto-scroll on')
-} else {
-  fail('prompt tail differs when auto flags toggled')
 }
 
 // 7. maxTokens from answerLength (same for all ask paths) — tight budgets ≈ word HARD MAX
@@ -190,12 +172,12 @@ if (!mainSrc.includes('getAnswerStyleSuffix(')) {
   fail('main/index.js still uses getAnswerStyleSuffix')
 }
 
-// 9. Overlay manual + auto share same IPC ask path
+// 9. Overlay manual ask path; auto triggers are rejected
 const overlayApp = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'overlay', 'App.jsx'), 'utf8')
-if (overlayApp.includes("ipc?.invoke('ask-ai-with-transcript'") && overlayApp.includes('opts.auto === true')) {
-  pass('overlay App.jsx: manual and auto both invoke ask-ai-with-transcript')
+if (overlayApp.includes("ipc?.invoke('ask-ai-with-transcript'") && overlayApp.includes('if (opts.auto === true) return')) {
+  pass('overlay App.jsx: manual ask IPC; auto triggers rejected')
 } else {
-  fail('overlay App.jsx: shared ask IPC path')
+  fail('overlay App.jsx: manual ask IPC; auto triggers rejected')
 }
 
 // 10. Settings UI exposes structure/format + language
@@ -233,28 +215,28 @@ if (stripSelfReadback('what is machine learning?', mlAnswer) === 'what is machin
 } else {
   fail('stripSelfReadback keeps what is machine learning?')
 }
-if (overlayApp.includes('assistAutoTriggerRef.current') && overlayApp.includes('stripSelfReadback')) {
-  pass('overlay App.jsx gates self-readback on auto-answer')
+if (overlayApp.includes('assistAutoTriggerRef.current = false') && overlayApp.includes('stripSelfReadback')) {
+  pass('overlay App.jsx keeps self-readback helpers; auto-answer forced off')
 } else {
-  fail('overlay App.jsx gates self-readback on auto-answer')
+  fail('overlay App.jsx keeps self-readback helpers; auto-answer forced off')
 }
 
 if (
-  overlayApp.includes('isPhoneAutoParity')
-  && overlayApp.includes('isUtteranceReadyForAutoAnswer')
-  && overlayApp.includes('overlayAnswerAutoScrollRef')
-  && overlayApp.includes('estimatedAnswerHoldMs')
-  && overlayApp.includes('classifyPostAnswerSpeech')
+  overlayApp.includes('suppressTranscriptUntilRef')
+  && overlayApp.includes('manualAskBusy')
+  && overlayApp.includes('if (isManualAsk)')
+  && overlayApp.includes('clearRollingSpeech()')
+  && /micTranscriptRef\.current = ''/.test(overlayApp)
 ) {
-  pass('overlay App.jsx wires phone-parity auto-answer when both toggles on')
+  pass('overlay App.jsx clears transcript promptly on manual ask')
 } else {
-  fail('overlay App.jsx wires phone-parity auto-answer when both toggles on')
+  fail('overlay App.jsx clears transcript promptly on manual ask')
 }
 
-if (overlayApp.includes('isPhoneAutoParity()') && /if \(isPhoneAutoParity\(\)\) return/.test(overlayApp)) {
-  pass('overlay App.jsx disables speech-failsafe under phone parity')
+if (overlayApp.includes("if (opts.auto === true) return")) {
+  pass('overlay App.jsx hard-rejects auto-answer asks')
 } else {
-  fail('overlay App.jsx disables speech-failsafe under phone parity')
+  fail('overlay App.jsx hard-rejects auto-answer asks')
 }
 
 if (displayPanel.includes('Custom instructions') && displayPanel.includes('Add filler words to sound natural')) {
@@ -295,9 +277,9 @@ const carConvMed = catalog.buildInterviewAnswerSuffix({
 if (
   /INTERVIEW OUTPUT CONTRACT/i.test(carConvMed)
   && /CAR/i.test(carConvMed)
-  && /max 4 short spoken sentences/i.test(carConvMed)
-  && /SPOKEN INTERVIEW MODE/i.test(carConvMed)
-  && /HARD MAX LENGTH: under 180 words/i.test(carConvMed)
+  && /paragraph-length/i.test(carConvMed)
+  && /hmm/i.test(carConvMed)
+  && /easy to read aloud/i.test(carConvMed)
 ) {
   pass('CAR + Conversational + Medium → HARD contract + spoken mode')
 } else {
@@ -311,9 +293,9 @@ const carReminder = catalog.buildAnswerOutputRulesReminder({
   customInstructions: 'Add filler words to sound natural',
 })
 if (
-  /≤180 words HARD MAX/i.test(carReminder)
-  && /Hmm\/Uh\/So/i.test(carReminder)
-  && /NO markdown headings/i.test(carReminder)
+  /length=one paragraph/i.test(carReminder)
+  && /spoken, with hmm\/uh/i.test(carReminder)
+  && /behavioral structure=CAR/i.test(carReminder)
   && /custom=.*"Add filler words/i.test(carReminder)
 ) {
   pass('OUTPUT RULES reminder includes Conversational + custom')
