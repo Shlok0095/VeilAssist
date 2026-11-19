@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { getActiveApiKey, loadAppSettings, loadProfile, saveAppSettings, saveProfile } from './profileStorage'
+import { useCallback, useEffect, useRef, useState, Component, type ErrorInfo, type ReactNode } from 'react'
+import { hasRoutableChatKey, loadAppSettings, loadProfile, saveAppSettings, saveProfile } from './profileStorage'
 import { profileIsReady, type AppSettings, type PersonalProfile } from './profileTypes'
 import { sttKeyConfigured } from './sttRegistry'
 import { useInterviewSession } from './useInterviewSession'
@@ -20,17 +20,45 @@ function isSettingsChild(s: AppScreen | null) {
   return s === 'personal-info' || s === 'font-size' || s === 'advanced-settings'
 }
 
+function usableViewportHeight(): number {
+  const vv = window.visualViewport?.height ?? 0
+  const inner = window.innerHeight || 0
+  const client = document.documentElement?.clientHeight || 0
+  const screenH = window.screen?.availHeight || window.screen?.height || 0
+  return Math.round([vv, inner, client, screenH].find((h) => h > 80) || 0)
+}
+
+function applyAppViewport() {
+  const height = usableViewportHeight()
+  if (height <= 80) return
+  document.documentElement.style.setProperty('--app-height', `${height}px`)
+}
+
+class ScreenErrorBoundary extends Component<{ children: ReactNode }, { message: string | null }> {
+  state = { message: null as string | null }
+  static getDerivedStateFromError(error: Error) {
+    return { message: error.message || 'Could not render this screen' }
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(error, info.componentStack)
+  }
+  render() {
+    if (this.state.message) {
+      return <div className="mobile-interview-error">{this.state.message}</div>
+    }
+    return this.props.children
+  }
+}
+
 export default function MobileInterviewApp() {
   const [screen, setScreen] = useState<AppScreen>('home')
-  const [overlayScreen, setOverlayScreen] = useState<AppScreen | null>(null)
   const [profile, setProfile] = useState<PersonalProfile>(() => loadProfile())
   const [settings, setSettings] = useState<AppSettings>(() => loadAppSettings())
 
   const session = useInterviewSession(profile, settings)
-  const restoredRef = useRef(false)
-
-  const sessionRef = useRef(session)
-  sessionRef.current = session
+  useEffect(() => {
+    void requestLaunchPermissions()
+  }, [])
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
     setSettings((prev) => {
@@ -45,12 +73,8 @@ export default function MobileInterviewApp() {
     saveProfile(next)
   }, [])
 
-  useEffect(() => {
-    if (restoredRef.current) return
-    restoredRef.current = true
-    session.restoreSessionFromSnapshot()
-    void requestLaunchPermissions()
-  }, [session.restoreSessionFromSnapshot])
+  const sessionRef = useRef(session)
+  sessionRef.current = session
 
   useEffect(() => {
     if (settings.interviewTopicLocked) return
@@ -74,10 +98,6 @@ export default function MobileInterviewApp() {
           const sheetBack = new CustomEvent('veilassist:settings-back', { cancelable: true })
           window.dispatchEvent(sheetBack)
           if (sheetBack.defaultPrevented) return
-          if (overlayScreen) {
-            setOverlayScreen(isSettingsChild(overlayScreen) ? 'settings' : null)
-            return
-          }
           if (s.phase === 'interview') {
             window.dispatchEvent(new Event('veilassist:hardware-back'))
             return
@@ -94,7 +114,7 @@ export default function MobileInterviewApp() {
         /* web */
       })
     return () => remove?.()
-  }, [overlayScreen, screen])
+  }, [screen])
 
   useEffect(() => {
     const bg = settings.colorScheme === 'light' ? '#f2f2f7' : '#0c0c0d'
@@ -108,15 +128,31 @@ export default function MobileInterviewApp() {
       if (viewportRaf) return
       viewportRaf = requestAnimationFrame(() => {
         viewportRaf = 0
-        const vv = window.visualViewport
-        const height = Math.round(vv?.height ?? window.innerHeight)
-        document.documentElement.style.setProperty('--app-height', `${height}px`)
+        applyAppViewport()
       })
+    }
+    const recoverVisible = () => {
+      applyViewport()
+      window.setTimeout(applyAppViewport, 80)
+      window.setTimeout(applyAppViewport, 320)
     }
     applyViewport()
     window.visualViewport?.addEventListener('resize', applyViewport, { passive: true })
     window.visualViewport?.addEventListener('scroll', applyViewport, { passive: true })
     window.addEventListener('resize', applyViewport, { passive: true })
+    window.addEventListener('pageshow', recoverVisible)
+    document.addEventListener('visibilitychange', recoverVisible)
+    let removeApp: (() => void) | undefined
+    void import('@capacitor/app')
+      .then(async ({ App }) => {
+        const handle = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) recoverVisible()
+        })
+        removeApp = () => void handle.remove()
+      })
+      .catch(() => {
+        /* web */
+      })
     return () => {
       if (viewportRaf) cancelAnimationFrame(viewportRaf)
       document.documentElement.style.background = ''
@@ -124,6 +160,9 @@ export default function MobileInterviewApp() {
       window.visualViewport?.removeEventListener('resize', applyViewport)
       window.visualViewport?.removeEventListener('scroll', applyViewport)
       window.removeEventListener('resize', applyViewport)
+      window.removeEventListener('pageshow', recoverVisible)
+      document.removeEventListener('visibilitychange', recoverVisible)
+      removeApp?.()
     }
   }, [settings.colorScheme])
 
@@ -141,44 +180,9 @@ export default function MobileInterviewApp() {
   if (session.phase === 'interview') {
     return (
       <div className={rootClass}>
-        <InterviewScreen
-          session={session}
-          settings={settings}
-          onOpenSettings={() => setOverlayScreen('settings')}
-          onPatchSettings={updateSettings}
-        />
-        {overlayScreen ? (
-          <div className="mobile-overlay">
-            {overlayScreen === 'settings' ? (
-              <SettingsScreen
-                settings={settings}
-                onChange={updateSettings}
-                onBack={() => setOverlayScreen(null)}
-                onOpenPersonalInfo={() => setOverlayScreen('personal-info')}
-                onOpenFontSize={() => setOverlayScreen('font-size')}
-                onOpenAdvancedSettings={() => setOverlayScreen('advanced-settings')}
-              />
-            ) : overlayScreen === 'font-size' ? (
-              <FontSizeScreen
-                settings={settings}
-                onChange={updateSettings}
-                onBack={() => setOverlayScreen('settings')}
-              />
-            ) : overlayScreen === 'advanced-settings' ? (
-              <AdvancedSettingsScreen
-                settings={settings}
-                onChange={updateSettings}
-                onBack={() => setOverlayScreen('settings')}
-              />
-            ) : (
-              <PersonalInfoScreen
-                profile={profile}
-                onChange={updateProfile}
-                onBack={() => setOverlayScreen('settings')}
-              />
-            )}
-          </div>
-        ) : null}
+        <ScreenErrorBoundary>
+          <InterviewScreen session={session} settings={settings} onPatchSettings={updateSettings} />
+        </ScreenErrorBoundary>
       </div>
     )
   }
@@ -238,10 +242,11 @@ export default function MobileInterviewApp() {
     <div className={rootClass}>
       <HomeScreen
         profileReady={profileIsReady(profile)}
-        hasApiKey={!!getActiveApiKey(settings)}
+        hasApiKey={hasRoutableChatKey(settings)}
         hasSttKey={settings.sttMode !== 'cloud' || sttKeyConfigured(settings, settings.sttProvider)}
         onOpenSettings={() => setScreen('settings')}
         onStart={session.startSession}
+        starting={session.starting}
       />
       {session.error ? <div className="mobile-interview-error">{session.error}</div> : null}
     </div>

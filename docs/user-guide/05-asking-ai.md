@@ -34,6 +34,25 @@ The assistant is instructed to prioritize **what was said** when both audio and 
 
 **Note:** VeilAssist does **not** run continuous OCR or screen reading on a timer. Screen context comes from **on-demand screenshots** when you Ask with screen.
 
+On a screen-led ask, the model answers the last *fully visible* question on screen (a question cut off at the screen edge is skipped). If several distinct questions are fully visible, each is answered under its own "Question 1:", "Question 2:" heading.
+
+## Auto-answer
+
+With **Settings → General → Auto-answer questions** on, VeilAssist answers questions it hears during Listen without a hotkey. **Settings → General → Detection engine** controls how it decides a question is ready:
+
+| Engine | How it decides |
+|--------|----------------|
+| **AI-assisted** (default) | The moment a phrase is finalized (and again after a short pause), your chat model reads the last few turns and reports whether the other person asked a *complete, new* question, and whether answering it needs your personal background. One check runs at a time — newer speech waits and only the latest is checked next. Repeats, reworded repeats and half-repeated fragments of questions already answered this session are skipped. |
+| **Rules only** | On-device checks plus a fixed pause of about three seconds. No extra model calls. |
+
+The AI-assisted check is a short request to your configured chat provider (a few transcript lines — no screenshot). If the provider can't be reached or its reply can't be read, it tries your **Fallback provider** (see [AI providers](/docs/ai-providers)) and then falls back to rules for about 30 seconds, so auto-answer keeps working.
+
+**Repeat filter** (Strict / Balanced / Lenient) sets how alike a question must be to one already answered before it is skipped as a repeat: 85%, 90% or 95% similar. Lenient answers more rewordings; Strict skips more. The AI check also judges whether a question is the *same in meaning*, so this only controls the near-identical-wording safeguard. **Question detection** (High / Medium / Low) still sets how eagerly short utterances count; at **Low** the AI check only accepts explicit questions.
+
+**Follow-ups.** When the other person follows up on an answer you just got ("and what was the hardest part there?", "why that choice?"), the AI check flags it as a follow-up and the answer is given your previous question and answer for the last few minutes, so "that" and "there" mean something. It is answered as soon as it is heard — the other participant's speech doesn't wait for you to finish reading the last answer aloud, only your own microphone does (that is how readback is told apart). A plain "okay, thanks" or "interesting" is never treated as a question. The previous exchange is remembered in memory only, for the current Listen session, and is dropped when you press Clear or stop Listening.
+
+When the check finds that a question doesn't need your personal background (for example "what is max pooling?"), your resume and job description are left out of that answer so it isn't framed as a first-person story. Questions about you — "tell me about yourself", "describe a time you…" — always keep your profile. This applies to auto-answered questions; typed and hotkey asks are unchanged.
+
 ## Action chips
 
 During an active Listen session, quick-action chips appear above the input:
@@ -69,7 +88,7 @@ VeilAssist injects the skill instructions plus your optional question. Starter t
 
 ## Response style and language
 
-**Settings → AI Providers:**
+**Settings → AI Provider:**
 
 | Setting | Options |
 |---------|---------|

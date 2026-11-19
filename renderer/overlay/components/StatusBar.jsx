@@ -2,17 +2,14 @@
 // Unauthorized copying or distribution is prohibited.
 
 import React, { memo } from 'react'
-import { Settings } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import AppIcon from '../../shared/AppIcon'
 import overlayBrandLogo from '../../shared/overlayBrandLogo'
 
-function StatusBar({ sessionOn, ocrStatus, onToggleSession, onOpenSettings, onQuit }) {
-  const ocrHint =
-    ocrStatus === 'loading'
-      ? 'Loading screen OCR…'
-      : ocrStatus === 'error'
-        ? 'Screen OCR failed'
-        : null
+import { useBrand } from '../../shared/branding'
+
+function StatusBar({ sessionOn, onToggleSession, onOpenSettings, onQuit }) {
+  const { name } = useBrand()
 
   return (
     <div className="crystal-status-row crystal-notch-bar relative flex h-10 items-center justify-between gap-2 pl-2 pr-2.5 select-none">
@@ -23,16 +20,6 @@ function StatusBar({ sessionOn, ocrStatus, onToggleSession, onOpenSettings, onQu
           className="crystal-notch-logo"
           draggable={false}
         />
-        {ocrHint && (
-          <span
-            className={`crystal-sublabel text-[10px] font-medium normal-case ${
-              ocrStatus === 'error' ? 'text-red-400' : 'text-white/55'
-            }`}
-            title={ocrStatus === 'error' ? 'Restart app or reinstall if screen reading stays broken' : 'First launch loads ONNX models (10–30s)'}
-          >
-            {ocrHint}
-          </span>
-        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' }}>
@@ -44,7 +31,6 @@ function StatusBar({ sessionOn, ocrStatus, onToggleSession, onOpenSettings, onQu
             e.stopPropagation()
             onToggleSession()
           }}
-          title={sessionOn ? 'Listening on — tap to stop' : 'Listening off — tap to start'}
           aria-label={sessionOn ? 'Listening on' : 'Listening off'}
           className="crystal-listen-switch cursor-default shrink-0"
         >
@@ -65,10 +51,10 @@ function StatusBar({ sessionOn, ocrStatus, onToggleSession, onOpenSettings, onQu
             e.stopPropagation()
             onOpenSettings()
           }}
-          title="Settings"
+          aria-label="Settings"
           className="crystal-icon-btn cursor-default flex h-7 w-7 shrink-0 items-center justify-center rounded-lg active:scale-95"
         >
-          <AppIcon icon={Settings} size={14} strokeWidth={2} />
+          <AppIcon icon={SlidersHorizontal} size={15} strokeWidth={2} />
         </button>
 
         <button
@@ -77,8 +63,8 @@ function StatusBar({ sessionOn, ocrStatus, onToggleSession, onOpenSettings, onQu
             e.stopPropagation()
             onQuit?.()
           }}
-          title={`Quit ${name} — fully exit`}
-          className="crystal-quit-btn cursor-default flex h-7 shrink-0 items-center justify-center rounded-lg px-2.5 text-[10px] font-semibold transition-all duration-150 active:scale-95"
+          aria-label={`Quit ${name}`}
+          className="crystal-quit-btn cursor-default flex h-7 shrink-0 items-center justify-center rounded-lg px-2.5 text-[10px] font-semibold transition duration-150 active:scale-95"
         >
           Quit
         </button>

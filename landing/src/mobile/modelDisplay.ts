@@ -23,7 +23,7 @@ export function nvidiaModelOptions(): LabeledModel[] {
   const primary = FALLBACK_RANK.primary_nvidia
   const fallbacks = FALLBACK_RANK.nvidia_fallbacks
   const ranked = [primary, ...fallbacks].filter(Boolean)
-  const extras = ['meta/llama-3.2-11b-vision-instruct']
+  const extras: string[] = []
   const seen = new Set<string>()
   const out: LabeledModel[] = []
   for (const id of ranked) {
@@ -43,22 +43,19 @@ export function nvidiaModelOptions(): LabeledModel[] {
 
 export function groqModelOptions(): LabeledModel[] {
   return [
-    { value: FALLBACK_RANK.groq_primary || 'qwen/qwen3.6-27b', label: 'Camera · Qwen 3.6 27B' },
+    { value: FALLBACK_RANK.groq_primary || 'qwen/qwen3.6-27b', label: 'Primary · Qwen 3.6 27B' },
     { value: 'llama-3.3-70b-versatile', label: 'Text only · Llama 3.3 70B' },
   ]
 }
 
-export function nvidiaFallbackHint(): string {
-  const names = [
-    modelShortName(FALLBACK_RANK.primary_nvidia),
-    ...FALLBACK_RANK.nvidia_fallbacks.map(modelShortName),
-    FALLBACK_RANK.groq_primary ? modelShortName(FALLBACK_RANK.groq_primary) : '',
-  ].filter(Boolean)
-  return `If a model fails, the app tries the next one silently: ${names.join(' → ')}. An error appears only if every model fails.`
+export function vendorFallbackHint(provider: string): string {
+  if (provider === 'groq') {
+    return 'Groq answers with the model you pick. If it fails, the fastest NVIDIA model is used automatically.'
+  }
+  return 'NVIDIA answers with the model you pick. If it is slow or fails, the next-fastest NVIDIA is tried, then Groq — not every model.'
 }
 
 export function formatCheckedModelsError(models: string[]): string {
-  const names = [...new Set(models.filter(Boolean).map(modelShortName))]
-  if (!names.length) return 'No models could answer. Add NVIDIA and Groq keys in Settings.'
-  return `Checked ${names.join(', ')}. None could answer.`
+  if (!models.length) return 'No models could answer. Add Groq and NVIDIA keys in Settings.'
+  return 'Could not generate an answer. Check your API keys and try again.'
 }

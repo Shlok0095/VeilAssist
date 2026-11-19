@@ -9,7 +9,8 @@
  * @returns {() => void} cleanup
  */
 export function attachPcmTap(ctx, sourceNode, onPcm16le) {
-  const bufferSize = 4096
+  // 8192 ≈ half the ScriptProcessor callback rate vs 4096 (~85ms → ~170ms @ 48kHz).
+  const bufferSize = 8192
   const processor = ctx.createScriptProcessor(bufferSize, 1, 1)
   sourceNode.connect(processor)
   const mute = ctx.createGain()

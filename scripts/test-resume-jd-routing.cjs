@@ -107,6 +107,41 @@ test('coding still excludes resume', () => {
   assert.equal(route.answerContract, 'coding_answer')
 })
 
+test('interview mode: definition asks do not attach resume or force CAR', () => {
+  const route = routeContext({
+    userQuery: 'what is deep learning and can you explain residual connections in transformers?',
+    mode: 'looking-for-work',
+    profileAvailable: true,
+    jdAvailable: true,
+    source: 'manual_input',
+  })
+  assert.equal(route.useResume, false)
+  assert.equal(route.plan.profileContextPolicy, 'forbidden')
+  assert.ok(
+    route.plan.answerType === 'technical_concept_answer' || route.plan.answerType === 'general_assistant',
+    route.plan.answerType,
+  )
+  assert.notEqual(route.answerContract, 'interview_detailed')
+})
+
+test('interview mode: coding challenge titles route to coding without resume', () => {
+  for (const q of [
+    'can you provide me the code to convert a list into a linked list?',
+    'Find the First Non-Repeating Character in a String',
+    'Longest Substring Without Repeating Characters',
+  ]) {
+    const route = routeContext({
+      userQuery: q,
+      mode: 'looking-for-work',
+      profileAvailable: true,
+      source: 'manual_input',
+    })
+    assert.equal(route.plan.answerType, 'coding_question_answer', q)
+    assert.equal(route.answerContract, 'coding_answer', q)
+    assert.equal(route.useResume, false, q)
+  }
+})
+
 test('source separation guard separates resume from JD', () => {
   const guard = buildProfileTreeV2VoiceGuard()
   assert.match(guard, /SOURCE SEPARATION/)
@@ -131,16 +166,19 @@ test('what is unknown term outside interview forbids resume', () => {
   assert.ok(!plan.requiredContextLayers.includes('resume'))
 })
 
-test('interview mode keeps resume nearby even for definitional asks', () => {
+test('interview mode: definitional asks skip resume (InterviewMan personal-info gate)', () => {
   const q = 'what is shapp?'
   const plan = planAnswer({
     question: q,
     hasCandidateProfile: true,
     activeMode: 'looking-for-work',
   })
-  assert.equal(plan.answerType, 'behavioral_interview_answer')
-  assert.ok(['required', 'allowed'].includes(plan.profileContextPolicy))
-  assert.ok(plan.requiredContextLayers.includes('resume'))
+  assert.ok(
+    plan.answerType === 'general_assistant' || plan.answerType === 'technical_concept_answer',
+    plan.answerType,
+  )
+  assert.equal(plan.profileContextPolicy, 'forbidden')
+  assert.ok(!plan.requiredContextLayers.includes('resume'))
   const route = routeContext({
     userQuery: q,
     mode: 'looking-for-work',
@@ -148,6 +186,6 @@ test('interview mode keeps resume nearby even for definitional asks', () => {
     jdAvailable: true,
     source: 'manual_input',
   })
-  assert.equal(route.useResume, true)
+  assert.equal(route.useResume, false)
   assert.equal(route.domainTag, 'interview')
 })

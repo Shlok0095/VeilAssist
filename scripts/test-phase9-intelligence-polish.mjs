@@ -48,7 +48,7 @@ if (salesRoute.domainTag !== 'sales') throw new Error(`expected sales domain, go
 if (!formatDomainRoutingBlock('interview').includes('interview')) throw new Error('domain block failed')
 
 const divOff = resolveChatInferenceParams((k) => (k === 'answerDiversityEnabled' ? false : null), 'hello')
-if (divOff.temperature !== 0.2) throw new Error('diversity off temperature wrong')
+if (divOff.temperature !== 0) throw new Error('diversity off temperature wrong')
 const divOn = resolveChatInferenceParams((k) => (k === 'answerDiversityEnabled' ? true : null), 'pricing objection')
 if (!divOn.diversity || divOn.temperature <= 0.2) throw new Error('diversity on params wrong')
 if (!buildAnswerDiversityHint()) throw new Error('diversity hint empty')

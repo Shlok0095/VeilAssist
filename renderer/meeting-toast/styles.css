@@ -1,0 +1,138 @@
+/* Copyright (c) 2026 ShadowAssist. Meeting toast — uses shared design tokens. */
+
+@import '../shared/app-fonts.css';
+@import '../shared/designTokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+#root {
+  -webkit-app-region: no-drag;
+}
+
+.meeting-toast-wrap {
+  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(165deg, #141416 0%, #0c0c0e 55%, #0a0a0c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevation-2);
+  padding: 10px var(--space-3) var(--space-3);
+  min-width: 300px;
+  max-width: 360px;
+  color: #e4e4e7;
+  -webkit-font-smoothing: antialiased;
+  animation: meetingToastEnter var(--duration-base) var(--ease-out) both;
+}
+
+@keyframes meetingToastEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.meeting-toast-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.meeting-toast-close {
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #a1a1aa;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: var(--space-1) 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: var(--transition-interactive);
+}
+
+.meeting-toast-close:hover {
+  color: #fafafa;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.meeting-toast-close:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+}
+
+.meeting-toast-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #52525b;
+  text-transform: uppercase;
+}
+
+.meeting-toast-brand-logo {
+  height: 18px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.meeting-toast-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.meeting-toast-logo-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meeting-toast-plogo {
+  width: 40px;
+  height: 40px;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+.meeting-toast-plogo-meet-official {
+  width: 48px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.meeting-toast-msg {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #fafafa;
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .meeting-toast-wrap {
+    animation: none !important;
+  }
+}

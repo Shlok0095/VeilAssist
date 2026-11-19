@@ -3,7 +3,7 @@ import { DEFAULT_PROFILE } from './profileTypes'
 import { getActiveApiKey, getActiveModel } from './profileStorage'
 
 import { getChatBaseUrl } from './providerRegistry'
-import { applyNemotronReasoning, nvidiaChatHeaders } from './nvidiaChatHelpers'
+import { applyNemotronReasoning, nvidiaChatHeaders, nvidiaThinkBodyFields } from './nvidiaChatHelpers'
 import { isLikelyCorsOrNetworkError, mobileApiPost } from './mobileHttp'
 import { NVIDIA_CV_MODEL, NVIDIA_CV_MAX_OUTPUT_TOKENS, resolveNvidiaCvCredentials } from './nvidiaCv'
 
@@ -147,9 +147,7 @@ async function structureCvViaNvidia(
     top_p: 0.7,
     stream: false,
     response_format: { type: 'json_object' },
-  }
-  if (/nemotron/i.test(model)) {
-    payload.chat_template_kwargs = { enable_thinking: false }
+    ...nvidiaThinkBodyFields(model, false),
   }
 
   const headers = { ...nvidiaChatHeaders(creds.apiKey) }

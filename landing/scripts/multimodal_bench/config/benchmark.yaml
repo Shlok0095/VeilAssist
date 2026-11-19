@@ -1,0 +1,33 @@
+{
+  "system_prompt": "You are VeilAssist, a private interview copilot. Give the DIRECT spoken answer in first person. Do not mention that you saw an image. Do not invent employers not implied by the question.",
+  "weights": {
+    "speed": 0.25,
+    "multimodal_accuracy": 0.25,
+    "reliability": 0.20,
+    "camera": 0.10,
+    "token_efficiency": 0.10,
+    "concurrency": 0.05,
+    "cost": 0.05
+  },
+  "thinking_temperature": 0.6,
+  "normal_temperature": 0,
+  "timeout_s": 90,
+  "repeats": 2,
+  "concurrency_levels": [1, 3],
+  "camera_sizes": [
+    {"name": "small", "size": [640, 360], "jpeg_q": 55},
+    {"name": "medium", "size": [960, 540], "jpeg_q": 75},
+    {"name": "large", "size": [1280, 720], "jpeg_q": 88}
+  ],
+  "seed_nvidia": [
+    "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+    "nvidia/nemotron-nano-12b-v2-vl",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "meta/llama-3.2-11b-vision-instruct",
+    "meta/llama-4-scout-17b-16e-instruct"
+  ],
+  "seed_groq": [
+    "qwen/qwen3.6-27b",
+    "meta-llama/llama-4-scout-17b-16e-instruct"
+  ]
+}

@@ -1,0 +1,97 @@
+/* Copyright (c) 2026 ShadowAssist. Shared spacing, elevation, and motion tokens. */
+
+:root {
+  /* ── Type (InterviewMan Poppins — values mirrored from app-fonts.css) ── */
+  --font-ui: 'Poppins', 'Segoe UI', Roboto, system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ── Spacing scale ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* ── Motion durations ── */
+  --duration-instant: 0ms;
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* ── Easing curves ── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Legacy overlay aliases */
+  --ease-glass: var(--ease-out);
+  --ease-snap: var(--ease-spring);
+
+  /* ── Transition presets ── */
+  --transition-fast: var(--duration-fast) var(--ease-out);
+  --transition-base: var(--duration-base) var(--ease-out);
+  --transition-slow: var(--duration-slow) var(--ease-out);
+  --transition-enter: var(--duration-slow) var(--ease-out);
+  --transition-exit: var(--duration-fast) var(--ease-in);
+  --transition-spring: var(--duration-fast) var(--ease-spring);
+  --transition-interactive: background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-base),
+    transform var(--transition-spring),
+    opacity var(--transition-fast);
+
+  /* ── Elevation (glass surfaces at different depths) ── */
+  --shadow-elevation-1:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 4px 12px -4px rgba(0, 0, 0, 0.32);
+  --shadow-elevation-2:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.48),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 8px 24px -8px rgba(0, 0, 0, 0.45);
+  --shadow-elevation-3:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.48),
+    0 16px 48px rgba(0, 0, 0, 0.40);
+
+  /* ── Radius scale ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 9999px;
+
+  /* ── Danger red (notch Quit 3D — single source for every red accent) ── */
+  --danger-rgb: 220 38 38; /* #dc2626 mid stop */
+  --danger-face: #f87171;
+  --danger-mid: #dc2626;
+  --danger-deep: #b91c1c;
+  --danger-hover-face: #fb8787;
+  --danger-hover-mid: #ef4444;
+  --danger-on: #ffffff;
+  --danger-fill: linear-gradient(180deg, #f87171 0%, #dc2626 55%, #b91c1c 100%);
+  --danger-fill-hover: linear-gradient(180deg, #fb8787 0%, #ef4444 55%, #dc2626 100%);
+  --danger-rim: 1px solid rgba(255, 255, 255, 0.2);
+  --danger-rim-top: rgba(255, 255, 255, 0.34);
+  --danger-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 2px rgba(0, 0, 0, 0.38);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+    --transition-slow: 0ms;
+    --transition-enter: 0ms;
+    --transition-exit: 0ms;
+    --transition-spring: 0ms;
+    --transition-interactive: none;
+  }
+}

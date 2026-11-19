@@ -9,7 +9,7 @@ Standalone text chat window. **No screen capture, no Listen integration.**
 | Aspect | Behavior |
 |--------|----------|
 | Open | Tray → **Global Chat** |
-| Provider | Uses your configured chat provider and model from Settings → AI Providers |
+| Provider | Uses your configured chat provider and model from Settings → AI Provider |
 | Accent | Uses the same accent color as the overlay (General → Accent color) |
 | Use case | Quick text questions without meeting context or screenshots |
 

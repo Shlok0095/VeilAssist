@@ -106,13 +106,7 @@ export function MarketingHome() {
               <span>Undetectable AI for live meetings</span>
             </div>
 
-            <h1 className="lm-hero__title">
-              Your AI copilot,
-              <br />
-              always <span className="sp-gradient-text">invisible</span>,
-              <br />
-              always <span className="sp-gradient-text">ready</span>.
-            </h1>
+            <h1 className="lm-hero__title">AI meeting assistant</h1>
 
             <p className="lm-hero__sub">
               VeilAssist gives real-time answers and meeting notes — completely undetectable on your screen. No bots.
@@ -128,7 +122,7 @@ export function MarketingHome() {
               </a>
             </div>
 
-            <p className="lm-hero__platform">Windows · macOS · Linux — get the build for your device</p>
+            <p className="lm-hero__platform">Windows · macOS · Linux · Android — one latest build per platform</p>
           </div>
 
           <div className="lm-hero-product reveal">
@@ -277,8 +271,7 @@ export function MarketingHome() {
             </GlowCta>
           </div>
           <p className="lm-final-cta__hint">
-            Windows installer, macOS DMG, Linux AppImage &amp; DEB — pick the build for your device on the
-            <strong> Download</strong> page.
+            Windows, macOS, Linux, and Android — one download each on the <strong>Download</strong> page.
           </p>
         </div>
       </section>

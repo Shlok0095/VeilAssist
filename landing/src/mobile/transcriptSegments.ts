@@ -8,6 +8,8 @@ export type SpeechSegment = {
   text: string
   consumed: boolean
   capturedAt: number
+  /** User reading back the last AI answer — shown in the panel, excluded from question/memory. */
+  readback?: boolean
 }
 
 let segmentId = 0
@@ -27,7 +29,7 @@ export function questionsAreSimilar(a: string, b: string): boolean {
   if (na === nb) return true
   const shorter = na.length <= nb.length ? na : nb
   const longer = na.length > nb.length ? na : nb
-  if (longer.includes(shorter) && shorter.length / longer.length >= 0.78) return true
+  if (longer.includes(shorter) && shorter.length / longer.length >= 0.88) return true
   const aWords = new Set(na.split(' ').filter((w) => w.length > 2))
   const bWords = nb.split(' ').filter((w) => w.length > 2)
   if (!aWords.size || !bWords.length) return false
@@ -35,7 +37,7 @@ export function questionsAreSimilar(a: string, b: string): boolean {
   for (const w of bWords) {
     if (aWords.has(w)) overlap += 1
   }
-  return overlap / Math.max(aWords.size, bWords.length) >= 0.85
+  return overlap / Math.max(aWords.size, bWords.length) >= 0.9
 }
 
 export function pendingTranscriptText(segments: SpeechSegment[]): string {
@@ -64,7 +66,7 @@ export function transcriptInWindow(
 ): string {
   const cutoff = now - Math.max(30, memorySec) * 1000
   const text = segments
-    .filter((s) => s.capturedAt >= cutoff)
+    .filter((s) => s.capturedAt >= cutoff && !s.readback)
     .map((s) => s.text.trim())
     .filter(Boolean)
     .join(' ')
@@ -79,9 +81,79 @@ export function selectActiveQuestion(segments: SpeechSegment[]): string {
   return pending[pending.length - 1].text.trim()
 }
 
-export function appendSpeechSegment(segments: SpeechSegment[], text: string): SpeechSegment[] {
+export function normalizeForCompare(s: string): string {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function tokenOverlapRatio(candidate: string, reference: string): number {
+  const candTokens = normalizeForCompare(candidate)
+    .split(' ')
+    .filter((t) => t.length > 2)
+  const refTokens = new Set(
+    normalizeForCompare(reference)
+      .split(' ')
+      .filter((t) => t.length > 2),
+  )
+  if (!candTokens.length || !refTokens.size) return 0
+  const matched = candTokens.filter((t) => refTokens.has(t)).length
+  return matched / candTokens.length
+}
+
+const READBACK_OVERLAP = 0.6
+
+export function isLikelySelfReadback(candidateText: string, lastAnswer: string): boolean {
+  const last = String(lastAnswer || '').trim()
+  const cand = String(candidateText || '').trim()
+  if (!last || cand.length < 15) return false
+  return tokenOverlapRatio(cand, last) > READBACK_OVERLAP
+}
+
+function splitUtteranceSentences(text: string): string[] {
+  return String(text || '')
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/** If the whole utterance is a readback, drop overlapping sentences and keep any genuine tail question. */
+export function stripSelfReadback(candidateText: string, lastAnswer: string): string {
+  const cand = String(candidateText || '').trim()
+  const last = String(lastAnswer || '').trim()
+  if (!last || cand.length < 15) return cand
+  if (tokenOverlapRatio(cand, last) <= READBACK_OVERLAP) return cand
+  const sentences = splitUtteranceSentences(cand)
+  if (sentences.length <= 1) return ''
+  return sentences
+    .filter((s) => tokenOverlapRatio(s, last) <= READBACK_OVERLAP)
+    .join(' ')
+    .trim()
+}
+
+export function appendSpeechSegment(
+  segments: SpeechSegment[],
+  text: string,
+  opts?: { consumed?: boolean; readback?: boolean },
+): SpeechSegment[] {
   const piece = String(text || '').trim()
   if (!piece) return segments
+
+  if (opts?.consumed || opts?.readback) {
+    segmentId += 1
+    return [
+      ...segments,
+      {
+        id: segmentId,
+        text: piece,
+        consumed: true,
+        capturedAt: Date.now(),
+        readback: Boolean(opts.readback),
+      },
+    ]
+  }
 
   const last = segments[segments.length - 1]
   if (last && !last.consumed) {
@@ -104,7 +176,7 @@ export function appendSpeechSegment(segments: SpeechSegment[], text: string): Sp
   ]
 }
 
-/** Mark segments consumed through the question we just answered. */
+/** Mark only segments that match the answered question. Never consume intervening follow-ups. */
 export function consumeSegmentsForQuestion(
   segments: SpeechSegment[],
   answeredQuestion: string,
@@ -112,21 +184,11 @@ export function consumeSegmentsForQuestion(
   const q = normalizeQuestion(answeredQuestion)
   if (!q) return segments
 
-  let matchedIndex = -1
-  for (let i = segments.length - 1; i >= 0; i -= 1) {
-    const seg = segments[i]
-    if (seg.consumed) continue
-    if (questionsAreSimilar(seg.text, answeredQuestion)) {
-      matchedIndex = i
-      break
-    }
-  }
-
-  if (matchedIndex < 0) {
-    return segments.map((s) => (s.consumed ? s : { ...s, consumed: true }))
-  }
-
-  return segments.map((s, i) => (i <= matchedIndex ? { ...s, consumed: true } : s))
+  return segments.map((s) => {
+    if (s.consumed) return s
+    if (questionsAreSimilar(s.text, answeredQuestion)) return { ...s, consumed: true }
+    return s
+  })
 }
 
 export function extractFollowUpTail(

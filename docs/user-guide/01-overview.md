@@ -34,15 +34,14 @@ VeilAssist does **not** bundle API keys. You paste keys for your chosen provider
 
 | Tab | Purpose |
 |-----|---------|
-| **Profile** | Persona modes, templates, reference files, resume, job description |
-| **Skills** | Reusable instruction blocks invoked with `/skill-name` |
-| **AI Providers** | Chat provider, model, response style, language |
-| **Audio** | Microphone, STT (local or cloud), devices, sensitivity |
-| **General** | Overlay appearance, stealth, startup, diagnostics |
-| **Phone** | Phone Link QR companion, Android USB mirror |
-| **Intelligence** | Smart routing, memory, search, Hindsight recall |
-| **Keybinds** | Global shortcuts — all customizable |
-| **Calendar** | Google Calendar, reminders, detection, session recaps |
-| **Privacy** | Export data, delete all data |
-| **Help** | This documentation (same content as the website) |
+| **Profile** | Persona modes, resume, job description, skills |
+| **AI Provider** | Provider, API key, model, fallback provider |
+| **Audio** | Microphone, speech recognition, speech language |
+| **General** | Theme, startup, how answers are written |
+| **Overlay** | Look, reading modes, window behavior, size and position |
+| **Shortcuts** | Global shortcuts |
+| **Meetings** | Calendar, reminders, session recaps |
+| **Phone** | Phone Link and Android mirror |
+| **Privacy** | Hide from screen capture, export or delete local data |
+| **Help** | FAQ and user guide |
 | **About** | Version and product info |

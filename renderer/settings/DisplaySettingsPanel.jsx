@@ -1,287 +1,231 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
+// General tab: app theme + startup, and how answers are written. Everything about the overlay window lives
+// in the Overlay tab, privacy toggles in Privacy.
 
-import React from 'react'
-import { Monitor, SlidersHorizontal, Terminal } from 'lucide-react'
-import AppIcon from '../shared/AppIcon'
-import { OVERLAY_POSITION_PRESETS } from './settingsConstants'
-import { UI_ACCENT_THEMES, normalizeUiAccentId } from '../shared/uiAccentThemes'
+import React, { useMemo } from 'react'
+import { Terminal } from 'lucide-react'
+import { DEFAULT_HOTKEYS_MAP, SETTINGS_DEFAULTS } from './settingsConstants'
 import {
+  CheckmarkSelect,
   SegmentedControl,
   SettingsCollapsible,
+  SettingsFieldHint,
   SettingsFieldLabel,
   SettingsPage,
   SettingsRow,
   SettingsSection,
   ToggleSwitch,
 } from './SettingsComponents'
+import {
+  ANSWER_STRUCTURES,
+  RESPONSE_FORMATS,
+  ANSWER_LENGTHS,
+} from '../shared/interviewSettings'
+import { listAiResponseLanguages } from '../../lib/aiResponseLanguage.js'
 import { useBrand } from '../shared/branding'
+import { inlineAccelerator } from './hotkeyUtils'
+
+const THEME_OPTS = [
+  { id: 'system', label: 'System' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+]
+
+const STRUCTURE_OPTS = ANSWER_STRUCTURES.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
+const FORMAT_OPTS = RESPONSE_FORMATS.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
+const LENGTH_OPTS = ANSWER_LENGTHS.map((o) => ({ id: o.value, label: o.label, detail: o.detail }))
+const MEMORY_OPTS = [
+  { id: '30', label: '30s' },
+  { id: '60', label: '1m' },
+  { id: '120', label: '2m' },
+  { id: '180', label: '3m' },
+]
+
+const CUSTOM_INSTRUCTIONS_MAX = 2000
+const CUSTOM_INSTRUCTIONS_ID = 'settings-custom-instructions'
 
 export default function DisplaySettingsPanel({
-  overlayOpacityUi,
-  onOverlayOpacityChange,
-  onOpacityPreset,
-  overlayFontUi,
-  onOverlayFontChange,
-  overlayTeleprompterUi,
-  onTeleprompterChange,
-  overlayFocusModeUi,
-  onFocusModeChange,
-  overlayLiveTranscriptUi,
-  onLiveTranscriptChange,
-  overlayTranscriptAutoScrollUi,
-  onTranscriptAutoScrollChange,
-  overlayAnswerPinToTopUi,
-  onAnswerPinToTopChange,
+  answerStructureUi,
+  onAnswerStructureChange,
+  responseFormatUi,
+  onResponseFormatChange,
+  answerLengthUi,
+  onAnswerLengthChange,
+  interviewCustomInstructionsUi,
+  onInterviewCustomInstructionsChange,
+  onInterviewCustomInstructionsBlur,
+  aiResponseLanguageUi,
+  onAiResponseLanguageChange,
+  transcriptDurationSeconds = 30,
+  onTranscriptDurationChange,
   openAtLoginUi,
   onOpenAtLoginChange,
-  overlayMousePassthroughUi,
-  onOverlayMousePassthroughChange,
-  hideFromTaskbarUi,
-  onHideFromTaskbarChange,
-  uiAccentThemeUi,
-  onUiAccentThemeChange,
-  doNotSaveMeetingsEnabled,
-  onDoNotSaveMeetingsChange,
+  uiColorSchemeUi = 'system',
+  onUiColorSchemeChange,
   verboseDebugLogging,
   onVerboseDebugLoggingChange,
   onOpenLogFile,
-  stealthModeUi,
-  onStealthModeChange,
-  overlayW,
-  overlayH,
-  onOverlayWChange,
-  onOverlayHChange,
-  onApplyOverlaySize,
-  onSnapOverlayPreset,
+  hotkeysMap,
 }) {
   const { name } = useBrand()
+  const languageOpts = useMemo(
+    () => listAiResponseLanguages().map((opt) => ({ id: opt.id, label: opt.label })),
+    [],
+  )
+  const keys = hotkeysMap || DEFAULT_HOTKEYS_MAP
+  const askKeys = inlineAccelerator(keys.askAI || DEFAULT_HOTKEYS_MAP.askAI)
+  const shotKeys = inlineAccelerator(keys.captureScreenshot || DEFAULT_HOTKEYS_MAP.captureScreenshot)
+  const customText = interviewCustomInstructionsUi || ''
+
+  const resetApp = async () => {
+    await onUiColorSchemeChange?.(SETTINGS_DEFAULTS.uiColorScheme)
+    await onOpenAtLoginChange?.(SETTINGS_DEFAULTS.openAtLogin)
+  }
+
+  const resetAnswers = async () => {
+    await onTranscriptDurationChange?.(SETTINGS_DEFAULTS.transcriptDurationSeconds)
+    onInterviewCustomInstructionsChange?.(SETTINGS_DEFAULTS.interviewCustomInstructions)
+    await onAnswerStructureChange?.(SETTINGS_DEFAULTS.answerStructure)
+    await onResponseFormatChange?.(SETTINGS_DEFAULTS.responseFormat)
+    await onAnswerLengthChange?.(SETTINGS_DEFAULTS.answerLength)
+    await onAiResponseLanguageChange?.(SETTINGS_DEFAULTS.aiResponseLanguage)
+  }
+
   return (
     <SettingsPage
       title="General"
-      description="Startup, overlay, privacy, and diagnostics — aligned with Natively General settings."
+      description="Theme, startup and how answers are written."
     >
-      <SettingsSection title="Startup">
+      <SettingsSection title="App" onReset={resetApp}>
+        <SettingsRow label="Theme" hint="Match Windows, or force light or dark." anchor="theme">
+          <SegmentedControl
+            value={['system', 'light', 'dark'].includes(uiColorSchemeUi) ? uiColorSchemeUi : 'system'}
+            onChange={onUiColorSchemeChange}
+            options={THEME_OPTS}
+          />
+        </SettingsRow>
         <SettingsRow
           label="Open at login"
-          hint={`Start ${name} in the tray when you sign in to Windows (same as disabling “auto launch” off in Natively).`}
+          hint={`Start ${name} in the tray when you sign in to Windows.`}
+          anchor="open-at-login"
         >
           <ToggleSwitch checked={openAtLoginUi} onChange={onOpenAtLoginChange} />
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection title="Privacy & retention">
+      <SettingsSection
+        title="Answers"
+        description="How Ask AI writes what you say next."
+        anchor="answers"
+        onReset={resetAnswers}
+      >
         <SettingsRow
-          label="Do not save meetings"
-          hint="When on, Stop Listen will not write session recaps or long-term memory entries."
+          label="Conversation Memory"
+          anchor="conversation-memory"
+          hint={
+            Number(transcriptDurationSeconds) > 60
+              ? 'How much of the conversation the AI remembers. Longer memory may slow responses.'
+              : 'How much of the conversation the AI remembers. Longer = better context but slower.'
+          }
         >
-          <ToggleSwitch checked={doNotSaveMeetingsEnabled} onChange={onDoNotSaveMeetingsChange} />
-        </SettingsRow>
-        <SettingsRow
-          label="Hide from screen capture"
-          hint="Content protection — harder to capture in screen shares and recordings."
-        >
-          <ToggleSwitch checked={stealthModeUi} onChange={onStealthModeChange} />
-        </SettingsRow>
-      </SettingsSection>
-
-      <SettingsSection title="Diagnostics">
-        <SettingsRow
-          label="Verbose debug logging"
-          hint="Captures main-process and overlay/settings console output to veilassist.log. A toast with the file path appears when enabled."
-        >
-          <div className="flex items-center gap-2">
-            <AppIcon icon={Terminal} size={15} className="text-zinc-500" aria-hidden />
-            <ToggleSwitch checked={verboseDebugLogging} onChange={onVerboseDebugLoggingChange} />
-          </div>
-        </SettingsRow>
-        <button type="button" onClick={onOpenLogFile} className="nat-btn-secondary mt-1 px-4 py-2 text-[12px]">
-          Open log file
-        </button>
-      </SettingsSection>
-
-      <SettingsSection title="Overlay appearance">
-        <div>
-          <SettingsFieldLabel>Accent color (overlay &amp; global chat)</SettingsFieldLabel>
-          <p className="mb-3 text-[11px] leading-relaxed text-zinc-600">
-            Settings UI stays neutral zinc — accent applies to the floating overlay and Global Chat window only.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {UI_ACCENT_THEMES.map((t) => {
-              const active = normalizeUiAccentId(uiAccentThemeUi) === t.id
-              const rgb = `rgb(${t.main.join(',')})`
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  title={t.label}
-                  aria-label={t.label}
-                  onClick={() => onUiAccentThemeChange?.(t.id)}
-                  className={`h-8 w-8 rounded-full border-2 transition ${
-                    active ? 'border-white scale-110' : 'border-transparent opacity-80 hover:opacity-100'
-                  }`}
-                  style={{ background: rgb }}
-                />
-              )
-            })}
-          </div>
-        </div>
-      </SettingsSection>
-
-      <SettingsSection title="Overlay behavior">
-        <SettingsRow
-          label="Mouse passthrough"
-          hint="When on, clicks pass through only when the cursor is outside the overlay window. Move over the notch or panel to click buttons again."
-        >
-          <ToggleSwitch checked={overlayMousePassthroughUi} onChange={onOverlayMousePassthroughChange} />
-        </SettingsRow>
-        <SettingsRow
-          label="Hide from taskbar"
-          hint="Force-hide the app from the Windows taskbar even in Visible mode. Invisible mode always hides it. Only one taskbar icon (overlay) is used when shown."
-        >
-          <ToggleSwitch checked={hideFromTaskbarUi} onChange={onHideFromTaskbarChange} />
-        </SettingsRow>
-      </SettingsSection>
-
-      <SettingsSection title="Overlay">
-        <div>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <SettingsFieldLabel>Window opacity</SettingsFieldLabel>
-            <span className="font-mono text-xs text-zinc-400">{Math.round(overlayOpacityUi * 100)}%</span>
-          </div>
-          <p className="mb-3 text-[11px] leading-relaxed text-zinc-600">
-            The floating overlay updates live as you drag — no separate preview needed.
-          </p>
-
-          <div className="mb-2 flex flex-wrap gap-2">
-            {[
-              { label: 'Subtle', pct: 65 },
-              { label: 'Balanced', pct: 85 },
-              { label: 'Clear', pct: 92 },
-            ].map((p) => (
-              <button
-                key={p.pct}
-                type="button"
-                onClick={() => onOpacityPreset(p.pct)}
-                className={`settings-chip settings-chip-sm !normal-case ${
-                  Math.round(overlayOpacityUi * 100) === p.pct ? 'settings-chip-active' : ''
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          <input
-            type="range"
-            min={35}
-            max={100}
-            value={Math.round(overlayOpacityUi * 100)}
-            onChange={(e) => onOverlayOpacityChange(Number(e.target.value) / 100)}
-            className="h-2 w-full cursor-pointer"
-            style={{ accentColor: '#fafafa' }}
-          />
-        </div>
-
-        <div>
-          <SettingsFieldLabel>Answer text size</SettingsFieldLabel>
           <SegmentedControl
-            value={overlayFontUi}
-            onChange={onOverlayFontChange}
-            options={['small', 'medium', 'large'].map((sz) => ({ id: sz, label: sz }))}
+            value={['30', '60', '120', '180'].includes(String(transcriptDurationSeconds)) ? String(transcriptDurationSeconds) : '30'}
+            onChange={(id) => onTranscriptDurationChange?.(Number(id))}
+            options={MEMORY_OPTS}
+            ariaLabel="Conversation Memory"
           />
+        </SettingsRow>
+
+        <div className="border-b border-white/[0.06] py-3.5" data-settings-anchor="custom-instructions">
+          <SettingsFieldLabel htmlFor={CUSTOM_INSTRUCTIONS_ID}>Custom instructions</SettingsFieldLabel>
+          <SettingsFieldHint>Optional. Appended to every answer.</SettingsFieldHint>
+          <textarea
+            id={CUSTOM_INSTRUCTIONS_ID}
+            value={customText}
+            onChange={(e) => onInterviewCustomInstructionsChange?.(e.target.value.slice(0, CUSTOM_INSTRUCTIONS_MAX))}
+            onBlur={() => onInterviewCustomInstructionsBlur?.()}
+            rows={3}
+            maxLength={CUSTOM_INSTRUCTIONS_MAX}
+            placeholder="How should the AI craft your answers? e.g. Add filler words to sound natural"
+            className="input-shadow mt-2 min-h-[64px] w-full max-w-2xl resize-y px-3 py-2.5 text-[13px] leading-relaxed"
+          />
+          <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }} aria-hidden="true">
+            {customText.length.toLocaleString()} / {CUSTOM_INSTRUCTIONS_MAX.toLocaleString()}
+          </p>
         </div>
 
-        <SettingsRow
-          label="Live transcript panel"
-          hint="Show Me / Participant columns during Listen (Natively interviewer transcript view)."
-        >
-          <ToggleSwitch checked={overlayLiveTranscriptUi} onChange={onLiveTranscriptChange} />
+        <SettingsRow label="Answer structure" hint="Framework for behavioral answers." anchor="answer-structure">
+          <CheckmarkSelect
+            value={answerStructureUi}
+            onChange={onAnswerStructureChange}
+            options={STRUCTURE_OPTS}
+            menuMinWidth={280}
+            aria-label="Answer structure"
+          />
+        </SettingsRow>
+
+        <SettingsRow label="Response format" hint="Bullets, spoken (hmm/uh), or example-driven." anchor="response-format">
+          <CheckmarkSelect
+            value={responseFormatUi}
+            onChange={onResponseFormatChange}
+            options={FORMAT_OPTS}
+            menuMinWidth={300}
+            aria-label="Response format"
+          />
         </SettingsRow>
 
         <SettingsRow
-          label="Auto-scroll transcript"
-          hint="Follow new speech in the live transcript columns."
+          label="Answer length"
+          hint="How much the AI writes (short / medium / long). Does not change overlay font size."
+          anchor="answer-length"
         >
-          <ToggleSwitch checked={overlayTranscriptAutoScrollUi} onChange={onTranscriptAutoScrollChange} />
+          <CheckmarkSelect
+            value={answerLengthUi}
+            onChange={onAnswerLengthChange}
+            options={LENGTH_OPTS}
+            aria-label="Answer length"
+          />
         </SettingsRow>
 
         <SettingsRow
-          label="Pin answers to top"
-          hint="While the AI streams, keep the latest answer at the top unless you scroll away."
+          label="AI response language"
+          hint="The language answers are written in. Default follows your question."
+          anchor="response-language"
         >
-          <ToggleSwitch checked={overlayAnswerPinToTopUi} onChange={onAnswerPinToTopChange} />
+          <CheckmarkSelect
+            value={aiResponseLanguageUi || ''}
+            onChange={(id) => onAiResponseLanguageChange?.(id)}
+            options={languageOpts}
+            menuMinWidth={260}
+            aria-label="AI response language"
+          />
         </SettingsRow>
 
-        <div>
-          <SettingsFieldLabel>Snap position</SettingsFieldLabel>
-          <p className="mb-2 text-[11px] text-zinc-600">Primary monitor — expanded panel placement.</p>
-          <div className="flex flex-wrap gap-2">
-            {OVERLAY_POSITION_PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => onSnapOverlayPreset(p)}
-                className="settings-chip settings-chip-sm !normal-case"
-              >
-                {p.replace(/-/g, ' ')}
-              </button>
-            ))}
-          </div>
-        </div>
+        <p className="py-3 text-[11px] leading-relaxed text-zinc-500">
+          <strong className="font-semibold text-zinc-400">{askKeys}</strong> asks with a screenshot.{' '}
+          <strong className="font-semibold text-zinc-400">{shotKeys}</strong> queues extra screenshots.
+        </p>
       </SettingsSection>
 
       <SettingsCollapsible
-        title="Advanced"
-        description="Reading modes and custom panel dimensions — rarely needed day to day."
-        icon={SlidersHorizontal}
+        title="Diagnostics"
+        description="Troubleshooting logs."
+        icon={Terminal}
+        anchor="diagnostics"
       >
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Reading modes</p>
-            <SettingsRow label="Teleprompter" hint="Larger type, minimal chrome during live calls.">
-              <ToggleSwitch checked={overlayTeleprompterUi} onChange={onTeleprompterChange} />
-            </SettingsRow>
-            <SettingsRow label="Focus mode" hint="Hide input until tapped — more room for answers.">
-              <ToggleSwitch checked={overlayFocusModeUi} onChange={onFocusModeChange} />
-            </SettingsRow>
+        <div className="space-y-0">
+          <SettingsRow
+            label="Verbose debug logging"
+            hint="Writes detailed main-process and window messages to the log file. Turn on only when troubleshooting."
+            anchor="verbose-logging"
+          >
+            <ToggleSwitch checked={verboseDebugLogging} onChange={onVerboseDebugLoggingChange} />
+          </SettingsRow>
 
-            <p className="text-[11px] leading-relaxed text-zinc-600">
-              Answers scroll in one session feed (newest at top) — scroll down for earlier exchanges.
-            </p>
-          </div>
-
-          <div className="border-t border-white/[0.06] pt-4">
-            <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-              <AppIcon icon={Monitor} size={14} />
-              Panel size (expanded)
-            </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-[100px] flex-1">
-                <span className="mb-1 block text-[10px] text-gray-600">Width (280–860)</span>
-                <input
-                  type="number"
-                  min={280}
-                  max={860}
-                  value={overlayW}
-                  onChange={(e) => onOverlayWChange(Number(e.target.value) || 280)}
-                  className="input-shadow w-full px-3 py-2.5 font-mono text-xs"
-                />
-              </div>
-              <div className="min-w-[100px] flex-1">
-                <span className="mb-1 block text-[10px] text-gray-600">Height (180–940)</span>
-                <input
-                  type="number"
-                  min={180}
-                  max={940}
-                  value={overlayH}
-                  onChange={(e) => onOverlayHChange(Number(e.target.value) || 180)}
-                  className="input-shadow w-full px-3 py-2.5 font-mono text-xs"
-                />
-              </div>
-              <button type="button" onClick={onApplyOverlaySize} className="btn-glow shrink-0 px-5 py-2.5 text-sm">
-                Apply
-              </button>
-            </div>
+          <div className="py-3">
+            <button type="button" onClick={onOpenLogFile} className="nat-btn-secondary px-4 py-2 text-[12px]">
+              Open log file
+            </button>
           </div>
         </div>
       </SettingsCollapsible>

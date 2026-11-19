@@ -112,9 +112,10 @@ test('JD evidence surfaces requirements for role-fit query', async () => {
 })
 
 test('profileTreeV2 and vectorMemory default on in flags', () => {
-  const v2 = INTELLIGENCE_FLAGS.find((f) => f.id === 'profileTreeV2')
+  // profileTreeV2 is intentionally locked (no UI row) — assert store schema default.
+  const store = require('../lib/store')
+  assert.equal(store.schema.profileTreeV2Enabled.default, true)
   const vec = INTELLIGENCE_FLAGS.find((f) => f.id === 'vectorMemory')
-  assert.equal(v2?.defaultOn, true)
-  assert.equal(v2?.tier, 'core')
   assert.equal(vec?.defaultOn, true)
+  assert.equal(store.schema.vectorMemoryEnabled.default, true)
 })

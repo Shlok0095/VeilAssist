@@ -1,19 +1,24 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
+// Audio tab: microphone capture and speech-to-text. The microphone is NOT opened when this page loads;
+// device names are listed without a permission prompt and the mic is only probed when the user asks.
 
-import React, { useCallback, useEffect, useState } from 'react'
-import { GROQ_WHISPER } from './settingsConstants'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { GROQ_WHISPER, SETTINGS_DEFAULTS } from './settingsConstants'
 import { createIpcShim } from '../shared/ipcShim'
 import {
-  ModelSelect,
+  CheckmarkSelect,
+  DraftTextInput,
+  SecretKeyField,
   SegmentedControl,
-  SettingsBadge,
   SettingsCollapsible,
-  SettingsFieldLabel,
-  SettingsPage,
+  SettingsNote,
+  SettingsPanelShell,
   SettingsRow,
   SettingsSection,
   ToggleSwitch,
 } from './SettingsComponents'
+import { MEETING_LANGUAGES } from '../shared/interviewSettings'
+import { describeLocalModelStatus } from './settingsFormatters'
 
 const ipc = createIpcShim()
 
@@ -23,38 +28,41 @@ const LOCAL_STT_MODEL_OPTIONS = [
   { id: 'moonshine-tiny', label: 'Moonshine Tiny (fastest)' },
 ]
 
-function AdvancedSttKeyRow({ label, saved, placeholder, onSave, extra }) {
+const DEEPGRAM_MODELS = ['nova-3-general', 'nova-3', 'nova-2', 'enhanced', 'base']
+const DEEPGRAM_OPTIONS = DEEPGRAM_MODELS.map((m) => ({ id: m, label: m }))
+const GROQ_OPTIONS = GROQ_WHISPER.map((m) => ({ id: m, label: m }))
+const SENSITIVITY_OPTIONS = [
+  { id: 'standard', label: 'Standard' },
+  { id: 'boost', label: 'Boost (quiet mic)', detail: 'Raises input gain for quiet microphones' },
+]
+const PROCESSING_OPTIONS = [
+  { id: 'local', label: 'Local' },
+  { id: 'cloud', label: 'Cloud' },
+]
+
+function sharedKeyHint(sttProvider) {
+  if (!['groq', 'openai', 'nvidia'].includes(sttProvider)) return null
+  const label = sttProvider === 'openai' ? 'OpenAI' : sttProvider === 'nvidia' ? 'NVIDIA' : 'Groq'
+  return `Same key as AI Provider: ${label}.`
+}
+
+/** Backup (inactive provider) key row. Saves on Enter, on the Save button, and when the field loses focus. */
+function BackupKeyRow({ label, saved, placeholder, onSave, extra }) {
   return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <SettingsFieldLabel className="!mb-0">{label}</SettingsFieldLabel>
-        {saved ? <SettingsBadge>Saved</SettingsBadge> : null}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <input
-          type="password"
-          placeholder={saved ? '••••••••' : placeholder}
-          className="input-shadow min-w-[200px] flex-1 px-3 py-2 text-sm"
-          onBlur={(e) => {
-            if (e.target.value.trim()) {
-              onSave(e.target.value.trim())
-              e.target.value = ''
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.target.value.trim()) {
-              onSave(e.target.value.trim())
-              e.target.value = ''
-            }
-          }}
-        />
-        {extra}
-      </div>
-    </div>
+    <SecretKeyField
+      label={label}
+      saved={saved}
+      placeholder={placeholder}
+      onSave={onSave}
+      saveOnBlur
+      extra={extra}
+      className="settings-backup-key"
+    />
   )
 }
 
 export default function SpeechSettingsPanel({
+  embedded = false,
   snap,
   audioEnabled,
   onAudioEnabledChange,
@@ -75,494 +83,430 @@ export default function SpeechSettingsPanel({
   onSaveKey,
   onPatchSnap,
   onSave,
+  meetingListenLanguageUi = 'en',
+  onMeetingListenLanguageChange,
 }) {
   const [audioInputs, setAudioInputs] = useState([])
-  const [audioOutputs, setAudioOutputs] = useState([])
+  const [namesHidden, setNamesHidden] = useState(false)
   const [localModelInfo, setLocalModelInfo] = useState(null)
 
+  // List devices WITHOUT opening the microphone. Labels are blank until the user has granted mic
+  // permission once; "Show device names" is the explicit, user-initiated way to ask for it.
   const refreshAudioDevices = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const inputs = devices.filter((d) => d.kind === 'audioinput')
+      setAudioInputs(inputs)
+      setNamesHidden(inputs.length > 0 && inputs.every((d) => !d.label))
+    } catch {
+      setAudioInputs([])
+    }
+  }, [])
+
+  const revealDeviceNames = useCallback(async () => {
     try {
       const probe = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       probe.getTracks().forEach((t) => t.stop())
     } catch {
-      /* labels may stay blank without permission */
+      /* permission denied: labels stay generic */
     }
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices()
-      setAudioInputs(devices.filter((d) => d.kind === 'audioinput'))
-      setAudioOutputs(devices.filter((d) => d.kind === 'audiooutput'))
-    } catch {
-      setAudioInputs([])
-      setAudioOutputs([])
-    }
-  }, [])
+    await refreshAudioDevices()
+  }, [refreshAudioDevices])
 
   useEffect(() => {
-    refreshAudioDevices()
+    void refreshAudioDevices()
     navigator.mediaDevices?.addEventListener?.('devicechange', refreshAudioDevices)
     return () => navigator.mediaDevices?.removeEventListener?.('devicechange', refreshAudioDevices)
   }, [refreshAudioDevices])
 
   useEffect(() => {
-    if (sttModeUi !== 'local' || !ipc) return
+    if (sttModeUi !== 'local' || !ipc) return undefined
+    let cancelled = false
     ipc
       .invoke('local-stt:model-info')
-      .then((info) => setLocalModelInfo(info || null))
-      .catch(() => setLocalModelInfo(null))
+      .then((info) => {
+        if (!cancelled) setLocalModelInfo(info || null)
+      })
+      .catch(() => {
+        if (!cancelled) setLocalModelInfo(null)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [sttModeUi, snap?.localSttModelPreference, snap?.micListenLanguage])
 
-  const sttProviderOptions = sttCapableMeta.map((p) => ({ id: p.id, label: p.label }))
+  const sttProviderOptions = useMemo(
+    () => (sttCapableMeta || []).map((p) => ({ id: p.id, label: p.label })),
+    [sttCapableMeta],
+  )
+  const languageOptions = useMemo(
+    () => MEETING_LANGUAGES.map((o) => ({ id: o.value, label: o.label })),
+    [],
+  )
+  const savedMicId = snap?.preferredMicId || ''
+  const micOptions = useMemo(() => {
+    const list = [{ id: '', label: 'System default' }]
+    for (const d of audioInputs) {
+      if (!d.deviceId) continue
+      list.push({ id: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}…` })
+    }
+    if (savedMicId && !list.some((o) => o.id === savedMicId)) {
+      list.push({ id: savedMicId, label: 'Saved microphone (not connected)' })
+    }
+    return list
+  }, [audioInputs, savedMicId])
+
+  const isCloud = sttModeUi === 'cloud'
+  const micOff = !audioEnabled
+  const providerLabel = currentSttMeta?.label || 'speech'
+  const localStatus = describeLocalModelStatus(localModelInfo)
+
+  const patchAndSave = (key, value) => {
+    onPatchSnap(key, value)
+    onSave(key, value)
+  }
+
+  const resetMicrophone = async () => {
+    await onAudioEnabledChange?.(SETTINGS_DEFAULTS.audioEnabled)
+    await onMicSensitivityChange?.(SETTINGS_DEFAULTS.micSensitivity)
+    await onMeetingListenLanguageChange?.(SETTINGS_DEFAULTS.meetingListenLanguage)
+    patchAndSave('preferredMicId', '')
+  }
+
+  const resetRecognition = async () => {
+    await onSttModeChange?.(SETTINGS_DEFAULTS.sttMode)
+    patchAndSave('localSttModelPreference', SETTINGS_DEFAULTS.localSttModelPreference)
+  }
+
+  const cloudModelRows = snap && isCloud ? (
+    <>
+      {sttProvider === 'groq' ? (
+        <SettingsRow label="Speech model" anchor="stt-model" disabled={micOff}>
+          <CheckmarkSelect
+            value={snap.groqWhisperModel || 'whisper-large-v3'}
+            onChange={(v) => patchAndSave('groqWhisperModel', v)}
+            options={GROQ_OPTIONS}
+            menuMinWidth={220}
+          />
+        </SettingsRow>
+      ) : null}
+      {sttProvider === 'elevenlabs' ? (
+        <SettingsRow label="Speech model" anchor="stt-model" htmlFor="stt-elevenlabs-model" disabled={micOff}>
+          <DraftTextInput
+            id="stt-elevenlabs-model"
+            value={snap.elevenLabsModel || 'scribe_v2_realtime'}
+            normalize={(v) => String(v).trim() || 'scribe_v2_realtime'}
+            onCommit={(v) => patchAndSave('elevenLabsModel', v)}
+            disabled={micOff}
+            mono
+            className="w-full sm:w-52"
+          />
+        </SettingsRow>
+      ) : null}
+      {sttProvider === 'deepgram' ? (
+        <SettingsRow label="Speech model" anchor="stt-model" disabled={micOff}>
+          <CheckmarkSelect
+            value={snap.deepgramModel || 'nova-3-general'}
+            onChange={(v) => patchAndSave('deepgramModel', v)}
+            options={DEEPGRAM_OPTIONS}
+            menuMinWidth={200}
+          />
+        </SettingsRow>
+      ) : null}
+      {sttProvider === 'azure' ? (
+        <SettingsRow label="Azure region" anchor="stt-model" htmlFor="stt-azure-region" disabled={micOff}>
+          <DraftTextInput
+            id="stt-azure-region"
+            value={snap.azureSpeechRegion || 'eastus'}
+            normalize={(v) => String(v).trim() || 'eastus'}
+            onCommit={(v) => patchAndSave('azureSpeechRegion', v)}
+            disabled={micOff}
+            className="w-full sm:w-52"
+          />
+        </SettingsRow>
+      ) : null}
+      {sttProvider === 'google' ? (
+        <SettingsRow label="Language code (BCP-47)" anchor="stt-model" htmlFor="stt-google-language" disabled={micOff}>
+          <DraftTextInput
+            id="stt-google-language"
+            value={snap.googleSttLanguage || 'en-US'}
+            normalize={(v) => String(v).trim() || 'en-US'}
+            onCommit={(v) => patchAndSave('googleSttLanguage', v)}
+            disabled={micOff}
+            mono
+            className="w-full sm:w-52"
+          />
+        </SettingsRow>
+      ) : null}
+      {sttProvider === 'soniox' ? (
+        <SettingsRow label="Speech model" anchor="stt-model" htmlFor="stt-soniox-model" disabled={micOff}>
+          <DraftTextInput
+            id="stt-soniox-model"
+            value={snap.sonioxModel || 'stt-rt-v5'}
+            normalize={(v) => String(v).trim() || 'stt-rt-v5'}
+            onCommit={(v) => patchAndSave('sonioxModel', v)}
+            disabled={micOff}
+            mono
+            className="w-full sm:w-52"
+          />
+        </SettingsRow>
+      ) : null}
+    </>
+  ) : null
+
+  const backupKeys = (
+    <div className="space-y-5">
+      <p className="settings-advance-ai-hint" style={{ marginTop: 0 }}>
+        Backup keys for providers you are not using right now. The active provider is set above.
+      </p>
+
+      {sttProvider !== 'deepgram' ? (
+        <BackupKeyRow
+          label="Deepgram API key"
+          saved={keySetMap.deepgramKey}
+          placeholder="Paste Deepgram API key"
+          onSave={(v) => onSaveKey('deepgramKey', v)}
+          extra={
+            <CheckmarkSelect
+              value={snap?.deepgramModel || 'nova-3-general'}
+              onChange={(v) => patchAndSave('deepgramModel', v)}
+              options={DEEPGRAM_OPTIONS}
+              menuMinWidth={200}
+              aria-label="Deepgram model"
+              className="settings-inline-select"
+            />
+          }
+        />
+      ) : null}
+
+      {sttProvider !== 'elevenlabs' ? (
+        <BackupKeyRow
+          label="ElevenLabs API key (Scribe)"
+          saved={keySetMap.elevenLabsKey}
+          placeholder="Paste ElevenLabs API key"
+          onSave={(v) => onSaveKey('elevenLabsKey', v)}
+        />
+      ) : null}
+
+      {sttProvider !== 'azure' ? (
+        <BackupKeyRow
+          label="Azure Speech key"
+          saved={keySetMap.azureSpeechKey}
+          placeholder="Paste Azure Speech key"
+          onSave={(v) => onSaveKey('azureSpeechKey', v)}
+          extra={
+            <DraftTextInput
+              value={snap?.azureSpeechRegion || 'eastus'}
+              normalize={(v) => String(v).trim() || 'eastus'}
+              onCommit={(v) => patchAndSave('azureSpeechRegion', v)}
+              placeholder="Region (e.g. eastus)"
+              aria-label="Azure region"
+              className="w-[130px]"
+            />
+          }
+        />
+      ) : null}
+
+      {sttProvider !== 'google' ? (
+        <BackupKeyRow
+          label="Google Cloud speech key"
+          saved={keySetMap.googleSttKey}
+          placeholder="Paste Google Cloud API key"
+          onSave={(v) => onSaveKey('googleSttKey', v)}
+        />
+      ) : null}
+
+      {sttProvider !== 'soniox' ? (
+        <BackupKeyRow
+          label="Soniox API key"
+          saved={keySetMap.sonioxKey}
+          placeholder="Paste Soniox API key"
+          onSave={(v) => onSaveKey('sonioxKey', v)}
+          extra={
+            <DraftTextInput
+              value={snap?.sonioxModel || 'stt-rt-v5'}
+              normalize={(v) => String(v).trim() || 'stt-rt-v5'}
+              onCommit={(v) => patchAndSave('sonioxModel', v)}
+              placeholder="Model"
+              aria-label="Soniox model"
+              mono
+              className="w-[130px]"
+            />
+          }
+        />
+      ) : null}
+    </div>
+  )
 
   return (
-    <SettingsPage
+    <SettingsPanelShell
+      embedded={embedded}
       title="Audio"
-      description="Microphone capture and speech-to-text while Listen is active."
+      description="Microphone capture and speech recognition while Listen is active."
     >
-      <SettingsSection title="Capture" description="Microphone is transcribed in chunks while Listen is active.">
-        <SettingsRow label="Microphone / audio" hint="Turn off if you only want screen-based Ask AI.">
+      <SettingsSection
+        title="Microphone"
+        description="What Listen captures."
+        anchor="microphone"
+        onReset={resetMicrophone}
+      >
+        <SettingsRow label="Microphone" hint="Turn off to use screen questions only." anchor="microphone-toggle">
           <ToggleSwitch checked={audioEnabled} onChange={onAudioEnabledChange} />
+        </SettingsRow>
+
+        {micOff ? (
+          <SettingsNote>Microphone is off. The settings below apply when you turn it on.</SettingsNote>
+        ) : null}
+
+        <SettingsRow
+          label="Microphone device"
+          hint={
+            namesHidden
+              ? 'Device names are hidden until you allow microphone access once.'
+              : 'Default uses the system input.'
+          }
+          anchor="mic-device"
+          disabled={micOff}
+        >
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <CheckmarkSelect
+              value={savedMicId}
+              onChange={(v) => patchAndSave('preferredMicId', v)}
+              options={micOptions}
+              menuMinWidth={260}
+              aria-label="Microphone device"
+              disabled={micOff}
+            />
+            <div className="flex flex-wrap justify-end gap-2">
+              {namesHidden ? (
+                <button
+                  type="button"
+                  onClick={() => void revealDeviceNames()}
+                  disabled={micOff}
+                  className="btn-ghost px-3 py-1.5 text-xs"
+                >
+                  Show device names
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void refreshAudioDevices()}
+                disabled={micOff}
+                className="btn-ghost px-3 py-1.5 text-xs"
+              >
+                Refresh devices
+              </button>
+            </div>
+          </div>
         </SettingsRow>
 
         <SettingsRow
           label="Mic sensitivity"
-          hint="Boost helps quiet microphones — restart Listen after changing."
+          hint="Boost helps quiet microphones. Restart Listen after changing."
+          anchor="mic-sensitivity"
+          disabled={micOff}
         >
-          <select
-            value={micSensitivity}
-            onChange={(e) => onMicSensitivityChange(e.target.value === 'boost' ? 'boost' : 'standard')}
-            className="input-shadow w-full px-3 py-2 text-sm sm:w-52"
-          >
-            <option value="standard" className="bg-void-900">
-              Standard
-            </option>
-            <option value="boost" className="bg-void-900">
-              Boost (quiet mic)
-            </option>
-          </select>
+          <CheckmarkSelect
+            value={micSensitivity === 'boost' ? 'boost' : 'standard'}
+            onChange={(v) => onMicSensitivityChange(v === 'boost' ? 'boost' : 'standard')}
+            options={SENSITIVITY_OPTIONS}
+            menuMinWidth={240}
+            aria-label="Mic sensitivity"
+            disabled={micOff}
+          />
         </SettingsRow>
-      </SettingsSection>
 
-      <SettingsSection
-        title="Audio devices"
-        description="Optional mic preference for Listen capture. Restart Listen after changing."
-      >
-        <SettingsRow label="Microphone" hint="Default uses the system default input device.">
-          <select
-            value={snap?.preferredMicId || ''}
-            onChange={(e) => {
-              const v = e.target.value
-              onPatchSnap('preferredMicId', v)
-              onSave('preferredMicId', v)
-            }}
-            className="input-shadow w-full px-3 py-2 text-sm sm:max-w-md"
-          >
-            <option value="" className="bg-void-900">
-              System default
-            </option>
-            {audioInputs.map((d) => (
-              <option key={d.deviceId} value={d.deviceId} className="bg-void-900">
-                {d.label || `Microphone ${d.deviceId.slice(0, 8)}…`}
-              </option>
-            ))}
-          </select>
-        </SettingsRow>
         <SettingsRow
-          label="Speaker / output"
-          hint="Saved for reference; system audio capture uses the OS default mix."
+          label="Speech language"
+          hint="The language you speak, used as a hint for recognition. Restart Listen after changing."
+          anchor="listen-language"
+          disabled={micOff}
         >
-          <select
-            value={snap?.preferredSpeakerId || ''}
-            onChange={(e) => {
-              const v = e.target.value
-              onPatchSnap('preferredSpeakerId', v)
-              onSave('preferredSpeakerId', v)
-            }}
-            className="input-shadow w-full px-3 py-2 text-sm sm:max-w-md"
-          >
-            <option value="" className="bg-void-900">
-              System default
-            </option>
-            {audioOutputs.map((d) => (
-              <option key={d.deviceId} value={d.deviceId} className="bg-void-900">
-                {d.label || `Speaker ${d.deviceId.slice(0, 8)}…`}
-              </option>
-            ))}
-          </select>
+          <CheckmarkSelect
+            value={meetingListenLanguageUi}
+            onChange={(v) => onMeetingListenLanguageChange?.(v)}
+            options={languageOptions}
+            menuMinWidth={220}
+            aria-label="Speech language"
+            disabled={micOff}
+          />
         </SettingsRow>
-        <p className="text-[11px] leading-relaxed text-zinc-500">
-          Device labels appear after microphone permission is granted once.
-          <button type="button" onClick={refreshAudioDevices} className="ml-1 text-accent underline">
-            Refresh list
-          </button>
-        </p>
       </SettingsSection>
 
       <SettingsSection
-        title="Transcription engine"
-        description="Local: Moonshine streams live with Natively-style hallucination filters (no second-model gate by default). Cloud: Groq Whisper uses verbose_json gate; NVIDIA Parakeet does not."
+        title="Speech recognition"
+        description="Where your voice is turned into text."
+        anchor="speech-recognition"
+        onReset={resetRecognition}
       >
-        {snap && (
-          <>
-            <div className="settings-row-tile flex flex-col gap-3">
-              <div>
-                <span className="text-[13px] font-medium text-gray-200">Processing mode</span>
-              </div>
-              <SegmentedControl
-                value={sttModeUi}
-                onChange={onSttModeChange}
-                options={[
-                  { id: 'local', label: 'Local (on-device)' },
-                  { id: 'cloud', label: 'Cloud (API key)' },
-                ]}
-              />
-            </div>
+        {micOff ? <SettingsNote>Microphone is off, so speech recognition is idle.</SettingsNote> : null}
 
-            {sttModeUi === 'local' && (
-              <>
-                <SettingsRow
-                  label="Local STT model"
-                  hint="Auto picks Moonshine for English and Whisper Tiny for Hindi/Hinglish."
-                >
-                  <select
-                    value={snap?.localSttModelPreference || 'auto'}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      onPatchSnap('localSttModelPreference', v)
-                      onSave('localSttModelPreference', v)
-                    }}
-                    className="input-shadow w-full px-3 py-2 text-sm sm:w-64"
-                  >
-                    {LOCAL_STT_MODEL_OPTIONS.map((o) => (
-                      <option key={o.id} value={o.id} className="bg-void-900">
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </SettingsRow>
-                {localModelInfo?.spec && (
-                  <div className="rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3 text-[11px] leading-relaxed text-zinc-400">
-                    <p>
-                      Active model:{' '}
-                      <span className="font-mono text-zinc-300">{localModelInfo.spec.modelId}</span>
-                      {' · '}
-                      {localModelInfo.status?.state || 'idle'}
-                    </p>
-                  </div>
-                )}
-                <SettingsRow
-                  label="Whisper Tiny gate (experimental)"
-                  hint="Second on-device Whisper pass on Moonshine finals. Off by default — Natively uses filterHallucination only. Needs segment metadata (often unavailable locally)."
-                >
-                  <ToggleSwitch
-                    checked={snap?.localMoonshineWhisperGate === true}
-                    onChange={(v) => {
-                      onPatchSnap('localMoonshineWhisperGate', !!v)
-                      onSave('localMoonshineWhisperGate', !!v)
-                    }}
-                  />
-                </SettingsRow>
-              </>
-            )}
+        <SettingsRow
+          label="Processing"
+          hint={isCloud ? 'Sends audio to the provider you choose below.' : 'Transcribes on this PC. No audio leaves your device.'}
+          anchor="processing"
+          disabled={micOff}
+        >
+          <SegmentedControl value={sttModeUi} onChange={onSttModeChange} options={PROCESSING_OPTIONS} />
+        </SettingsRow>
 
-            <div>
-              <SettingsFieldLabel>Active STT provider</SettingsFieldLabel>
-              <select
-                value={sttProvider}
-                onChange={(e) => onSttProviderChange(e.target.value)}
-                className="input-shadow w-full px-3 py-2 text-sm sm:max-w-md"
-              >
-                {sttProviderOptions.map((o) => (
-                  <option key={o.id} value={o.id} className="bg-void-900">
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {!isCloud && snap ? (
+          <SettingsRow label="Local model" hint={localStatus || undefined} anchor="local-model" disabled={micOff}>
+            <CheckmarkSelect
+              value={snap.localSttModelPreference || 'auto'}
+              onChange={(v) => patchAndSave('localSttModelPreference', v)}
+              options={LOCAL_STT_MODEL_OPTIONS}
+              menuMinWidth={220}
+              aria-label="Local speech model"
+            />
+          </SettingsRow>
+        ) : null}
 
-            {sttKeyField && (
-              <div>
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <SettingsFieldLabel className="!mb-0">
-                    {currentSttMeta?.label || 'STT'} API key
-                  </SettingsFieldLabel>
-                  {sttKeySaved ? <SettingsBadge>Key saved</SettingsBadge> : null}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    type="password"
-                    value={sttSecretInput}
-                    onChange={(e) => onSttSecretInputChange(e.target.value)}
-                    placeholder={sttKeySaved ? '••••••••' : `Paste ${currentSttMeta?.label || 'STT'} API key`}
-                    className="input-shadow min-w-[200px] flex-1 px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={onSaveSttKey}
-                    className="btn-ghost px-4 py-2 text-xs"
-                  >
-                    Save key
-                  </button>
-                </div>
-              </div>
-            )}
+        {isCloud ? (
+          <SettingsRow label="Speech provider" anchor="stt-provider" disabled={micOff}>
+            <CheckmarkSelect
+              value={sttProvider}
+              onChange={onSttProviderChange}
+              options={sttProviderOptions}
+              menuMinWidth={200}
+              aria-label="Speech provider"
+            />
+          </SettingsRow>
+        ) : null}
 
-            {sttProvider === 'groq' && (
-              <>
-                <ModelSelect
-                  label="STT model"
-                  value={snap.groqWhisperModel || 'whisper-large-v3'}
-                  models={GROQ_WHISPER}
-                  onChange={(v) => {
-                    onPatchSnap('groqWhisperModel', v)
-                    onSave('groqWhisperModel', v)
-                  }}
-                />
-                <p className="text-[11px] leading-relaxed text-zinc-500">
-                  Recommended: <span className="font-mono text-zinc-400">whisper-large-v3</span> for Hindi, Hinglish, and
-                  fewer silence hallucinations. Turbo is faster but less accurate on quiet audio.
-                </p>
-              </>
-            )}
+        {isCloud && sttKeyField && !sttKeySaved ? (
+          <SettingsNote tone="warning">
+            No {providerLabel} API key is saved yet. Add one below, or switch Processing to Local.
+          </SettingsNote>
+        ) : null}
 
-            {sttProvider === 'elevenlabs' && (
-              <div>
-                <SettingsFieldLabel>STT model</SettingsFieldLabel>
-                <input
-                  type="text"
-                  value={snap?.elevenLabsModel || 'scribe_v2_realtime'}
-                  onChange={(e) => onPatchSnap('elevenLabsModel', e.target.value)}
-                  onBlur={(e) => onSave('elevenLabsModel', e.target.value.trim() || 'scribe_v2_realtime')}
-                  className="input-shadow w-full px-3 py-2 font-mono text-xs sm:w-72"
-                />
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                  ElevenLabs Scribe v2 Realtime — live streaming via main process (~150ms latency).
-                </p>
-              </div>
-            )}
+        {isCloud && sttKeyField ? (
+          <div className="settings-advance-flat-row settings-advance-flat-stack" data-settings-anchor="stt-key">
+            <SecretKeyField
+              label={`${providerLabel} API key`}
+              saved={sttKeySaved}
+              placeholder={`Paste ${providerLabel} API key`}
+              value={sttSecretInput}
+              onChange={onSttSecretInputChange}
+              onSave={(text) => onSaveSttKey(text)}
+              disabled={micOff}
+              hint={sharedKeyHint(sttProvider) ? <p className="settings-advance-ai-hint">{sharedKeyHint(sttProvider)}</p> : null}
+            />
+          </div>
+        ) : null}
 
-            {sttProvider === 'deepgram' && (
-              <div>
-                <SettingsFieldLabel>STT model</SettingsFieldLabel>
-                <select
-                  value={snap?.deepgramModel || 'nova-2'}
-                  onChange={(e) => {
-                    onPatchSnap('deepgramModel', e.target.value)
-                    onSave('deepgramModel', e.target.value)
-                  }}
-                  className="input-shadow w-full px-3 py-2 text-sm sm:w-52"
-                >
-                  {['nova-2', 'nova-3', 'enhanced', 'base'].map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                  Deepgram uses live streaming in the overlay — lower latency than Whisper batch.
-                </p>
-              </div>
-            )}
-
-            {sttProvider === 'openai' && (
-              <div className="rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3">
-                <SettingsFieldLabel className="!mb-1">STT model</SettingsFieldLabel>
-                <p className="font-mono text-sm text-gray-300">whisper-1</p>
-              </div>
-            )}
-
-            {sttProvider === 'nvidia' && (
-              <div className="rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3">
-                <SettingsFieldLabel className="!mb-1">STT model</SettingsFieldLabel>
-                <p className="font-mono text-sm text-gray-300">Parakeet 1.1b RNNT (multilingual)</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                  Routed via NVIDIA API catalog on{' '}
-                  <span className="font-mono text-zinc-400">grpc.nvcf.nvidia.com</span> — gRPC with your API key; no
-                  model name is sent in the request.
-                </p>
-              </div>
-            )}
-
-            {sttProvider === 'azure' && (
-              <div className="space-y-3">
-                <div>
-                  <SettingsFieldLabel>Azure region</SettingsFieldLabel>
-                  <input
-                    type="text"
-                    value={snap?.azureSpeechRegion || 'eastus'}
-                    onChange={(e) => onPatchSnap('azureSpeechRegion', e.target.value)}
-                    onBlur={(e) => onSave('azureSpeechRegion', e.target.value.trim() || 'eastus')}
-                    placeholder="eastus"
-                    className="input-shadow w-full px-3 py-2 text-sm sm:w-52"
-                  />
-                </div>
-                <p className="text-[11px] leading-relaxed text-zinc-500">
-                  Azure Speech streams via main process (REST per utterance). Locale follows Mic listen language.
-                </p>
-              </div>
-            )}
-
-            {sttProvider === 'google' && (
-              <div>
-                <SettingsFieldLabel>BCP-47 language</SettingsFieldLabel>
-                <input
-                  type="text"
-                  value={snap?.googleSttLanguage || 'en-US'}
-                  onChange={(e) => onPatchSnap('googleSttLanguage', e.target.value)}
-                  onBlur={(e) => onSave('googleSttLanguage', e.target.value.trim() || 'en-US')}
-                  className="input-shadow w-full px-3 py-2 font-mono text-xs sm:w-52"
-                />
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                  Google Cloud Speech-to-Text REST — requires a Google Cloud API key with Speech API enabled.
-                </p>
-              </div>
-            )}
-
-            {sttProvider === 'soniox' && (
-              <div>
-                <SettingsFieldLabel>STT model</SettingsFieldLabel>
-                <input
-                  type="text"
-                  value={snap?.sonioxModel || 'stt-rt-v5'}
-                  onChange={(e) => onPatchSnap('sonioxModel', e.target.value)}
-                  onBlur={(e) => onSave('sonioxModel', e.target.value.trim() || 'stt-rt-v5')}
-                  className="input-shadow w-full px-3 py-2 font-mono text-xs sm:w-72"
-                />
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                  Soniox real-time WebSocket — low-latency multilingual streaming in the main process.
-                </p>
-              </div>
-            )}
-          </>
-        )}
+        {cloudModelRows}
       </SettingsSection>
 
       <SettingsCollapsible
-        title="Advanced STT providers"
-        description="Optional keys for Deepgram, ElevenLabs, Azure, Google, and Soniox — active when selected above."
-        badge="Keys"
+        title="Backup provider keys"
+        description="Keys for providers you are not using right now."
+        anchor="backup-keys"
+        unmountWhenClosed
       >
-        <div className="space-y-5">
-          <p className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.06] px-3 py-2 text-[11px] leading-relaxed text-emerald-100/80">
-            Deepgram, ElevenLabs, Azure, Google, and Soniox use the same PCM capture path — select the provider above and save its API key.
-          </p>
-
-          <AdvancedSttKeyRow
-            label="Deepgram API key"
-            saved={keySetMap.deepgramKey}
-            placeholder="Paste Deepgram API key"
-            onSave={(v) => onSaveKey('deepgramKey', v)}
-            extra={
-              <select
-                value={snap?.deepgramModel || 'nova-2'}
-                onChange={(e) => {
-                  onPatchSnap('deepgramModel', e.target.value)
-                  onSave('deepgramModel', e.target.value)
-                }}
-                className="input-shadow px-2 py-1 text-xs"
-              >
-                {['nova-2', 'nova-3', 'enhanced', 'base'].map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            }
-          />
-          <p className="-mt-3 text-[10px] text-zinc-600">
-            Get key:{' '}
-            <a href="https://console.deepgram.com/" target="_blank" rel="noreferrer" className="text-accent underline">
-              console.deepgram.com
-            </a>
-          </p>
-
-          <AdvancedSttKeyRow
-            label="ElevenLabs API key (Scribe STT)"
-            saved={keySetMap.elevenLabsKey}
-            placeholder="Paste ElevenLabs API key"
-            onSave={(v) => onSaveKey('elevenLabsKey', v)}
-          />
-          <p className="-mt-3 text-[10px] text-zinc-600">
-            Get key:{' '}
-            <a
-              href="https://elevenlabs.io/app/speech-to-text"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent underline"
-            >
-              elevenlabs.io
-            </a>
-          </p>
-
-          <AdvancedSttKeyRow
-            label="Azure Speech key"
-            saved={keySetMap.azureSpeechKey}
-            placeholder="Paste Azure Speech key"
-            onSave={(v) => onSaveKey('azureSpeechKey', v)}
-            extra={
-              <input
-                type="text"
-                value={snap?.azureSpeechRegion || 'eastus'}
-                onChange={(e) => {
-                  onPatchSnap('azureSpeechRegion', e.target.value)
-                  onSave('azureSpeechRegion', e.target.value)
-                }}
-                placeholder="Region (e.g. eastus)"
-                className="input-shadow w-[130px] px-3 py-2 text-sm"
-              />
-            }
-          />
-          <p className="-mt-3 text-[10px] text-zinc-600">
-            Get key:{' '}
-            <a href="https://portal.azure.com/" target="_blank" rel="noreferrer" className="text-accent underline">
-              portal.azure.com → Cognitive Services → Speech
-            </a>
-          </p>
-
-          <AdvancedSttKeyRow
-            label="Google Cloud STT key"
-            saved={keySetMap.googleSttKey}
-            placeholder="Paste Google Cloud API key"
-            onSave={(v) => onSaveKey('googleSttKey', v)}
-          />
-          <p className="-mt-3 text-[10px] text-zinc-600">
-            Get key:{' '}
-            <a
-              href="https://console.cloud.google.com/apis/credentials"
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent underline"
-            >
-              console.cloud.google.com
-            </a>
-          </p>
-
-          <AdvancedSttKeyRow
-            label="Soniox API key"
-            saved={keySetMap.sonioxKey}
-            placeholder="Paste Soniox API key"
-            onSave={(v) => onSaveKey('sonioxKey', v)}
-            extra={
-              <input
-                type="text"
-                value={snap?.sonioxModel || 'stt-rt-v5'}
-                onChange={(e) => {
-                  onPatchSnap('sonioxModel', e.target.value)
-                  onSave('sonioxModel', e.target.value)
-                }}
-                placeholder="Model"
-                className="input-shadow w-[130px] px-3 py-2 font-mono text-xs"
-              />
-            }
-          />
-          <p className="-mt-3 text-[10px] text-zinc-600">
-            Get key:{' '}
-            <a href="https://soniox.com/" target="_blank" rel="noreferrer" className="text-accent underline">
-              soniox.com
-            </a>
-          </p>
-        </div>
+        {backupKeys}
       </SettingsCollapsible>
-    </SettingsPage>
+    </SettingsPanelShell>
   )
 }

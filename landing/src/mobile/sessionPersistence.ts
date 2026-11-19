@@ -29,7 +29,19 @@ export function loadSessionSnapshot(): SessionSnapshot | null {
   }
 }
 
+let persistAllowed = true
+
+export function allowSessionPersist(): void {
+  persistAllowed = true
+}
+
+export function blockSessionPersist(): void {
+  persistAllowed = false
+  clearSessionSnapshot()
+}
+
 export function saveSessionSnapshot(snapshot: SessionSnapshot): void {
+  if (!persistAllowed) return
   try {
     localStorage.setItem(
       SESSION_SNAPSHOT_KEY,
@@ -49,6 +61,7 @@ export function clearSessionSnapshot(): void {
 }
 
 export function persistSessionFields(fields: Partial<SessionSnapshot>): void {
+  if (!persistAllowed) return
   const prev = loadSessionSnapshot()
   saveSessionSnapshot({
     sessionActive: fields.sessionActive ?? prev?.sessionActive ?? false,

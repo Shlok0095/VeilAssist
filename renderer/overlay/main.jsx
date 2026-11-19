@@ -4,6 +4,7 @@
 import React, { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 import '../shared/app-fonts.css'
+import '../shared/designTokens.css'
 import App from './App'
 import './index.css'
 

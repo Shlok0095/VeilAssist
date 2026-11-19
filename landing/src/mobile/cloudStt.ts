@@ -7,7 +7,7 @@ import {
   NVIDIA_NIM_FUNCTION_ID,
   whisperLangParams,
 } from './sttRegistry'
-import { isLikelyCorsOrNetworkError, mobileApiPost, type MobileHttpResponse } from './mobileHttp'
+import { isLikelyCorsOrNetworkError, mobileApiGet, mobileApiPost, type MobileHttpResponse } from './mobileHttp'
 import { nvidiaNativeSttAvailable, transcribeWavNative } from './nvidiaNativeStt'
 import { Capacitor } from '@capacitor/core'
 
@@ -164,4 +164,45 @@ export async function transcribeAudioBlob(
   }
 
   return run(retries)
+}
+
+/** Lightweight STT readiness probe — no audio, no inference. */
+export async function probeSttHealth(settings: AppSettings): Promise<{ ok: boolean; error?: string }> {
+  if (settings.sttMode === 'device') {
+    return { ok: true }
+  }
+
+  const apiKey = getSttApiKey(settings)
+  if (!apiKey) {
+    return { ok: false, error: "Couldn't start listening — check your speech settings." }
+  }
+
+  if (settings.sttProvider === 'nvidia' && !nvidiaNativeSttAvailable()) {
+    return { ok: false, error: "Couldn't start listening — check your speech settings." }
+  }
+
+  const url =
+    settings.sttProvider === 'groq'
+      ? 'https://api.groq.com/openai/v1/models'
+      : 'https://integrate.api.nvidia.com/v1/models'
+
+  try {
+    const res = await mobileApiGet(
+      url,
+      { Authorization: `Bearer ${apiKey}` },
+      { connectTimeout: 5000, readTimeout: 5000 },
+    )
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, error: "Couldn't start listening — check your speech settings." }
+    }
+    if (res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) {
+      return { ok: true }
+    }
+    if (!res.ok && res.status >= 500) {
+      return { ok: false, error: "Couldn't start listening — check your connection and try again." }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: "Couldn't start listening — check your connection and try again." }
+  }
 }

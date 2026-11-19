@@ -14,38 +14,55 @@
     }
   },
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/downloads/(.*\\.apk)",
       "headers": [
-        { "key": "Content-Type", "value": "application/vnd.android.package-archive" },
-        { "key": "Content-Disposition", "value": "attachment; filename=\"VeilAssist-Interview.apk\"" },
-        { "key": "Cache-Control", "value": "public, max-age=600" }
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"VeilAssist-Interview.apk\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=600"
+        }
       ]
     }
   ],
   "redirects": [
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "shadow-assist.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "shadow-assist.vercel.app"
+        }
+      ],
       "destination": "https://veilassist.vercel.app/:path*",
       "permanent": true
     },
     {
       "source": "/download/beta",
-      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/v2026.822.1602/VeilAssist-Setup.exe",
+      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/VeilAssistSetup1.0.0.exe",
       "permanent": false
     },
     {
       "source": "/download/portable",
-      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/v2026.822.1602/VeilAssist.exe",
+      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/VeilAssist1.0.0.exe",
       "permanent": false
     },
     {
       "source": "/download/checksums",
-      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/latest/SHA256SUMS.txt",
+      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/SHA256SUMS.txt",
       "permanent": false
     },
     {

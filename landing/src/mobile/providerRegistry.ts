@@ -32,8 +32,8 @@ export type ChatProviderMeta = {
 }
 
 export const CHAT_PROVIDER_ORDER: AiProviderId[] = [
-  'groq',
   'nvidia',
+  'groq',
   'openrouter',
   'openai',
   'anthropic',
@@ -47,7 +47,7 @@ export const CHAT_PROVIDERS: ChatProviderMeta[] = [
     id: 'groq',
     label: 'Groq',
     badge: 'FAST',
-    desc: 'Fast inference. Qwen 3.6 is the camera model; Llama 3.3 is text-only.',
+    desc: 'Backup if NVIDIA fails. The Groq model here is only used after NVIDIA.',
     docs: 'https://console.groq.com/keys',
     keyField: 'groqKey',
     modelField: 'groqModel',
@@ -59,11 +59,11 @@ export const CHAT_PROVIDERS: ChatProviderMeta[] = [
     id: 'nvidia',
     label: 'NVIDIA NIM',
     badge: 'NIM',
-    desc: 'Camera-ranked Nemotron VL. Failures try the next model silently, then Groq Qwen.',
+    desc: 'Answers first with the NVIDIA model you pick. Next-fastest NVIDIA, then Groq, if it fails.',
     docs: 'https://build.nvidia.com/',
     keyField: 'nvidiaKey',
     modelField: 'nvidiaModel',
-    defaultModel: 'nvidia/nemotron-nano-12b-v2-vl',
+    defaultModel: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
     kind: 'openai_compat',
     baseURL: 'https://integrate.api.nvidia.com/v1',
   },

@@ -12,7 +12,10 @@ import {
 import { FALLBACK_RANK } from './generated/fallbackRank.generated'
 import { normalizeSttProvider } from './sttRegistry'
 
-const LEGACY_NVIDIA_DEFAULT = 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1'
+const LEGACY_NVIDIA_DEFAULTS = new Set([
+  'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
+  'nvidia/nemotron-nano-12b-v2-vl',
+])
 
 const STORAGE_PROFILE = 'veilassist.mobile.profile.v1'
 const STORAGE_SETTINGS = 'veilassist.mobile.appSettings.v1'
@@ -76,12 +79,13 @@ function normalizeMemory(value: unknown): AppSettings['conversationMemorySec'] {
 export function loadAppSettings(): AppSettings {
   const parsed = readJson<AppSettings>(STORAGE_SETTINGS, DEFAULT_APP_SETTINGS)
   const nvidiaModel =
-    parsed.nvidiaModel === LEGACY_NVIDIA_DEFAULT
+    LEGACY_NVIDIA_DEFAULTS.has(String(parsed.nvidiaModel || ''))
       ? FALLBACK_RANK.primary_nvidia
       : parsed.nvidiaModel || DEFAULT_APP_SETTINGS.nvidiaModel
   return {
     ...DEFAULT_APP_SETTINGS,
     ...parsed,
+    provider: parsed.provider || DEFAULT_APP_SETTINGS.provider,
     nvidiaModel,
     sttProvider: normalizeSttProvider(parsed.sttProvider),
     colorScheme: parsed.colorScheme === 'light' ? 'light' : 'dark',
@@ -104,6 +108,24 @@ export function saveAppSettings(settings: AppSettings) {
 
 export function getActiveApiKey(settings: AppSettings): string {
   return getProviderApiKey(settings, settings.provider)
+}
+
+export function hasRoutableChatKey(settings: AppSettings): boolean {
+  return Boolean(
+    getProviderApiKey(settings, 'nvidia') ||
+      getProviderApiKey(settings, 'groq') ||
+      getActiveApiKey(settings),
+  )
+}
+
+export function settingsForChatPing(settings: AppSettings): AppSettings {
+  if (getProviderApiKey(settings, 'nvidia')) {
+    return { ...settings, provider: 'nvidia' }
+  }
+  if (getProviderApiKey(settings, 'groq')) {
+    return { ...settings, provider: 'groq' }
+  }
+  return settings
 }
 
 export function getActiveModel(settings: AppSettings): string {

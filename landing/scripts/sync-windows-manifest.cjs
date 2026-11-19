@@ -35,8 +35,11 @@ function compareCompactVersions(a, b) {
 }
 
 function compactToDotted(compact) {
-  const [y, md, hm] = String(compact).replace(/^v/, '').split('.')
-  if (!y || !md || !hm) return String(compact)
+  const s = String(compact).replace(/^v/, '')
+  // Semver product versions (e.g. 1.0.0) — keep as-is for display + release tags.
+  if (/^\d+\.\d+\.\d+$/.test(s)) return s
+  const [y, md, hm] = s.split('.')
+  if (!y || !md || !hm) return s
   const mdNum = Number(md)
   const hmNum = Number(hm)
   const month = Math.floor(mdNum / 100)
@@ -52,7 +55,7 @@ function findLatestYml() {
   if (fs.existsSync(distYml)) candidates.push(distYml)
   const buildDirs = fs
     .readdirSync(repoRoot, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && (/^dist-build-\d+$/.test(d.name) || /^dist-fresh-\d+$/.test(d.name) || /^dist-interview-\d+$/.test(d.name)))
+    .filter((d) => d.isDirectory() && (/^dist-fresh-\d+$/.test(d.name) || /^dist-interview-\d+$/.test(d.name)))
     .map((d) => path.join(repoRoot, d.name, 'latest.yml'))
     .filter((p) => fs.existsSync(p))
   candidates.push(...buildDirs)
@@ -90,12 +93,45 @@ function findExeSize(dir, name) {
   return null
 }
 
-function findInstallerExe(dir) {
+function newestMatching(dir, test) {
+  const hits = fs.readdirSync(dir)
+    .filter((n) => test(n))
+    .map((n) => {
+      const filePath = path.join(dir, n)
+      return { filePath, mtime: fs.statSync(filePath).mtimeMs }
+    })
+    .sort((a, b) => b.mtime - a.mtime)
+  return hits[0]?.filePath || null
+}
+
+function findInstallerExe(dir, compactVersion) {
   if (!dir) return null
+  if (compactVersion) {
+    const exact = path.join(dir, `VeilAssistSetup${compactVersion}.exe`)
+    if (fs.existsSync(exact)) return exact
+  }
+  if (stampVersion) {
+    const stamped = path.join(dir, `VeilAssistSetup${stampVersion}.exe`)
+    if (fs.existsSync(stamped)) return stamped
+  }
   const setup = path.join(dir, 'VeilAssist-Setup.exe')
   if (fs.existsSync(setup)) return setup
-  const compact = fs.readdirSync(dir).find((n) => /^VeilAssistSetup\d/.test(n) && n.endsWith('.exe'))
-  return compact ? path.join(dir, compact) : null
+  return newestMatching(dir, (n) => /^VeilAssistSetup\d/.test(n) && n.endsWith('.exe'))
+}
+
+function findPortableExe(dir, compactVersion) {
+  if (!dir) return null
+  if (compactVersion) {
+    const exact = path.join(dir, `VeilAssist${compactVersion}.exe`)
+    if (fs.existsSync(exact)) return exact
+  }
+  if (stampVersion) {
+    const stamped = path.join(dir, `VeilAssist${stampVersion}.exe`)
+    if (fs.existsSync(stamped)) return stamped
+  }
+  const portable = path.join(dir, 'VeilAssist.exe')
+  if (fs.existsSync(portable)) return portable
+  return newestMatching(dir, (n) => /^VeilAssist\d/.test(n) && n.endsWith('.exe') && !/Setup/.test(n))
 }
 
 function sha256File(filePath) {
@@ -106,6 +142,10 @@ function sha256File(filePath) {
 }
 
 const ymlPath = findLatestYml()
+if (!ymlPath) {
+  console.log('[sync-windows-manifest] no trusted Windows build found — keeping committed manifest')
+  process.exit(0)
+}
 const ymlText = ymlPath ? readText(ymlPath) : null
 const yml = ymlText ? parseLatestYml(ymlText) : { version: null, releaseDate: null, installerSize: null }
 
@@ -123,22 +163,37 @@ function findDistDirForYml(ymlPath) {
 }
 
 const distDir = findDistDirForYml(ymlPath)
-const installerExe = findInstallerExe(distDir)
-const portableSize = distDir ? findExeSize(distDir, 'VeilAssist.exe') : null
-const installerSize = yml.installerSize || (distDir ? findExeSize(distDir, 'VeilAssist-Setup.exe') : null)
+const compactVersion = yml.version || stampVersion || ''
+const installerExe = findInstallerExe(distDir, compactVersion)
+const portableExe = findPortableExe(distDir, compactVersion)
+
+// Vercel and other checkouts do not include the 150MB installer. Keep the
+// committed landing pin so `npm run build` cannot roll the download page
+// back to an older latest.yml sitting in git.
+if (!installerExe) {
+  console.log('[sync-windows-manifest] no installer binary — keeping committed landing package pin')
+  process.exit(0)
+}
+
+const portableSize = portableExe && fs.existsSync(portableExe) ? fs.statSync(portableExe).size : null
+const installerSize =
+  yml.installerSize || (installerExe && fs.existsSync(installerExe) ? fs.statSync(installerExe).size : null)
 const installerSha256 = sha256File(installerExe)
 
-const compactVersion = yml.version || stampVersion || ''
-const releaseTag = compactVersion ? `v${compactVersion}` : 'v2026.820.207'
+// Interview releases use `interview-v*` tags and versioned filenames so stag/main CI
+// cannot overwrite generic VeilAssist-Setup.exe on the same release.
+const releaseTag = compactVersion ? `interview-v${compactVersion}` : 'interview-v2026.820.207'
 const repo = 'Shlok0095/VeilAssist'
 const releaseBase = `https://github.com/${repo}/releases/download/${releaseTag}`
+const installerFile = path.basename(installerExe)
+const portableFile = portableExe ? path.basename(portableExe) : compactVersion ? `VeilAssist${compactVersion}.exe` : 'VeilAssist.exe'
 
 const manifest = {
   version: compactVersion ? compactToDotted(compactVersion) : stampVersion || '',
   compactVersion: compactVersion || stampVersion || '',
   releaseTag,
-  installerDownloadUrl: `${releaseBase}/VeilAssist-Setup.exe`,
-  portableDownloadUrl: `${releaseBase}/VeilAssist.exe`,
+  installerDownloadUrl: `${releaseBase}/${installerFile}`,
+  portableDownloadUrl: `${releaseBase}/${portableFile}`,
   builtAt: yml.releaseDate || new Date().toISOString(),
   installerSize: installerSize || 0,
   portableSize: portableSize || 0,
@@ -156,6 +211,35 @@ fs.writeFileSync(
   `/** Auto-generated by scripts/sync-windows-manifest.cjs — do not edit. */\nexport const SITE_WINDOWS_BUILD_MANIFEST = ${JSON.stringify(manifest, null, 2)} as const\n`,
   'utf8',
 )
+
+function syncVercelDownloadRedirects() {
+  const vercelFiles = [
+    path.join(landingRoot, 'vercel.json'),
+    path.join(repoRoot, 'vercel.json'),
+  ]
+  for (const filePath of vercelFiles) {
+    if (!fs.existsSync(filePath)) continue
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    if (!Array.isArray(raw.redirects)) continue
+    let changed = false
+    for (const redirect of raw.redirects) {
+      if (redirect.source === '/download/beta' && redirect.destination !== manifest.installerDownloadUrl) {
+        redirect.destination = manifest.installerDownloadUrl
+        changed = true
+      }
+      if (redirect.source === '/download/portable' && redirect.destination !== manifest.portableDownloadUrl) {
+        redirect.destination = manifest.portableDownloadUrl
+        changed = true
+      }
+    }
+    if (changed) {
+      fs.writeFileSync(filePath, `${JSON.stringify(raw, null, 2)}\n`, 'utf8')
+      console.log(`[sync-windows-manifest] updated ${filePath} download redirects`)
+    }
+  }
+}
+
+syncVercelDownloadRedirects()
 
 console.log(`[sync-windows-manifest] ${generatedTs}`)
 console.log(`[sync-windows-manifest] version=${manifest.version} builtAt=${manifest.builtAt}`)

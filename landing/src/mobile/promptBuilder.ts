@@ -2,7 +2,8 @@ import type { AppSettings } from './profileTypes'
 import { routeInterviewQuestion } from './answerRouting'
 import type { SessionTurn } from './sessionLoopTypes'
 import { isNvidiaFastChatModel } from './nvidiaChatModels'
-import { THINKING_TEMPERATURE } from './multimodalRouter'
+import { nvidiaThinkBodyFields } from './nvidiaChatHelpers'
+import { NORMAL_TEMPERATURE, THINKING_TEMPERATURE, THINKING_TOP_P } from './multimodalRouter'
 import { formatPrompt, INTERVIEW_LANGUAGES, selectConversationMemory, structurePrompt } from './settingsCatalog'
 
 export function buildInterviewSystemPrompt(input: {
@@ -135,7 +136,8 @@ export function buildChatPayload(input: {
     { role: 'assistant' as const, content: turn.answer },
   ])
 
-  const userText = input.think
+  const think = Boolean(input.think)
+  const userText = think
     ? `Interview question (think briefly, then answer):\n\n${input.question}`
     : `Interview question:\n\n${input.question}`
 
@@ -164,32 +166,24 @@ export function buildChatPayload(input: {
   const payload: Record<string, unknown> = {
     model: input.model,
     messages,
-    max_tokens:
-      input.think ? 2200 : answerLength === 'long' ? 1800 : answerLength === 'short' ? 600 : 1400,
-    temperature: input.think ? THINKING_TEMPERATURE : 0,
-    top_p: 0.7,
+    max_tokens: think ? 1600 : answerLength === 'long' ? 1800 : answerLength === 'short' ? 600 : 1400,
+    temperature: think ? THINKING_TEMPERATURE : NORMAL_TEMPERATURE,
     stream: Boolean(input.stream),
   }
+  if (think) payload.top_p = THINKING_TOP_P
 
   const model = String(input.model || '')
-  const nemotron = /nemotron/i.test(model)
-  const nvidiaFast = input.settings.provider === 'nvidia' && !input.think && isNvidiaFastChatModel(model)
+  const nvidiaFast = input.settings.provider === 'nvidia' && !think && isNvidiaFastChatModel(model)
 
   if (nvidiaFast) {
     payload.seed = 7
   }
 
-  if (nemotron) {
-    payload.chat_template_kwargs = { enable_thinking: input.think }
-  }
+  Object.assign(payload, nvidiaThinkBodyFields(model, think))
 
   if (input.settings.provider === 'groq' && /qwen3\.6/i.test(model)) {
-    payload.reasoning_effort = input.think ? 'default' : 'none'
+    payload.reasoning_effort = think ? 'default' : 'none'
     payload.reasoning_format = 'hidden'
-  }
-
-  if (input.think && /reasoner/i.test(input.model)) {
-    payload.temperature = THINKING_TEMPERATURE
   }
 
   return { payload, route, systemPrompt }

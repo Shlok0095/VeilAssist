@@ -10,9 +10,10 @@ import { capabilitiesFor } from './modelCapabilityRegistry'
 import { formatCheckedModelsError } from './modelDisplay'
 import type { AppSettings } from './profileTypes'
 import { getProviderApiKey } from './providerRegistry'
-import { recordHealth, sortTargetsByHealth } from './runtimeHealth'
+import { recordHealth } from './runtimeHealth'
 
-export const THINKING_TEMPERATURE = 0.6
+export const THINKING_TEMPERATURE = FALLBACK_RANK.thinking_temperature || 0.5
+export const THINKING_TOP_P = FALLBACK_RANK.thinking_top_p || 0.9
 export const NORMAL_TEMPERATURE = 0
 
 export type FallbackReason =
@@ -61,19 +62,25 @@ function pushEvent(ev: FallbackEvent): void {
   if (recentEvents.length > 50) recentEvents.pop()
 }
 
-function nvidiaChain(primary: string): string[] {
-  const ranked = FALLBACK_RANK.primary_nvidia
-    ? [FALLBACK_RANK.primary_nvidia, ...FALLBACK_RANK.nvidia_fallbacks]
-    : []
-  const out = [primary, ...ranked.filter((m) => m && m !== primary)]
-  return [...new Set(out.filter(Boolean))] as string[]
+function nvidiaChain(thinking: boolean, selected?: string): string[] {
+  const ranked = thinking
+    ? [
+        FALLBACK_RANK.nvidia_thinking_primary || FALLBACK_RANK.primary_nvidia,
+        ...(FALLBACK_RANK.nvidia_thinking_fallbacks || FALLBACK_RANK.nvidia_fallbacks || []),
+      ]
+    : [FALLBACK_RANK.primary_nvidia, ...(FALLBACK_RANK.nvidia_fallbacks || [])]
+  const fastest = ranked.filter(Boolean).slice(0, 2)
+  return [...new Set([selected, ...fastest].filter(Boolean))] as string[]
 }
 
-function groqChain(): string[] {
-  const models: string[] = []
-  if (FALLBACK_RANK.groq_primary) models.push(FALLBACK_RANK.groq_primary)
-  if (FALLBACK_RANK.groq_emergency) models.push(FALLBACK_RANK.groq_emergency)
-  return models
+function groqChain(image: boolean, selected?: string): string[] {
+  const model = String(selected || FALLBACK_RANK.groq_primary || '').trim()
+  if (!model) return []
+  if (image) {
+    const caps = capabilitiesFor('groq', model)
+    if (!caps.multimodal) return []
+  }
+  return [model]
 }
 
 export function classifyError(err: unknown): FallbackReason {
@@ -109,46 +116,38 @@ export function buildFallbackPlan(
   settings: AppSettings,
   opts: { image: boolean; thinking: boolean },
 ): RoutedTarget[] {
-  const plan: RoutedTarget[] = []
   const nvidiaKey = getProviderApiKey(settings, 'nvidia')
   const groqKey = getProviderApiKey(settings, 'groq')
-  const requested = settings.provider
 
-  if (requested === 'nvidia' && nvidiaKey) {
-    const primary = String(settings.nvidiaModel || FALLBACK_RANK.primary_nvidia || '').trim()
-    for (const model of nvidiaChain(primary)) {
-      const caps = capabilitiesFor('nvidia', model)
-      if (opts.image && !caps.multimodal) continue
-      plan.push({ provider: 'nvidia', model, apiKey: nvidiaKey })
-    }
-  }
-
-  if (groqKey && (requested === 'nvidia' || requested === 'groq')) {
-    const groqPrimary =
-      requested === 'groq'
-        ? String(settings.groqModel || FALLBACK_RANK.groq_primary || '').trim()
-        : FALLBACK_RANK.groq_primary || String(settings.groqModel || '').trim()
-    const models = requested === 'groq' ? [groqPrimary, ...groqChain()] : groqChain()
-    for (const model of [...new Set(models.filter(Boolean))]) {
+  const groqTargets = (): RoutedTarget[] => {
+    if (!groqKey) return []
+    const groqPrimary = String(settings.groqModel || FALLBACK_RANK.groq_primary || '').trim()
+    const out: RoutedTarget[] = []
+    for (const model of groqChain(opts.image, groqPrimary)) {
       const caps = capabilitiesFor('groq', model)
       if (opts.image && !caps.multimodal) continue
-      plan.push({ provider: 'groq', model, apiKey: groqKey })
+      out.push({ provider: 'groq', model, apiKey: groqKey })
     }
+    return out
   }
 
-  if (requested === 'groq' && nvidiaKey) {
-    for (const model of nvidiaChain(FALLBACK_RANK.primary_nvidia)) {
+  const nvidiaTargets = (): RoutedTarget[] => {
+    if (!nvidiaKey) return []
+    const selected = String(settings.nvidiaModel || FALLBACK_RANK.primary_nvidia || '').trim()
+    const out: RoutedTarget[] = []
+    for (const model of nvidiaChain(opts.thinking, selected)) {
       const caps = capabilitiesFor('nvidia', model)
       if (opts.image && !caps.multimodal) continue
-      if (plan.some((t) => t.provider === 'nvidia' && t.model === model)) continue
-      plan.push({ provider: 'nvidia', model, apiKey: nvidiaKey })
+      if (out.some((t) => t.model === model)) continue
+      out.push({ provider: 'nvidia', model, apiKey: nvidiaKey })
     }
+    return out
   }
 
-  const healthy = plan.filter((t) => canAttempt(circuitId(t.provider, t.model)))
-  const nvidia = sortTargetsByHealth(healthy.filter((t) => t.provider === 'nvidia'))
-  const groq = sortTargetsByHealth(healthy.filter((t) => t.provider === 'groq'))
-  return requested === 'groq' ? [...groq, ...nvidia] : [...nvidia, ...groq]
+  const nvidia = nvidiaTargets()
+  const groq = groqTargets()
+  const plan = [...nvidia, ...groq]
+  return plan.filter((t) => canAttempt(circuitId(t.provider, t.model)))
 }
 
 export async function executeFallbackPlan<T>(opts: {
@@ -186,6 +185,10 @@ export async function executeFallbackPlan<T>(opts: {
         value = await tryOnce()
       } catch (first) {
         if (isAbortError(first)) throw first
+        const reason = classifyError(first)
+        const retrySame =
+          target.provider !== 'groq' && (reason === 'http_5xx' || reason === 'timeout')
+        if (!retrySame) throw first
         retryCount += 1
         value = await tryOnce()
       }

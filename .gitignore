@@ -1,4 +1,4 @@
-# Dependencies & build output
+﻿# Dependencies & build output
 node_modules/
 out/
 build/*
@@ -40,6 +40,18 @@ eng.traineddata
 *.swp
 .vercel/
 
+# Desktop build output (never commit — Vercel ignores dist/ via .vercelignore)
+dist/
+dist-build-*/
+dist-fresh-*/
+dist-interview-*/
+dist-release/
+
 # Graphify knowledge graph (local dev artifact)
 graphify-out/
 !build/version-state.json
+
+# Rust native audio addon (keep committed .node prebuilds if present)
+native/veilassist-audio/target/
+native/veilassist-audio/node_modules/
+native/veilassist-audio/*.node.bak

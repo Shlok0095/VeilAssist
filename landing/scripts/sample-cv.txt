@@ -1,0 +1,13 @@
+Shlok Kumar
+AI/ML Engineer
+Email: shlok@example.com
+
+Skills: Python, PyTorch, TensorFlow, AWS, Docker
+
+Experience:
+Data Scientist at Acme Corp (2020-2024)
+- Built end-to-end ML pipelines on AWS
+- Deployed PyTorch models with 95% accuracy
+
+Education:
+B.Tech Computer Science, IIT Example (2016-2020)

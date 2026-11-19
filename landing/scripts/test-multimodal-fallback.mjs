@@ -57,12 +57,12 @@ function classify(err) {
 async function simulate({ think, image, nvidiaFails = 0, groqFails = 0, recoverAfterOpen = false }) {
   const cb = cloneBreaker()
   const nvidiaModels = ['nvidia/primary', 'nvidia/fb1']
-  const groqModels = ['qwen/qwen3.6-27b']
+  const groqModels = ['qwen/qwen3.8-27b']
   const hops = []
   const failCount = { nvidia: 0, groq: 0 }
   const plan = [
-    ...nvidiaModels.map((m) => ({ provider: 'nvidia', model: m })),
     ...groqModels.map((m) => ({ provider: 'groq', model: m })),
+    ...nvidiaModels.map((m) => ({ provider: 'nvidia', model: m })),
   ]
   for (const t of plan) {
     const id = `${t.provider}::${t.model}`
@@ -83,7 +83,7 @@ async function simulate({ think, image, nvidiaFails = 0, groqFails = 0, recoverA
     hops.push({ ...t, reason: 'success' })
     return { hops, actual: t, think, image }
   }
-  throw new Error(`Checked ${hops.map((h) => h.model).join(', ')}. None could answer.`)
+  throw new Error('Could not generate an answer. Check your API keys and try again.')
 }
 
 const results = []
@@ -97,28 +97,28 @@ function fail(name, d) {
 }
 
 try {
-  const t1 = await simulate({ think: false, image: true, nvidiaFails: 0 })
-  assert.equal(t1.actual.model, 'nvidia/primary')
-  pass('Test 1 primary NVIDIA succeeds')
+  const t1 = await simulate({ think: false, image: true, groqFails: 0 })
+  assert.equal(t1.actual.model, 'qwen/qwen3.8-27b')
+  pass('Test 1 primary Groq succeeds')
 } catch (e) {
-  fail('Test 1 primary NVIDIA succeeds', e.message)
+  fail('Test 1 primary Groq succeeds', e.message)
 }
 
 try {
-  const t2 = await simulate({ think: false, image: true, nvidiaFails: 1 })
-  assert.equal(t2.actual.model, 'nvidia/fb1')
-  pass('Test 2 primary timeout → NVIDIA fallback')
+  const t2 = await simulate({ think: false, image: true, groqFails: 1 })
+  assert.equal(t2.actual.model, 'nvidia/primary')
+  pass('Test 2 Groq fail → NVIDIA fallback (no throw)')
 } catch (e) {
-  fail('Test 2 primary timeout → NVIDIA fallback', e.message)
+  fail('Test 2 Groq fail → NVIDIA fallback (no throw)', e.message)
 }
 
 try {
-  const t3 = await simulate({ think: false, image: true, nvidiaFails: 9 })
-  assert.equal(t3.actual.provider, 'groq')
-  assert.equal(t3.actual.model, 'qwen/qwen3.6-27b')
-  pass('Test 3 all NVIDIA fail → Groq multimodal')
+  const t3 = await simulate({ think: false, image: true, groqFails: 9, nvidiaFails: 1 })
+  assert.equal(t3.actual.provider, 'nvidia')
+  assert.equal(t3.actual.model, 'nvidia/fb1')
+  pass('Test 3 Groq fail → NVIDIA fallback chain')
 } catch (e) {
-  fail('Test 3 all NVIDIA fail → Groq multimodal', e.message)
+  fail('Test 3 Groq fail → NVIDIA fallback chain', e.message)
 }
 
 try {
@@ -179,8 +179,8 @@ try {
   fail('Test 9 last model failure should throw')
 } catch (e) {
   const msg = e instanceof Error ? e.message : String(e)
-  if (msg.includes('Checked') && msg.includes('qwen/qwen3.6-27b')) pass('Test 9 last failure lists checked models')
-  else fail('Test 9 last failure lists checked models', msg)
+  if (msg.includes('Could not generate an answer')) pass('Test 9 last failure is generic (no Groq error)')
+  else fail('Test 9 last failure is generic (no Groq error)', msg)
 }
 assert.equal(classify(new Error('AI provider error (503): down')), 'http_5xx')
 pass('Error classifier maps timeout/5xx')

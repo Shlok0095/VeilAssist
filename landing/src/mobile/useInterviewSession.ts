@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
+import { scrollContainerToBottomFromAnchor } from './useAutoScroll'
 import { minCharsForDetection } from './answerRouting'
 import { transcribeAudioBlob } from './cloudStt'
 import { connectNvidiaStreaming, nvidiaStreamingAvailable, type NvidiaStreamingHandle } from './nvidiaStreamingStt'
@@ -16,28 +17,29 @@ import {
   appendSpeechSegment,
   consumeSegmentsForQuestion,
   fullTranscriptText,
+  isLikelySelfReadback,
+  pendingTranscriptText,
   questionsAreSimilar,
   selectActiveQuestion,
+  stripSelfReadback,
   transcriptInWindow,
   type SpeechSegment,
 } from './transcriptSegments'
-import { extractFollowUpAfterAnswer, resolveFollowUpQuestion } from './transcriptFollowUp'
+import { extractFollowUpAfterAnswer, resolveFollowUpQuestion, classifyPostAnswerSpeech, combineQuestion, estimatedAnswerHoldMs } from './transcriptFollowUp'
 import type { AppSettings, PersonalProfile } from './profileTypes'
 import { profileIsReady } from './profileTypes'
-import { getActiveApiKey, loadProfile } from './profileStorage'
+import { getActiveApiKey, hasRoutableChatKey, loadProfile } from './profileStorage'
 import { getProviderApiKey, speechLangFromSettings } from './providerRegistry'
 import { sttKeyConfigured } from './sttRegistry'
 import {
   createSpeechRecognition,
   requestInterviewAnswer,
   speechRecognitionAvailable,
-  validateProviderKey,
   type SessionPhase,
 } from './interviewTypes'
 import {
   configureDeviceSpeechRecognition,
   deviceRecognitionRestartDelayMs,
-  warmupDeviceMicrophone,
 } from './deviceStt'
 import {
   loopPhaseLabel,
@@ -46,14 +48,14 @@ import {
   type SessionTurn,
 } from './sessionLoopTypes'
 import {
-  clearSessionSnapshot,
-  loadSessionSnapshot,
+  allowSessionPersist,
+  blockSessionPersist,
   persistSessionFields,
   saveSessionSnapshot,
 } from './sessionPersistence'
+import { runSessionPreflight, SESSION_PREFLIGHT_FAIL } from './sessionPreflight'
 
-const SESSION_WARMUP_MS = 2200
-const AUTO_ANSWER_COOLDOWN_MS = 9000
+const STARTUP_TIMEOUT_MS = 30000
 /** Cloud STT: silence after last audio activity before auto-answer. */
 const CLOUD_UTTERANCE_END_SILENCE_MS = 1400
 /**
@@ -107,6 +109,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
   const [error, setError] = useState<string | null>(null)
   const [sessionActive, setSessionActive] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [startFailed, setStartFailed] = useState(false)
   const [startingMessage, setStartingMessage] = useState('Starting…')
   const [isGenerating, setIsGenerating] = useState(false)
   const [listeningStatus, setListeningStatus] = useState('')
@@ -118,6 +121,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
   const [reconnecting, setReconnecting] = useState(false)
   const [sttErrorState, setSttErrorState] = useState<string | null>(null)
   const [transcriptEditing, setTranscriptEditing] = useState(false)
+  const [replacingTurn, setReplacingTurn] = useState(false)
 
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const nvidiaStreamingRef = useRef<NvidiaStreamingHandle | null>(null)
@@ -149,10 +153,16 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
   const interimTranscriptRef = useRef('')
   const answeredTranscriptSnapshotRef = useRef('')
   const speechSegmentsRef = useRef<SpeechSegment[]>([])
-  const followUpPendingRef = useRef(false)
   const lastSentQuestionRef = useRef('')
-  const lastTriggerAtRef = useRef(0)
+  const lastGeneratedAnswerRef = useRef('')
+  const streamingAnswerRef = useRef('')
+  const answerCompletedAtRef = useRef(0)
+  const speakHoldMsRef = useRef(8000)
+  const pendingFollowUpRef = useRef('')
+  const followUpHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userPausedRef = useRef(false)
+  const startAbortRef = useRef<AbortController | null>(null)
+  const startingRef = useRef(false)
 
   settingsRef.current = settings
   profileRef.current = profile
@@ -181,9 +191,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
 
   const scrollAnswer = useCallback(() => {
     if (!settingsRef.current.autoScroll) return
-    requestAnimationFrame(() => {
-      answerEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-    })
+    scrollContainerToBottomFromAnchor(answerEndRef.current)
   }, [])
 
   const clearAutoAnswerTimer = useCallback(() => {
@@ -217,9 +225,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
     transcriptRef.current = ''
     lastDeviceFinalRef.current = ''
     speechSegmentsRef.current = []
-    followUpPendingRef.current = false
     lastSentQuestionRef.current = ''
-    lastTriggerAtRef.current = 0
     setTranscript('')
     setInterimTranscript('')
     setTranscriptEditing(false)
@@ -286,10 +292,49 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
         source?: 'manual_input' | 'transcript'
         retry?: boolean
         followUp?: boolean
+        replaceLastTurn?: boolean
         imageDataUrl?: string
       },
     ) => Promise<void>
   >()
+
+  const clearFollowUpHold = useCallback(() => {
+    if (followUpHoldTimerRef.current) {
+      clearTimeout(followUpHoldTimerRef.current)
+      followUpHoldTimerRef.current = null
+    }
+  }, [])
+
+  const isStillUsingLastAnswer = useCallback(() => {
+    if (!answerCompletedAtRef.current) return false
+    const sinceAnswer = Date.now() - answerCompletedAtRef.current
+    const quiet = Date.now() - lastSpeechActivityRef.current
+    if (sinceAnswer < 4000) return true
+    if (quiet >= 1600) return false
+    if (sinceAnswer >= speakHoldMsRef.current) return false
+    return true
+  }, [])
+
+  const armFollowUpHold = useCallback(() => {
+    clearFollowUpHold()
+    const tick = () => {
+      followUpHoldTimerRef.current = null
+      if (!sessionActiveRef.current) return
+      if (loopPhaseRef.current === 'paused') {
+        followUpHoldTimerRef.current = setTimeout(tick, 400)
+        return
+      }
+      if (!pendingFollowUpRef.current || generatingRef.current) return
+      if (isStillUsingLastAnswer()) {
+        followUpHoldTimerRef.current = setTimeout(tick, 400)
+        return
+      }
+      const q = pendingFollowUpRef.current
+      pendingFollowUpRef.current = ''
+      if (q) void generateFromTextRef.current?.(q, { source: 'transcript', followUp: true })
+    }
+    followUpHoldTimerRef.current = setTimeout(tick, 400)
+  }, [clearFollowUpHold, isStillUsingLastAnswer])
 
   const tryAutoAnswer = useCallback(() => {
     if (loopPhaseRef.current === 'generating_answer' || loopPhaseRef.current === 'paused') return
@@ -299,9 +344,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
     if (!activeQ) return
 
     const s = settingsRef.current
-    const warmedUp = Date.now() - sessionStartedAtRef.current >= SESSION_WARMUP_MS
     if (
-      !warmedUp ||
       !sttHealthyRef.current ||
       !s.autoAnswer ||
       generatingRef.current ||
@@ -314,10 +357,26 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
     if (questionsAreSimilar(activeQ, lastSentQuestionRef.current)) return
     const lastTurn = turnHistoryRef.current[turnHistoryRef.current.length - 1]
     if (lastTurn && questionsAreSimilar(activeQ, lastTurn.question)) return
-    if (Date.now() - lastTriggerAtRef.current < AUTO_ANSWER_COOLDOWN_MS) return
+    if (isLikelySelfReadback(activeQ, lastGeneratedAnswerRef.current || streamingAnswerRef.current)) return
+    if (pendingFollowUpRef.current) {
+      if (
+        !questionsAreSimilar(activeQ, pendingFollowUpRef.current) &&
+        isUtteranceReadyForAutoAnswer(activeQ)
+      ) {
+        pendingFollowUpRef.current = activeQ
+        speechSegmentsRef.current = consumeSegmentsForQuestion(speechSegmentsRef.current, activeQ)
+      }
+      return
+    }
+    if (isStillUsingLastAnswer()) {
+      pendingFollowUpRef.current = activeQ
+      speechSegmentsRef.current = consumeSegmentsForQuestion(speechSegmentsRef.current, activeQ)
+      armFollowUpHold()
+      return
+    }
 
     void generateFromTextRef.current?.(activeQ, { source: 'transcript' })
-  }, [])
+  }, [isStillUsingLastAnswer, armFollowUpHold])
 
   const scheduleAutoAnswer = useCallback(
     (opts?: { silenceGateMs?: number }) => {
@@ -350,10 +409,30 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
       if (!sttLoopAllowsTranscription(loopPhaseRef.current)) return
       const piece = String(text || '').trim()
       if (!piece || isLikelySttGarbage(piece) || isRepetitionHallucination(piece)) return
+      if (lastSentQuestionRef.current && questionsAreSimilar(piece, lastSentQuestionRef.current)) return
+      const lastTurn = turnHistoryRef.current[turnHistoryRef.current.length - 1]
+      if (lastTurn && questionsAreSimilar(piece, lastTurn.question)) return
+
+      const answerText = `${lastGeneratedAnswerRef.current} ${streamingAnswerRef.current}`.trim()
+      const remainder = stripSelfReadback(piece, answerText)
+      if (!remainder) {
+        speechSegmentsRef.current = appendSpeechSegment(speechSegmentsRef.current, piece, {
+          consumed: true,
+          readback: true,
+        })
+        syncTranscriptDisplay()
+        setInterimTranscript('')
+        interimTranscriptRef.current = ''
+        setListeningStatus('Listening…')
+        sttHealthyRef.current = true
+        setSttErrorState(null)
+        markSpeechActivity()
+        return
+      }
 
       const duringAnswer = loopPhaseRef.current === 'generating_answer'
       const before = fullTranscriptText(speechSegmentsRef.current)
-      speechSegmentsRef.current = appendSpeechSegment(speechSegmentsRef.current, piece)
+      speechSegmentsRef.current = appendSpeechSegment(speechSegmentsRef.current, remainder)
       const after = fullTranscriptText(speechSegmentsRef.current)
       if (before === after) return
 
@@ -365,7 +444,6 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
       setSttErrorState(null)
       markSpeechActivity()
       if (duringAnswer) {
-        followUpPendingRef.current = true
         setListeningStatus('Listening…')
       } else if (opts?.scheduleAnswer) {
         scheduleAutoAnswer({ silenceGateMs: opts.silenceGateMs })
@@ -415,6 +493,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
 
     speechSegmentsRef.current = consumeSegmentsForQuestion(speechSegmentsRef.current, snapshot)
 
+    const pendingJoined = pendingTranscriptText(speechSegmentsRef.current)
     let tail = resolveFollowUpQuestion(snapshot, speechSegmentsRef.current)
     const interim = interimTranscriptRef.current.trim()
     if (!tail && interim) {
@@ -425,23 +504,48 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
     lastDeviceFinalRef.current = ''
     interimTranscriptRef.current = ''
     setInterimTranscript('')
-    followUpPendingRef.current = false
 
-    if (!tail || !settingsRef.current.autoAnswer) return
-    if (isLikelySttGarbage(tail) || isRepetitionHallucination(tail)) return
+    if (!settingsRef.current.autoAnswer) return
 
-    const silentFor = Date.now() - lastSpeechActivityRef.current
-    const gate = 500
-    const ready =
-      tail.length >= effectiveMinChars(settingsRef.current) &&
-      isUtteranceReadyForAutoAnswer(tail)
+    const next = [tail, pendingJoined]
+      .map((t) => String(t || '').trim())
+      .find((t) => t && !isLikelySttGarbage(t) && !isRepetitionHallucination(t) && !questionsAreSimilar(t, snapshot))
+    if (!next) return
+    const answerText = `${lastGeneratedAnswerRef.current} ${streamingAnswerRef.current}`.trim()
+    const followUp = stripSelfReadback(next, answerText)
+    if (!followUp || isLikelySelfReadback(followUp, answerText)) return
 
-    if (ready && silentFor >= gate - 80) {
-      void generateFromTextRef.current?.(tail, { source: 'transcript', followUp: true })
-    } else if (tail.length >= effectiveMinChars(settingsRef.current)) {
-      scheduleAutoAnswer({ silenceGateMs: gate })
+    const minChars = effectiveMinChars(settingsRef.current)
+    if (followUp.length < minChars) return
+
+    speechSegmentsRef.current = consumeSegmentsForQuestion(speechSegmentsRef.current, followUp)
+    const kind = classifyPostAnswerSpeech(followUp, snapshot)
+
+    if (kind === 'ignore') return
+
+    if (kind === 'continuation') {
+      const combined = combineQuestion(snapshot, followUp)
+      const last = turnHistoryRef.current[turnHistoryRef.current.length - 1]
+      let replaceLastTurn = false
+      if (last && questionsAreSimilar(last.question, snapshot)) {
+        const hist = [...turnHistoryRef.current]
+        hist[hist.length - 1] = { ...last, question: combined }
+        turnHistoryRef.current = hist
+        setTurnHistory(hist)
+        persistLive({ turnHistory: hist })
+        replaceLastTurn = true
+      }
+      void generateFromTextRef.current?.(combined, {
+        source: 'transcript',
+        followUp: true,
+        replaceLastTurn,
+      })
+      return
     }
-  }, [syncTranscriptDisplay, scheduleAutoAnswer])
+
+    pendingFollowUpRef.current = followUp
+    armFollowUpHold()
+  }, [syncTranscriptDisplay, persistLive, armFollowUpHold])
 
   const generateFromText = useCallback(
     async (
@@ -451,6 +555,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
         source?: 'manual_input' | 'transcript'
         retry?: boolean
         followUp?: boolean
+        replaceLastTurn?: boolean
         imageDataUrl?: string
       },
     ) => {
@@ -460,8 +565,9 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
       if (generatingRef.current && !opts?.retry) return
 
       const lastTurn = turnHistoryRef.current[turnHistoryRef.current.length - 1]
-      if (lastTurn && questionsAreSimilar(q, lastTurn.question) && !opts?.retry && !opts?.followUp && !opts?.imageDataUrl) return
-      if (!opts?.followUp && !opts?.imageDataUrl && questionsAreSimilar(q, lastSentQuestionRef.current) && !opts?.retry) return
+      if (lastTurn && questionsAreSimilar(q, lastTurn.question) && !opts?.retry && !opts?.followUp && !opts?.replaceLastTurn && !opts?.imageDataUrl) return
+      if (!opts?.followUp && !opts?.replaceLastTurn && !opts?.imageDataUrl && questionsAreSimilar(q, lastSentQuestionRef.current) && !opts?.retry) return
+      if (!opts?.manual && !opts?.retry && !opts?.followUp && isLikelySelfReadback(q, lastGeneratedAnswerRef.current)) return
 
       const currentSettings = settingsRef.current
       const currentProfile = profileRef.current
@@ -474,21 +580,23 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
         return
       }
 
+      pendingFollowUpRef.current = ''
+      clearFollowUpHold()
       abortInFlightAnswer()
       clearAutoAnswerTimer()
       answeredTranscriptSnapshotRef.current = q
       lastSentQuestionRef.current = q
-      lastTriggerAtRef.current = Date.now()
       const recentConversation = transcriptInWindow(
         speechSegmentsRef.current,
         currentSettings.conversationMemorySec,
       )
-      speechSegmentsRef.current = consumeSegmentsForQuestion(speechSegmentsRef.current, q)
-      syncTranscriptDisplay()
+      const replaceInPlace = Boolean(opts?.replaceLastTurn)
       generatingRef.current = true
       setIsGenerating(true)
+      setReplacingTurn(replaceInPlace)
       setAnswerFailed(false)
-      setStreamingQuestion(q)
+      setStreamingQuestion(replaceInPlace ? '' : q)
+      streamingAnswerRef.current = ''
       setStreamingAnswer('')
       setLoopPhaseSync('generating_answer')
       setError(null)
@@ -513,25 +621,48 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
           signal: controller.signal,
           imageDataUrl: opts?.imageDataUrl,
           onDelta: (chunk) => {
-            flushSync(() => {
+            streamingAnswerRef.current += chunk
+            const smoothStream = Boolean(opts?.followUp || opts?.replaceLastTurn)
+            if (smoothStream) {
               setStreamingAnswer((prev) => prev + chunk)
-            })
+            } else {
+              flushSync(() => {
+                setStreamingAnswer((prev) => prev + chunk)
+              })
+            }
             scrollAnswer()
           },
           onStreamReset: () => {
-            flushSync(() => setStreamingAnswer(''))
+            streamingAnswerRef.current = ''
+            if (opts?.followUp || opts?.replaceLastTurn) {
+              setStreamingAnswer('')
+            } else {
+              flushSync(() => setStreamingAnswer(''))
+            }
           },
         })
         if (controller.signal.aborted) return
 
-        const nextHistory = [
-          ...turnHistoryRef.current,
-          { question: q, answer: text, at: Date.now() },
-        ].slice(-MAX_TURN_HISTORY)
+        lastGeneratedAnswerRef.current = text
+        streamingAnswerRef.current = ''
+        answerCompletedAtRef.current = Date.now()
+        speakHoldMsRef.current = estimatedAnswerHoldMs(text)
+        let nextHistory: SessionTurn[]
+        if (replaceInPlace && turnHistoryRef.current.length > 0) {
+          nextHistory = [...turnHistoryRef.current]
+          const idx = nextHistory.length - 1
+          nextHistory[idx] = { ...nextHistory[idx], question: q, answer: text, at: Date.now() }
+        } else {
+          nextHistory = [
+            ...turnHistoryRef.current,
+            { question: q, answer: text, at: Date.now() },
+          ].slice(-MAX_TURN_HISTORY)
+        }
         turnHistoryRef.current = nextHistory
         setTurnHistory(nextHistory)
         setStreamingAnswer('')
         setStreamingQuestion('')
+        setReplacingTurn(false)
         setAnswer('')
         persistLive({ turnHistory: nextHistory, answer: '' })
         scrollAnswer()
@@ -548,6 +679,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
         }
         generatingRef.current = false
         setIsGenerating(false)
+        setReplacingTurn(false)
         setStreamingAnswer('')
         setStreamingQuestion('')
         setStarting(false)
@@ -565,7 +697,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
       finishAnswerCycle,
       persistLive,
       processPostAnswerFollowUp,
-      syncTranscriptDisplay,
+      clearFollowUpHold,
     ],
   )
   generateFromTextRef.current = generateFromText
@@ -692,6 +824,9 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
         if (interim.trim()) {
           const piece = interim.trim()
           if (isLikelySttGarbage(piece) || isRepetitionHallucination(piece)) return
+          if (lastSentQuestionRef.current && questionsAreSimilar(piece, lastSentQuestionRef.current)) return
+          const lastTurn = turnHistoryRef.current[turnHistoryRef.current.length - 1]
+          if (lastTurn && questionsAreSimilar(piece, lastTurn.question)) return
           interimTranscriptRef.current = piece
           markSpeechActivity()
           if (!duringAnswer) clearAutoAnswerTimer()
@@ -787,9 +922,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
               if (!sttLoopAllowsTranscription(loopPhaseRef.current)) return
               interimTranscriptRef.current = text
               markSpeechActivity()
-              if (loopPhaseRef.current === 'generating_answer' && text.trim()) {
-                followUpPendingRef.current = true
-              } else if (loopPhaseRef.current !== 'generating_answer') {
+              if (loopPhaseRef.current !== 'generating_answer') {
                 clearAutoAnswerTimer()
               }
               setInterimTranscript(text)
@@ -889,15 +1022,18 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
   }, [])
 
   const activateSessionResources = useCallback(async () => {
-    if (settingsRef.current.keepScreenAwake) {
-      try {
-        const { KeepAwake } = await import('@capacitor-community/keep-awake')
-        await KeepAwake.keepAwake()
-        wakeLockActiveRef.current = true
-      } catch {
-        /* ignore */
+    window.setTimeout(async () => {
+      if (!sessionActiveRef.current) return
+      if (settingsRef.current.keepScreenAwake) {
+        try {
+          const { KeepAwake } = await import('@capacitor-community/keep-awake')
+          await KeepAwake.keepAwake()
+          wakeLockActiveRef.current = true
+        } catch {
+          /* ignore */
+        }
       }
-    }
+    }, 400)
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications')
       await LocalNotifications.requestPermissions()
@@ -917,22 +1053,29 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
   }, [])
 
   const startSession = useCallback(async () => {
+    if (sessionActiveRef.current || startingRef.current) return
+    startingRef.current = true
+
     const freshProfile = loadProfile()
     profileRef.current = freshProfile
 
     if (!profileIsReady(freshProfile)) {
+      startingRef.current = false
       setError('Add your resume in Settings → Personal Info first.')
       return
     }
-    if (!getActiveApiKey(settings)) {
+    if (!hasRoutableChatKey(settings)) {
+      startingRef.current = false
       setError('Add your API key in Settings → AI Providers.')
       return
     }
     if (settings.sttMode === 'cloud' && !sttKeyConfigured(settings, settings.sttProvider)) {
+      startingRef.current = false
       setError(`Add your ${settings.sttProvider} API key in Settings → Audio.`)
       return
     }
     if (settings.sttMode === 'device' && !speechRecognitionAvailable()) {
+      startingRef.current = false
       setError(
         'On-device speech recognition is not available on this phone. Switch to Cloud API in Settings → Audio.',
       )
@@ -940,76 +1083,126 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
     }
 
     setError(null)
+    setStartFailed(false)
     setStarting(true)
     setStartingMessage('Starting session…')
+    setPhase('interview')
+    setLoopPhaseSync('idle')
+
+    startAbortRef.current?.abort()
+    const ac = new AbortController()
+    startAbortRef.current = ac
+
+    const timeout = new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error('STARTUP_TIMEOUT')), STARTUP_TIMEOUT_MS)
+    })
+
+    const failStart = (message: string) => {
+      if (ac.signal.aborted) return
+      startingRef.current = false
+      setStarting(false)
+      setStartFailed(true)
+      setError(message)
+    }
+
+    try {
+      const preflight = await Promise.race([
+        runSessionPreflight(settings, freshProfile, setStartingMessage),
+        timeout,
+      ])
+      if (ac.signal.aborted) {
+        startingRef.current = false
+        return
+      }
+      if (!preflight.ok) {
+        failStart(preflight.error || SESSION_PREFLIGHT_FAIL)
+        return
+      }
+    } catch {
+      failStart(SESSION_PREFLIGHT_FAIL)
+      return
+    }
+
+    if (ac.signal.aborted) {
+      startingRef.current = false
+      return
+    }
 
     sessionActiveRef.current = true
     setSessionActive(true)
     userPausedRef.current = false
     sessionStartedAtRef.current = Date.now()
     sttHealthyRef.current = false
+    allowSessionPersist()
 
-    const validationPromise = validateProviderKey(settings)
-
-    const snapshot = loadSessionSnapshot()
-    const restoredHistory = snapshot?.turnHistory?.length ? snapshot.turnHistory : []
-    setTurnHistory(restoredHistory)
-    turnHistoryRef.current = restoredHistory
+    setTurnHistory([])
+    turnHistoryRef.current = []
+    lastGeneratedAnswerRef.current = ''
     setAnswerFailed(false)
     setLastFailedQuestion('')
     setReconnecting(false)
     setSttErrorState(null)
+    setStartFailed(false)
 
     clearUtteranceState()
-    setAnswer(snapshot?.answer || '')
+    setAnswer('')
     setLoopPhaseSync('listening')
-    setPhase('interview')
 
     saveSessionSnapshot({
       sessionActive: true,
       loopPhase: 'listening',
       transcript: '',
-      answer: snapshot?.answer || '',
-      turnHistory: restoredHistory,
+      answer: '',
+      turnHistory: [],
       updatedAt: Date.now(),
     })
 
     void activateSessionResources()
-
-    if (settings.sttMode === 'device') {
-      void warmupDeviceMicrophone(settings)
-    }
-
     startRecognitionInternal()
     setStartingMessage('Listening for questions…')
-
-    const validation = await validationPromise
-    if (!validation.ok) {
-      setStarting(false)
-      // Only hard-fail auth / missing key. Capacity 503s are handled as ok above.
-      setError(validation.error || 'AI key looks invalid. Check Settings → AI Providers.')
-    }
-
-    window.setTimeout(() => setStarting(false), SESSION_WARMUP_MS)
-  }, [settings, clearUtteranceState, setLoopPhaseSync, startRecognitionInternal, activateSessionResources, stopRecognition])
+    setStarting(false)
+    startingRef.current = false
+  }, [
+    settings,
+    clearUtteranceState,
+    setLoopPhaseSync,
+    startRecognitionInternal,
+    activateSessionResources,
+  ])
 
   const stopSession = useCallback(() => {
+    startAbortRef.current?.abort()
+    startAbortRef.current = null
+    startingRef.current = false
     sessionActiveRef.current = false
     userPausedRef.current = false
+    blockSessionPersist()
     setSessionActive(false)
     abortInFlightAnswer()
     stopRecognition()
     setInterimTranscript('')
+    lastGeneratedAnswerRef.current = ''
+    streamingAnswerRef.current = ''
+    pendingFollowUpRef.current = ''
+    answerCompletedAtRef.current = 0
+    turnHistoryRef.current = []
+    transcriptRef.current = ''
+    setTurnHistory([])
+    setTranscript('')
+    setAnswer('')
+    setStreamingAnswer('')
+    setStreamingQuestion('')
+    clearFollowUpHold()
     setStarting(false)
+    setStartFailed(false)
     setListeningStatus('')
     setReconnecting(false)
     setSttErrorState(null)
     setAnswerFailed(false)
     setLoopPhaseSync('idle')
     setPhase('home')
-    clearSessionSnapshot()
     void releaseSessionResources()
-  }, [stopRecognition, abortInFlightAnswer, setLoopPhaseSync, releaseSessionResources])
+  }, [stopRecognition, abortInFlightAnswer, setLoopPhaseSync, releaseSessionResources, clearFollowUpHold])
 
   const assistNow = useCallback(() => {
     const q = transcriptRef.current.trim() || `${transcript} ${interimTranscript}`.trim()
@@ -1028,6 +1221,9 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
 
   const newQuestion = useCallback(() => {
     clearAutoAnswerTimer()
+    clearFollowUpHold()
+    pendingFollowUpRef.current = ''
+    answerCompletedAtRef.current = 0
     abortInFlightAnswer()
     answeredTranscriptSnapshotRef.current = ''
     clearUtteranceState()
@@ -1045,6 +1241,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
     }
   }, [
     clearAutoAnswerTimer,
+    clearFollowUpHold,
     abortInFlightAnswer,
     clearUtteranceState,
     persistLive,
@@ -1113,31 +1310,8 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
   const clearError = useCallback(() => setError(null), [])
 
   const restoreSessionFromSnapshot = useCallback(() => {
-    const snapshot = loadSessionSnapshot()
-    if (!snapshot?.sessionActive) return false
-
-    sessionActiveRef.current = true
-    setSessionActive(true)
-    setPhase('interview')
-    setTurnHistory(snapshot.turnHistory || [])
-    turnHistoryRef.current = snapshot.turnHistory || []
-    transcriptRef.current = snapshot.transcript || ''
-    setTranscript(snapshot.transcript || '')
-    setAnswer(snapshot.answer || '')
-    setLoopPhaseSync(snapshot.loopPhase === 'paused' ? 'paused' : 'listening')
-    userPausedRef.current = snapshot.loopPhase === 'paused'
-    setStarting(false)
-    setAnswerFailed(false)
-    void activateSessionResources()
-
-    if (snapshot.loopPhase !== 'paused') {
-      window.setTimeout(() => {
-        setLoopPhaseSync('listening')
-        startRecognitionInternal()
-      }, 300)
-    }
-    return true
-  }, [setLoopPhaseSync, startRecognitionInternal, activateSessionResources])
+    return false
+  }, [])
 
   // App lifecycle: background / foreground
   useEffect(() => {
@@ -1207,6 +1381,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
     error,
     sessionActive,
     starting,
+    startFailed,
     startingMessage,
     listeningStatus,
     startSession,
@@ -1228,6 +1403,7 @@ export function useInterviewSession(profile: PersonalProfile, settings: AppSetti
     turnHistory,
     streamingAnswer,
     streamingQuestion,
+    replacingTurn,
     restoreSessionFromSnapshot,
   }
 }

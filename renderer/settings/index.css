@@ -18,7 +18,7 @@
   --bg-subtle-hover: rgba(255, 255, 255, 0.05);
   --text-primary: #fafafa;
   --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
+  --text-tertiary: #8a8a93;
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-muted: rgba(255, 255, 255, 0.12);
   /* Neutral zinc accent — selections, toggles, links (no blue) */
@@ -29,30 +29,232 @@
   --accent-rgb: 228 228 231;
   --accent-mid-rgb: 161 161 170;
   --accent-light-rgb: 250 250 250;
+  /* Semantic feedback accents — saved/success state; danger = Quit/Listen red */
+  --success-rgb: 74 222 128;
+  --danger-rgb: 220 38 38;
+  /* Toggle — track ≠ thumb (never reuse --accent-primary for ON track) */
+  --toggle-track-off: #6b6b73;
+  --toggle-track-on: #e4e4e7;
+  --toggle-knob-off: #ffffff;
+  --toggle-knob-on: #09090b;
+  --toggle-track-border-off: var(--border-muted);
+  --toggle-track-border-on: transparent;
+  --toggle-knob-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  /* Solid 2px focus ring: ~14:1 on the dark card (needs >= 3:1) */
+  --focus-ring: #f4f4f5;
+  /* Dropdown / search-result surfaces follow the theme (they used to be hard-coded dark) */
+  --menu-bg: #1a1a1d;
+  --menu-hover: rgba(255, 255, 255, 0.07);
+  --menu-active: rgba(255, 255, 255, 0.1);
+  --menu-text: #fafafa;
+  --menu-muted: #a1a1aa;
+  /* Error text that stays readable on the card */
+  --danger-text: #f87171;
+}
+
+.settings-body[data-color-scheme='light'] {
+  --bg-primary: #f4f4f5;
+  --bg-secondary: #ececef;
+  --bg-elevated: #ffffff;
+  --bg-sidebar: #f4f4f5;
+  --bg-main: #fafafa;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-component: #f4f4f5;
+  --bg-toggle-switch: #e4e4e7;
+  --bg-item-surface: rgba(0, 0, 0, 0.03);
+  --bg-item-active: rgba(0, 0, 0, 0.06);
+  --bg-subtle-hover: rgba(0, 0, 0, 0.04);
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-tertiary: #62626a;
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-muted: rgba(0, 0, 0, 0.14);
+  --accent-primary: #27272a;
+  --accent-text: #18181b;
+  --accent-muted: rgba(0, 0, 0, 0.06);
+  --accent-border: rgba(0, 0, 0, 0.18);
+  --accent-rgb: 39 39 42;
+  --accent-mid-rgb: 82 82 91;
+  --accent-light-rgb: 24 24 27;
+  /* Mid zinc track + dark knob only — not a black pill */
+  --toggle-track-off: #e4e4e7;
+  --toggle-track-on: #d4d4d8;
+  --toggle-knob-off: #ffffff;
+  --toggle-knob-on: #18181b;
+  --toggle-track-border-off: rgba(0, 0, 0, 0.45);
+  --toggle-track-border-on: rgba(0, 0, 0, 0.45);
+  --toggle-knob-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  --focus-ring: #18181b;
+  --menu-bg: #ffffff;
+  --menu-hover: rgba(0, 0, 0, 0.05);
+  --menu-active: rgba(0, 0, 0, 0.08);
+  --menu-text: #18181b;
+  --menu-muted: #52525b;
+  --danger-text: #b91c1c;
+}
+
+.settings-body[data-color-scheme='light'] .btn-glow,
+.settings-body[data-color-scheme='light'] .nat-btn-primary {
+  background: #18181b;
+  color: #fafafa;
+  border-color: #18181b;
+}
+
+.settings-body[data-color-scheme='light'] .btn-glow:hover,
+.settings-body[data-color-scheme='light'] .nat-btn-primary:hover {
+  background: #27272a;
+}
+
+.settings-body[data-color-scheme='light'] .hotkey-keycap {
+  background: #f4f4f5;
+  border-color: rgba(0, 0, 0, 0.14);
+  color: #18181b;
+}
+
+.settings-body[data-color-scheme='light'] .settings-segmented {
+  background: #ececef;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.settings-body[data-color-scheme='light'] .settings-segmented .settings-chip {
+  color: var(--text-tertiary);
+}
+
+.settings-body[data-color-scheme='light'] .settings-segmented .settings-chip-active {
+  background: #ffffff;
+  color: var(--text-primary);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.settings-body[data-color-scheme='light'] .input-shadow:focus,
+.settings-body[data-color-scheme='light'] .nat-input:focus {
+  border-color: rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
+}
+
+.settings-body[data-color-scheme='light'] select.input-shadow,
+.settings-body[data-color-scheme='light'] select.settings-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.settings-body[data-color-scheme='light'] select.input-shadow option,
+.settings-body[data-color-scheme='light'] select.settings-select option {
+  background: #ffffff;
+  color: #18181b;
+}
+
+.settings-body[data-color-scheme='light'] .settings-title-logo {
+  filter: contrast(1.05);
 }
 
 html {
   height: 100%;
   background: transparent;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
 }
 
 .settings-body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  /* IM bodyMedium ≈ 500 — Poppins 400 reads thin on dark Settings chrome */
+  font-weight: 500;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   background: transparent;
   color: var(--text-primary);
 }
 
+/*
+ * InterviewMan Poppins everywhere in Settings — Tailwind form controls and
+ * font-sans utilities must not fall back to Segoe/system.
+ * Keep JetBrains Mono only for explicit mono/code surfaces.
+ */
+.settings-body,
+.settings-root,
+.settings-body :where(
+  button,
+  input:not([type='range']),
+  select,
+  textarea,
+  label,
+  a,
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  li,
+  td,
+  th,
+  summary,
+  option,
+  legend,
+  figcaption,
+  .btn-ghost,
+  .btn-glow,
+  .btn-danger,
+  .nat-btn-primary,
+  .nat-btn-secondary,
+  .settings-chip,
+  .settings-nav-item,
+  .settings-nav-quit,
+  .settings-page-title,
+  .settings-page-desc,
+  .settings-row-label,
+  .settings-row-hint,
+  .input-shadow,
+  .nat-input,
+  .checkmark-select-trigger,
+  .checkmark-select-opt,
+  .hotkey-keycap
+) {
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+}
+
+.settings-body :where(.font-mono, code, kbd, pre, .settings-select-mono, .settings-code, .settings-mono) {
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace);
+}
+
+/* Tailwind weight utilities — step up so Settings matches IM’s bolder Material type */
+.settings-body :where(.font-normal) {
+  font-weight: 500;
+}
+.settings-body :where(.font-medium) {
+  font-weight: 600;
+}
+.settings-body :where(.font-semibold) {
+  font-weight: 700;
+}
+.settings-body :where(.font-bold) {
+  font-weight: 800;
+}
+
 #root {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  min-height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .settings-root {
   background: var(--bg-main);
   color: var(--text-primary);
+  min-height: 0;
+}
+
+.settings-flex-body {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
 }
 
 .settings-root::before,
@@ -62,9 +264,17 @@ html {
 
 /* ── Scrollbars ── */
 .settings-scroll-outer {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
   background: var(--bg-main);
+  scroll-padding-bottom: var(--space-6);
+  padding-bottom: var(--space-8);
 }
 
 .settings-scroll-outer::-webkit-scrollbar {
@@ -73,7 +283,7 @@ html {
 
 .settings-scroll-outer::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .settings-scroll-outer::-webkit-scrollbar-thumb:hover {
@@ -93,15 +303,16 @@ html {
   flex-direction: column;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-subtle);
-  padding: 16px 12px;
+  padding: var(--space-4) var(--space-3);
 }
 
 .settings-nav-title {
-  padding: 4px 12px 12px;
-  font-size: 15px;
-  font-weight: 600;
+  padding: var(--space-1) var(--space-3) var(--space-3);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 16px;
+  font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .settings-nav-list {
@@ -111,91 +322,539 @@ html {
   gap: 2px;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-muted) transparent;
+}
+
+.settings-nav-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-nav-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-nav-list::-webkit-scrollbar-thumb {
+  background: var(--border-muted);
+  border-radius: var(--radius-pill);
+}
+
+.settings-nav-list::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .settings-nav-btn {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   border: none;
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  padding: 6px var(--space-3);
   text-align: left;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
   background: transparent;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: var(--transition-interactive);
   cursor: pointer;
 }
 
 .settings-nav-btn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-subtle-hover);
+}
+
+.settings-nav-btn:active {
+  background: var(--bg-item-active);
 }
 
 .settings-nav-btn-active {
   color: var(--text-primary);
+  font-weight: 700;
   background: var(--bg-item-active);
 }
 
-.settings-nav-sub {
-  display: none;
+/* Group separator above each nav section (General / Appearance / Overlay / ...) */
+.settings-nav-group {
+  margin: var(--space-3) var(--space-3) var(--space-1);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.settings-nav-group:first-child {
+  margin-top: 0;
+}
+
+/* Groups are wrapped in role=group blocks (labelled by their heading) */
+.settings-nav-group-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-nav-group-block:not(:first-child) {
+  margin-top: var(--space-3);
+}
+
+.settings-nav-group-block .settings-nav-group {
+  margin: 0 var(--space-3) var(--space-1);
+}
+
+/* In-window search */
+.settings-nav-search {
+  margin: 0 var(--space-1) var(--space-3);
+}
+
+.settings-nav-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.settings-nav-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.settings-nav-search-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 30px 0 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 12.5px;
+}
+
+.settings-nav-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.settings-nav-search-clear {
+  position: absolute;
+  right: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.settings-nav-search-clear:hover {
+  color: var(--text-primary);
+  background: var(--bg-subtle-hover);
+}
+
+.settings-nav-results {
+  margin: 6px 0 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 10px;
+  border: 1px solid var(--border-muted);
+  background: var(--menu-bg);
+  box-shadow: var(--shadow-elevation-1);
+  /* Same grey rounded scrollbar as the dropdown menus and the nav list — not the native Windows bar
+     (light thumb + arrow buttons), which is the only one in the app that looked different. */
+  scrollbar-width: thin;
+  scrollbar-color: #52525b transparent;
+}
+
+.settings-nav-result {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-nav-result-active {
+  background: var(--menu-hover);
+}
+
+.settings-nav-result-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--menu-text);
+}
+
+.settings-nav-result-crumb {
+  font-size: 11px;
+  color: var(--menu-muted);
+}
+
+.settings-nav-noresults {
+  margin: 8px 6px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .settings-nav-footer {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
 
+/* Same 3D Quit red as notch — not flat pink text */
 .settings-nav-quit {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 12px;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 12px;
+  justify-content: center;
+  gap: var(--space-2);
+  border: var(--danger-rim, 1px solid rgba(255, 255, 255, 0.2));
+  border-top-color: var(--danger-rim-top, rgba(255, 255, 255, 0.34));
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
   font-size: 13px;
-  font-weight: 500;
-  color: #f87171;
-  background: transparent;
+  font-weight: 700;
+  color: var(--danger-on, #fff);
+  background: var(--danger-fill);
+  box-shadow: var(--danger-shadow);
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background var(--transition-fast), transform var(--transition-spring), filter var(--transition-fast);
 }
 
 .settings-nav-quit:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-fill-hover);
+  transform: translateY(-1px);
+}
+
+.settings-nav-quit:active {
+  transform: translateY(0);
+  filter: brightness(0.94);
 }
 
 /* ── Page / section (Natively content area) ── */
 .settings-page-header {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .settings-page-title {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
   color: var(--text-primary);
 }
 
 .settings-page-desc {
+  margin-top: var(--space-1);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.settings-page {
+  padding-bottom: 0.25rem;
+}
+
+.settings-row-label {
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.settings-row-hint {
+  margin-top: 3px;
+  max-width: 28rem;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.nat-row-disabled .settings-row-label {
+  opacity: 0.65;
+}
+
+.settings-row-reason {
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.settings-row-error {
   margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--danger-text);
+}
+
+.settings-note {
+  margin: var(--space-3) 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-item-surface);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.settings-note-warning {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.09);
+  color: var(--text-primary);
+}
+
+.settings-note-error {
+  border-color: rgb(var(--danger-rgb) / 0.45);
+  background: rgb(var(--danger-rgb) / 0.09);
+  color: var(--text-primary);
+}
+
+.settings-key-message {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.settings-key-message-success {
+  color: var(--text-secondary);
+}
+
+.settings-key-message-error {
+  color: var(--danger-text);
+}
+
+.settings-unsaved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.settings-unsaved-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+
+.settings-inline-select {
+  width: auto;
+  min-width: 150px;
+  margin-left: 0;
+}
+
+.settings-field-hint {
+  margin-bottom: var(--space-2);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.settings-collapsible-desc {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.settings-prose {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.settings-guide {
+  overflow: visible;
+  padding: 2px 4px 8px;
+}
+
+.settings-guide-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-guide-chapter {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: rgba(0, 0, 0, 0.22);
+  padding: 16px 18px;
+}
+
+.settings-guide-chapter-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.help-guide-md {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-guide-h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.help-guide-h2 {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.help-guide-h3 {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.help-guide-p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.help-guide-ul,
+.help-guide-ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.help-guide-ul {
+  list-style: disc;
+}
+
+.help-guide-ol {
+  list-style: decimal;
+}
+
+.help-guide-ul li,
+.help-guide-ol li {
+  margin: 0.35rem 0;
+}
+
+.help-guide-ul li::marker,
+.help-guide-ol li::marker {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.help-guide-table-wrap {
+  overflow-x: auto;
+  margin: 2px 0;
+}
+
+.help-guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.help-guide-table th,
+.help-guide-table td {
+  border: 1px solid var(--border-subtle);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.help-guide-table th {
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.help-guide-table td {
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.help-guide-code {
+  margin: 0;
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 10px 12px;
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.help-guide-hr {
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settings-prose .meeting-summary-md h4,
+.settings-root .meeting-summary-md h4,
+.settings-root .meeting-summary-md h5 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-prose .meeting-summary-md p,
+.settings-prose .meeting-summary-md li,
+.settings-root .meeting-summary-md p,
+.settings-root .meeting-summary-md li {
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-secondary);
 }
 
+.settings-prose .meeting-summary-md strong,
+.settings-root .meeting-summary-md strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 /* Section card — flat bordered group like Natively general tab blocks */
-.glass-panel,
-.nat-section-card {
+.glass-panel {
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-card);
+  box-shadow: var(--shadow-elevation-1);
 }
 
 .glass-panel > div:first-child {
@@ -203,25 +862,55 @@ html {
 }
 
 .nat-section-head {
-  padding: 16px 20px;
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.nat-section-head-title {
-  font-size: 14px;
+.nat-section-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.settings-reset-link {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  padding: 4px 6px;
+  font-size: 11px;
   font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.settings-reset-link:hover {
+  color: var(--text-primary);
+  background: var(--bg-subtle-hover);
+}
+
+.nat-section-head-title {
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
 .nat-section-head-desc {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   font-size: 12px;
+  font-weight: 500;
   line-height: 1.45;
   color: var(--text-secondary);
 }
 
 .nat-section-body {
-  padding: 4px 20px 16px;
+  padding: var(--space-1) var(--space-5) var(--space-4);
 }
 
 /* Setting row — Natively flex justify-between py-4 border-b pattern */
@@ -229,9 +918,9 @@ html {
 .nat-row {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 16px 0;
+  padding: var(--space-4) 0;
   background: transparent;
   border-radius: 0;
   box-shadow: none;
@@ -247,6 +936,43 @@ html {
   }
 }
 
+/*
+ * First-run consent/onboarding windows are ~480px — below the 640px row breakpoint.
+ * Without this, SettingsRow stacks and the toggle wrapper is w-full, stretching the
+ * 44×24 pill into a full-width black bar. Match settings desktop row layout always.
+ */
+.settings-setup-shell .nat-row,
+.settings-setup-shell .settings-row-tile {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.settings-setup-shell .nat-row > div:last-child {
+  width: auto !important;
+  max-width: none;
+  flex-shrink: 0;
+}
+
+.settings-setup-shell .nat-toggle {
+  width: 44px;
+  height: 24px;
+  max-width: 44px;
+  min-width: 44px;
+  flex-shrink: 0;
+}
+
+.settings-setup-shell .glass-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.settings-setup-shell .settings-page {
+  max-width: 40rem;
+}
+
 .settings-row-tile:last-child,
 .nat-row:last-child {
   border-bottom: none;
@@ -260,13 +986,14 @@ html {
 .input-shadow,
 .nat-input {
   width: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   background: var(--bg-input);
-  padding: 10px 12px;
+  padding: 10px var(--space-3);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
   font-size: 13px;
   color: var(--text-primary);
-  transition: border-color 0.15s ease;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .input-shadow::placeholder,
@@ -278,19 +1005,569 @@ html {
 .nat-input:focus {
   outline: none;
   border-color: var(--border-muted);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+}
+
+/* Native selects — standard app-style dropdown (chevron, consistent height) */
+select.input-shadow,
+select.settings-select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 36px;
+  padding-right: 36px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+}
+
+select.input-shadow:disabled,
+select.settings-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+select.input-shadow option,
+select.settings-select option {
+  background: #1c1c1f;
+  color: var(--text-primary);
+}
+
+@media (min-width: 640px) {
+  .nat-row select.input-shadow,
+  .nat-row select.settings-select,
+  .nat-row .settings-select-wrap {
+    width: auto;
+    min-width: 200px;
+    max-width: 280px;
+  }
+}
+
+.settings-select-wrap {
+  width: 100%;
+}
+
+.settings-select-full {
+  width: 100%;
+  max-width: 100%;
+}
+
+.settings-select-mono {
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace);
+  font-size: 12px;
+}
+
+/* Checkmark dropdown (General answer settings) */
+.checkmark-select {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  margin-left: auto;
+}
+
+.checkmark-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.checkmark-select-trigger:hover:not(:disabled) {
+  border-color: var(--border-muted);
+  background: var(--bg-item-surface);
+}
+
+.checkmark-select-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkmark-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkmark-select-menu,
+.checkmark-select-menu-portal {
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border-muted);
+  background: var(--menu-bg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  max-height: min(320px, calc(100vh - 24px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #52525b transparent;
+}
+
+.checkmark-select-menu::-webkit-scrollbar,
+.checkmark-select-menu-portal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.checkmark-select-menu::-webkit-scrollbar-track,
+.checkmark-select-menu-portal::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.checkmark-select-menu::-webkit-scrollbar-thumb,
+.checkmark-select-menu-portal::-webkit-scrollbar-thumb {
+  background: #52525b;
+  border-radius: 999px;
+}
+
+.checkmark-select-menu::-webkit-scrollbar-thumb:hover,
+.checkmark-select-menu-portal::-webkit-scrollbar-thumb:hover {
+  background: #71717a;
+}
+
+.checkmark-select-menu::-webkit-scrollbar-button,
+.checkmark-select-menu-portal::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.checkmark-select-menu:focus {
+  outline: none;
+}
+
+.checkmark-select-opt {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.checkmark-select-opt:hover,
+.checkmark-select-opt-active {
+  background: var(--menu-hover);
+}
+
+.checkmark-select-opt-on {
+  background: var(--menu-active);
+}
+
+/* The listbox holds focus (aria-activedescendant); draw the active option clearly */
+.checkmark-select-menu:focus-visible .checkmark-select-opt-active {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.checkmark-select-opt-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.checkmark-select-opt-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--menu-text);
+}
+
+.checkmark-select-opt-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--menu-muted);
+  white-space: normal;
+}
+
+.checkmark-select-spacer {
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.checkmark-select-tick {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--menu-text);
+}
+
+/* Keybinds — per-key boxes, no outer combo shell */
+.hotkey-combo {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: min(420px, 100%);
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.hotkey-combo:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.25);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.hotkey-combo-editing .hotkey-keycap {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.hotkey-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: #222226;
+  border: 1px solid #3a3a40;
+  color: #fafafa;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.hotkey-keycap-muted {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.hotkey-plus {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* Segmented control — connected pill group (macOS / iOS style) */
+.settings-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-input);
+}
+
+.settings-segmented .settings-chip {
+  border: none;
+  border-radius: calc(var(--radius-sm) - 3px);
+  background: transparent;
+  box-shadow: none;
+}
+
+.settings-segmented .settings-chip:hover {
+  background: var(--bg-item-surface);
+}
+
+.settings-segmented .settings-chip-active {
+  background: var(--bg-component);
+  border: 1px solid var(--border-muted);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+}
+
+/* Advance tab — Figma accordion stack (#161618 cards) */
+.settings-advance-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 0.5rem;
+}
+
+.settings-advance-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.settings-advance-card[open] > .settings-advance-summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-advance-card > .settings-advance-summary:hover {
+  background: var(--bg-subtle-hover);
+}
+
+.settings-advance-badge {
+  border-color: var(--border-muted);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+.settings-advance-ai-block {
+  padding: 12px 0;
+}
+
+.settings-advance-ai-divider {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settings-advance-ai-label {
+  margin: 0;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.settings-advance-ai-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.settings-advance-ai-row-head .settings-advance-ai-label {
+  margin: 0;
+}
+
+.settings-advance-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.settings-advance-pill {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-advance-pill:hover {
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+}
+
+.settings-advance-pill-active {
+  background: var(--bg-item-active);
+  border-color: var(--border-muted);
+  color: var(--text-primary);
+}
+
+.settings-advance-ai-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.settings-advance-ai-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
+.settings-advance-ai-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-item-surface);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.settings-advance-ai-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+}
+
+.settings-advance-ai-link:hover {
+  color: var(--text-secondary);
+}
+
+.settings-advance-ai-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-advance-model-dd {
+  min-width: 180px;
+  max-width: 280px;
+  flex-shrink: 0;
+}
+
+.settings-advance-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0 4px;
+}
+
+/* Flat rows inside Advance accordion (Figma AI / Audio body) */
+.settings-advance-flat .nat-row,
+.settings-advance-flat-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settings-advance-flat .nat-row:first-child,
+.settings-advance-flat > .settings-advance-flat-row:first-child {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.settings-advance-flat > .settings-advance-card:first-child,
+.settings-advance-flat > details:first-child {
+  border-top: none;
+}
+
+.settings-advance-flat-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Nested Advance rows — flat hairline like Figma Advanced STT (no boxed leak) */
+.settings-advance-nested.settings-advance-card {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.settings-advance-flat > .settings-advance-nested.settings-advance-card {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0;
+}
+
+.settings-advance-flat > .settings-advance-nested.settings-advance-card:first-child {
+  border-top: none;
+}
+
+.settings-advance-nested.settings-advance-card > .settings-advance-summary {
+  padding: 12px 0;
+  align-items: center;
+}
+
+.settings-advance-nested.settings-advance-card[open] > .settings-advance-summary {
+  border-bottom: none;
+  padding-bottom: 8px;
+}
+
+.settings-advance-nested.settings-advance-card > div {
+  padding: 0 0 10px;
+  border-top: none !important;
+}
+
+.settings-advance-card > .settings-advance-summary .font-semibold {
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.settings-advance-nested.settings-advance-card > .settings-advance-summary .font-semibold {
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.settings-advance-group-label {
+  margin: 12px 0 4px;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.settings-advance-group-label:first-child {
+  margin-top: 2px;
+}
+
+/* Strip nested glass cards when somehow still used inside Advance */
+.settings-advance-card .glass-panel {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.settings-advance-card .nat-section-head {
+  padding: 10px 0 2px;
+}
+
+.settings-advance-card .nat-section-head-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.settings-advance-card .nat-section-head-desc {
+  display: none;
+}
+
+.settings-advance-stack details.glass-panel > summary {
+  padding: 14px 16px;
+}
+
+.settings-advance-stack details.glass-panel > div {
+  padding: 16px;
 }
 
 /* Buttons */
 .btn-ghost,
 .nat-btn-secondary {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   background: var(--bg-component);
   padding: 8px 14px;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: var(--transition-interactive);
   backdrop-filter: none;
   box-shadow: none;
 }
@@ -303,15 +1580,16 @@ html {
 
 .btn-glow,
 .nat-btn-primary {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: #fafafa;
   padding: 10px 18px;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: #09090b;
   box-shadow: none;
-  transition: background-color 0.15s ease, opacity 0.15s ease;
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
 }
 
 .btn-glow:hover,
@@ -319,14 +1597,124 @@ html {
   background: #e4e4e7;
 }
 
+/* Same 3D Quit red as notch (Delete data, confirm dialogs, etc.) */
+.btn-danger {
+  border-radius: var(--radius-sm);
+  border: var(--danger-rim, 1px solid rgba(255, 255, 255, 0.2));
+  border-top-color: var(--danger-rim-top, rgba(255, 255, 255, 0.34));
+  background: var(--danger-fill);
+  padding: var(--space-2) var(--space-4);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger-on, #fff);
+  box-shadow: var(--danger-shadow);
+  transition: var(--transition-interactive);
+}
+
+.btn-danger:hover {
+  background: var(--danger-fill-hover);
+  color: var(--danger-on, #fff);
+  transform: translateY(-1px);
+}
+
+.text-danger {
+  color: var(--danger-text, #dc2626);
+}
+
+.btn-danger:active {
+  transform: translateY(0);
+  filter: brightness(0.94);
+}
+
+.btn-glow:active,
+.nat-btn-primary:active,
+.btn-ghost:active,
+.nat-btn-secondary:active {
+  transform: translateY(1px);
+}
+
+.btn-danger:disabled,
+.btn-glow:disabled,
+.nat-btn-primary:disabled,
+.btn-ghost:disabled,
+.nat-btn-secondary:disabled,
+.settings-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+}
+
+/* Frameless confirm dialog — replaces native window.confirm() for destructive actions */
+.settings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  /* Dialogs render inside space-y-* stacks; their margin must not shrink the backdrop */
+  margin: 0 !important;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  animation: settingsModalFadeIn var(--duration-fast) var(--ease-out) both;
+}
+
+.settings-modal-card {
+  width: min(380px, calc(100% - var(--space-8)));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-muted);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-elevation-3);
+  padding: var(--space-6);
+  animation: settingsModalRiseIn var(--duration-base) var(--ease-out) both;
+}
+
+.settings-modal-title {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.settings-modal-desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-5);
+}
+
+.settings-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@keyframes settingsModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes settingsModalRiseIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-modal-overlay,
+  .settings-modal-card {
+    animation: none !important;
+  }
+}
+
 /* Chips / segmented */
 .settings-chip {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   background: var(--bg-input);
   padding: 8px 12px;
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
   box-shadow: none;
   backdrop-filter: none;
@@ -341,6 +1729,7 @@ html {
   border-color: var(--accent-border);
   background: var(--bg-item-active);
   color: var(--accent-text);
+  font-weight: 700;
 }
 
 .settings-chip-sm {
@@ -352,12 +1741,13 @@ html {
 .settings-field-label {
   display: block;
   margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-/* Toggle — Natively w-11 h-6 */
+/* Toggle — 44×24 track, separate track/knob tokens (platform switch pattern) */
 .nat-toggle {
   position: relative;
   display: inline-flex;
@@ -366,18 +1756,19 @@ html {
   flex-shrink: 0;
   cursor: pointer;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: none;
-  transition: background-color 0.2s ease;
+  transition: background-color var(--transition-base), border-color var(--transition-base);
 }
 
 .nat-toggle[aria-checked='true'] {
-  background: var(--accent-primary);
+  background: var(--toggle-track-on);
+  border: 1px solid var(--toggle-track-border-on, transparent);
 }
 
 .nat-toggle[aria-checked='false'] {
-  background: var(--bg-toggle-switch);
-  border: 1px solid var(--border-muted);
+  background: var(--toggle-track-off);
+  border: 1px solid var(--toggle-track-border-off);
 }
 
 .nat-toggle-knob {
@@ -386,24 +1777,33 @@ html {
   height: 20px;
   width: 20px;
   transform: translateX(2px);
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  transition: transform 0.2s ease;
+  border-radius: var(--radius-pill);
+  background: var(--toggle-knob-off);
+  box-shadow: var(--toggle-knob-shadow);
+  transition: transform var(--transition-base), background-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .nat-toggle[aria-checked='true'] .nat-toggle-knob {
   transform: translateX(22px);
-  background: #09090b;
+  background: var(--toggle-knob-on);
+}
+
+.nat-toggle:active:not(:disabled) .nat-toggle-knob {
+  filter: brightness(0.94);
 }
 
 /* Profile modes — Natively Intelligence / modes split panel */
 .settings-root .profile-modes-root {
   min-height: 460px;
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   overflow: hidden;
+}
+
+.settings-root .profile-modes-root.profile-modes-root--embedded {
+  min-height: 300px;
+  max-height: min(56vh, 520px);
 }
 
 .settings-root .mode-sidebar {
@@ -413,7 +1813,7 @@ html {
 
 .settings-root .mode-sidebar-item-active {
   background: var(--bg-item-active);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .settings-root .mode-sidebar-item:hover:not(.mode-sidebar-item-active) {
@@ -436,12 +1836,14 @@ html {
   background: var(--bg-item-surface);
   color: var(--text-secondary);
   font-size: 12px;
-  padding: 8px 20px;
+  padding: var(--space-2) var(--space-5);
 }
 
 /* Legacy token overrides for inline styles / tailwind in panels */
 .settings-root .text-white,
-.settings-root .text-gray-200 {
+.settings-root .text-gray-200,
+.settings-root .text-zinc-50,
+.settings-root .text-zinc-100 {
   color: var(--text-primary) !important;
 }
 
@@ -508,28 +1910,55 @@ html {
   background: var(--bg-subtle-hover);
 }
 
-.settings-root .settings-section-accent {
-  display: none;
-}
-
 /* Inline toast (verbose logging, etc.) */
 .settings-toast {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   border-bottom: 1px solid rgba(245, 158, 11, 0.25);
   background: rgba(245, 158, 11, 0.08);
-  padding: 10px 16px;
+  padding: var(--space-2) var(--space-4);
+}
+
+.settings-toast-message {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.settings-toast-detail {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+.settings-toast-success {
+  border-bottom-color: rgb(var(--success-rgb) / 0.35);
+  background: rgb(var(--success-rgb) / 0.1);
+}
+
+.settings-toast-error {
+  border-bottom-color: rgb(var(--danger-rgb) / 0.45);
+  background: rgb(var(--danger-rgb) / 0.12);
+}
+
+.settings-toast-info {
+  border-bottom-color: var(--border-muted);
+  background: var(--bg-item-surface);
 }
 
 .settings-toast-action {
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgba(245, 158, 11, 0.35);
   background: rgba(245, 158, 11, 0.12);
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-2);
   font-size: 11px;
   font-weight: 600;
-  color: #fcd34d;
+  color: var(--text-primary);
 }
 
 .settings-toast-action:hover {
@@ -547,4 +1976,134 @@ html {
 
 .settings-toast-dismiss:hover {
   color: var(--text-primary);
+}
+
+.settings-save-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.settings-save-badge-saving {
+  color: rgb(var(--accent-light-rgb) / 0.95);
+  background: rgb(var(--accent-rgb) / 0.12);
+  border: 1px solid rgb(var(--accent-rgb) / 0.25);
+}
+
+.settings-save-badge-error {
+  color: var(--danger-text);
+  background: rgb(var(--danger-rgb) / 0.12);
+  border: 1px solid rgb(var(--danger-rgb) / 0.35);
+}
+
+.settings-save-badge-saved {
+  color: rgb(var(--success-rgb) / 0.95);
+  background: rgb(var(--success-rgb) / 0.12);
+  border: 1px solid rgb(var(--success-rgb) / 0.28);
+}
+
+/* ============================================================================
+ * Accessibility: one focus-visible ring for every interactive control in the
+ * window, plus disabled styling for inputs/toggles that were missing it.
+ * ============================================================================ */
+.settings-nav-btn:focus-visible,
+.settings-nav-quit:focus-visible,
+.btn-ghost:focus-visible,
+.nat-btn-secondary:focus-visible,
+.btn-glow:focus-visible,
+.nat-btn-primary:focus-visible,
+.btn-danger:focus-visible,
+.settings-chip:focus-visible,
+.nat-toggle:focus-visible,
+.settings-toast-action:focus-visible,
+.settings-toast-dismiss:focus-visible,
+.settings-row-tile:focus-visible,
+details.glass-panel > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Every interactive control, including the ones that used to have none:
+ * select triggers, provider pills, text inputs, range sliders, keycap buttons, dialogs' buttons.
+ * Solid 2px, >= 3:1 against both themes' surfaces. Programmatic-only targets (tabindex=-1) are excluded. */
+.settings-root :is(button, a[href], input, select, textarea, summary, [role='switch'], [role='radio'], [role='option'], [tabindex]:not([tabindex='-1'])):focus-visible,
+.checkmark-select-trigger:focus-visible,
+.settings-advance-pill:focus-visible,
+.hotkey-combo:focus-visible,
+.settings-nav-search-input:focus-visible,
+input[type='range']:focus-visible,
+.input-shadow:focus-visible,
+.nat-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.settings-root :is(input, textarea, select).input-shadow:focus-visible,
+.settings-nav-search-input:focus-visible {
+  outline-offset: 1px;
+}
+
+.hotkey-combo:focus-visible {
+  border-radius: 6px;
+}
+
+.settings-modal-card:focus,
+.settings-page-title:focus {
+  outline: none;
+}
+
+.settings-range {
+  accent-color: var(--accent-primary);
+}
+
+/* Search result / deep link landing flash */
+.settings-anchor-flash {
+  animation: settingsAnchorFlash 1.6s ease-out 1;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes settingsAnchorFlash {
+  0% { box-shadow: 0 0 0 3px var(--focus-ring); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-anchor-flash {
+    animation: none !important;
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.input-shadow:disabled,
+.nat-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Blanket safety net — catches every transition/animation in this file, not
+ * just the hand-picked ones below (0.01ms, not 0, keeps transitionend/
+ * animationend firing for any JS that waits on them). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page.animate-fade-in,
+  .animate-fade-in {
+    animation: none !important;
+  }
+
+  .settings-root details.glass-panel > summary svg {
+    transition: none !important;
+  }
 }

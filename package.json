@@ -1,6 +1,6 @@
 {
   "name": "veilassist",
-  "version": "2026.806.1502",
+  "version": "1.0.0",
   "description": "Undetectable AI for live meetings — discreet on-screen meeting assistant",
   "author": "VeilAssist",
   "license": "UNLICENSED",
@@ -11,6 +11,7 @@
   "main": "main/index.js",
   "scripts": {
     "prebuild": "node scripts/sync-brand-assets.mjs",
+    "build:native-audio": "node scripts/build-native-audio.cjs",
     "postinstall": "electron-builder install-app-deps",
     "build": "vite build",
     "build:web": "npm --prefix landing run build",
@@ -23,8 +24,8 @@
     "kill-electron": "taskkill /F /IM electron.exe /T 2>nul || exit 0",
     "kill-veilassist": "taskkill /F /IM VeilAssist.exe /T 2>nul || exit 0",
     "start:force": "npm run kill-electron && npm run start",
-    "dist": "node scripts/make-icons.cjs && npm run build && node scripts/run-electron-builder.cjs --win portable",
-    "dist:release": "node scripts/make-icons.cjs && npm run build && node scripts/run-electron-builder.cjs --win portable nsis",
+    "dist": "node scripts/make-icons.cjs && npm run build:native-audio && npm run build && node scripts/run-electron-builder.cjs --win portable",
+    "dist:release": "node scripts/make-icons.cjs && npm run build:native-audio && npm run build && node scripts/run-electron-builder.cjs --win portable nsis",
     "build:win": "node scripts/inject-oauth.cjs && npm run dist:release",
     "dist:dir": "node scripts/make-icons.cjs && npm run build && node scripts/run-electron-builder.cjs --win dir",
     "dist:mac": "node scripts/make-icons.cjs && npm run build && node scripts/run-electron-builder.cjs --mac dmg zip",
@@ -46,6 +47,12 @@
     "test:transcript-lifecycle": "node --test scripts/test-transcript-lifecycle.cjs",
     "test:chat-fallback": "node --test scripts/test-chat-stream-fallback.cjs",
     "test:ask-context": "node --test scripts/test-ask-context-priority.cjs",
+    "test:question-detector": "node --test scripts/test-question-detector.cjs",
+    "test:autoanswer-parity": "node --test scripts/test-autoanswer-parity.cjs",
+    "test:autoanswer-followups": "node --test scripts/test-autoanswer-followups.cjs",
+    "test:autoanswer-e2e": "node --test scripts/test-stt-revision.cjs scripts/test-autoanswer-transcript.cjs && node scripts/e2e-autoanswer-session.cjs",
+    "test:chat-fallback-provider": "node --test scripts/test-chat-fallback-provider.cjs",
+    "test:native-audio": "node scripts/test-native-audio-resample.cjs",
     "test:ci": "node scripts/run-ci-tests.mjs",
     "test:web": "npm --prefix landing run typecheck",
     "test": "npm run test:ci && npm run test:web",
@@ -68,6 +75,9 @@
       "main/**/*",
       "lib/**/*",
       "out/**/*",
+      "native/veilassist-audio/index.js",
+      "native/veilassist-audio/package.json",
+      "native/veilassist-audio/*.node",
       "docs/user-guide/**/*",
       "preload.js",
       "preload-meeting-toast.cjs",
@@ -82,9 +92,11 @@
       "lib/meetingScanMeet.ps1",
       "lib/localStt/inferenceWorker.mjs",
       "**/*.node",
+      "native/veilassist-audio/**/*.node",
       "node_modules/koffi/**",
-      "node_modules/sqlite-vec*/**",
-      "node_modules/onnxruntime-node/**"
+      "node_modules/onnxruntime-node/**",
+      "node_modules/@napi-rs/canvas/**",
+      "node_modules/pdfjs-dist/**"
     ],
     "icon": "logo.png",
     "directories": {
@@ -132,8 +144,8 @@
         "LSUIElement": true
       },
       "artifactName": "VeilAssist${version}-${arch}.${ext}",
-      "bundleShortVersion": "2026.806.1502",
-      "bundleVersion": "2026.806.1502"
+      "bundleShortVersion": "1.0.0",
+      "bundleVersion": "1.0.0"
     },
     "linux": {
       "icon": "build/icons",
@@ -177,12 +189,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@fontsource/jetbrains-mono": "^5.2.5",
-    "@fontsource/outfit": "^5.2.5",
-    "@fontsource/syne": "^5.2.5",
+    "@fontsource/poppins": "^5.3.0",
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.7.15",
     "@huggingface/transformers": "^3.8.1",
-    "@vectorize-io/hindsight-client": "^0.8.4",
+    "@napi-rs/canvas": "^1.1.0",
     "better-sqlite3": "^12.11.1",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.8.3",
@@ -191,9 +202,13 @@
     "lucide-react": "^0.525.0",
     "openai": "^4.20.0",
     "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-qr-code": "^2.2.0",
-    "sqlite-vec": "^0.1.9"
+    "ws": "^8.21.3"
+  },
+  "overrides": {
+    "onnxruntime-node": "1.22.0"
   }
 }

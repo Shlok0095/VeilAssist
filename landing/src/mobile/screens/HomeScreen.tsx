@@ -24,12 +24,14 @@ export function HomeScreen({
   profileReady,
   hasApiKey,
   hasSttKey,
+  starting,
 }: {
   onStart: () => void
   onOpenSettings: () => void
   profileReady: boolean
   hasApiKey: boolean
   hasSttKey: boolean
+  starting?: boolean
 }) {
   const ready = profileReady && hasApiKey && hasSttKey
   const setupHint = !profileReady
@@ -47,23 +49,29 @@ export function HomeScreen({
           <img src={brandLogo} alt="VeilAssist" className="mobile-interview-logo" width={32} height={32} />
           <span className="mobile-home-brand-name">VeilAssist</span>
         </div>
-        <button type="button" className="mobile-home-settings" aria-label="Settings" onClick={onOpenSettings}>
+        <button
+          type="button"
+          className="mobile-home-settings"
+          aria-label="Settings"
+          onClick={onOpenSettings}
+          disabled={starting}
+        >
           <SettingsGearIcon />
         </button>
       </header>
 
       <div className="mobile-home-content">
         <div className="mobile-home-center">
-          <h2 className="mobile-home-ready">{ready ? 'Ready when you are' : 'Almost ready'}</h2>
+          <h2 className="mobile-home-ready">{starting ? 'Starting…' : ready ? 'Ready when you are' : 'Almost ready'}</h2>
           <button
             type="button"
             className="mobile-start-btn"
             onClick={onStart}
-            disabled={!ready}
+            disabled={!ready || starting}
           >
-            Start Interview
+            {starting ? <span className="mobile-interview-spinner" aria-hidden /> : 'Start Interview'}
           </button>
-          {setupHint ? <p className="mobile-home-hint">{setupHint}</p> : null}
+          {setupHint && !starting ? <p className="mobile-home-hint">{setupHint}</p> : null}
         </div>
 
         <div className="mobile-home-tip">

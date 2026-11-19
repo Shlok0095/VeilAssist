@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react'
 import { Briefcase, FileUser, Upload, X } from 'lucide-react'
 import AppIcon from '../shared/AppIcon'
-import { SettingsCollapsible } from './SettingsComponents'
+import { SaveStatusBadge, SettingsCollapsible } from './SettingsComponents'
 
 const RESUME_MAX = 50000
 const JD_MAX = 30000
@@ -22,6 +22,7 @@ export default function PersonalBackgroundSection({
   onUploadJd,
   onClearResume,
   onClearJd,
+  profileSaveStatus = 'idle',
 }) {
   const hasContent = Boolean(resumeContext?.trim() || jdContext?.trim())
   const defaultOpen = hasContent
@@ -36,12 +37,15 @@ export default function PersonalBackgroundSection({
   return (
     <SettingsCollapsible
       title="Personal background"
-      description="Optional facts for interview and fit questions — not part of any mode. Coding asks ignore this automatically."
+      description="Used only in Interview, and only when a question is about you."
       badge={hasContent ? statusLabel : null}
       defaultOpen={defaultOpen}
       icon={FileUser}
     >
       <div className="grid gap-5 lg:grid-cols-2">
+        <div className="mb-1 flex items-center justify-end lg:col-span-2">
+          <SaveStatusBadge status={profileSaveStatus} />
+        </div>
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-[13px] font-medium text-zinc-200">
@@ -76,7 +80,7 @@ export default function PersonalBackgroundSection({
               <button
                 type="button"
                 onClick={() => void onClearResume?.()}
-                className="inline-flex items-center gap-1 rounded-lg border border-red-500/20 px-3 py-1.5 text-[12px] text-red-300/90 hover:bg-red-500/10"
+                className="btn-danger inline-flex items-center gap-1 px-3 py-1.5 text-[12px]"
               >
                 <AppIcon icon={X} size={13} />
                 Clear
@@ -115,7 +119,7 @@ export default function PersonalBackgroundSection({
               <button
                 type="button"
                 onClick={() => void onClearJd?.()}
-                className="inline-flex items-center gap-1 rounded-lg border border-red-500/20 px-3 py-1.5 text-[12px] text-red-300/90 hover:bg-red-500/10"
+                className="btn-danger inline-flex items-center gap-1 px-3 py-1.5 text-[12px]"
               >
                 <AppIcon icon={X} size={13} />
                 Clear

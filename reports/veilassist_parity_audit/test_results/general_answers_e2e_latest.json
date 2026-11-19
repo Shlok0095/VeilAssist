@@ -1,0 +1,97 @@
+{
+  "at": "2026-11-19T20:22:52.780Z",
+  "settings": {
+    "transcriptDurationSeconds": 30,
+    "interviewCustomInstructions": "Add filler words to sound natural",
+    "answerStructure": "car",
+    "responseFormat": "conversational",
+    "answerLength": "medium",
+    "aiResponseLanguage": "",
+    "overlayAnswerView": "history"
+  },
+  "live": false,
+  "pass": 20,
+  "fail": 0,
+  "results": [
+    {
+      "name": "CAR + Conversational + Medium land in INTERVIEW OUTPUT CONTRACT",
+      "pass": true
+    },
+    {
+      "name": "Match my question → no forced language block",
+      "pass": true
+    },
+    {
+      "name": "Hindi language setting injects Respond in Hindi",
+      "pass": true
+    },
+    {
+      "name": "Conversation Memory 30s → 450-char tail + 3 answered questions",
+      "pass": true
+    },
+    {
+      "name": "Conversation Memory choices 1m/2m/3m scale answered_questions",
+      "pass": true
+    },
+    {
+      "name": "Answer length Medium → maxTokens 280 (non-coding)",
+      "pass": true
+    },
+    {
+      "name": "Answer length does NOT map to overlay font (IM)",
+      "pass": true
+    },
+    {
+      "name": "Full history store value is overlayAnswerView=history",
+      "pass": true
+    },
+    {
+      "name": "Settings UI labels match store values for this combo",
+      "pass": true
+    },
+    {
+      "name": "Custom instructions persist on change (not blur-only)",
+      "pass": true
+    },
+    {
+      "name": "Ctrl+Enter / Ctrl+H default hotkeys match Answers copy",
+      "pass": true
+    },
+    {
+      "name": "Behavioral ask keeps CAR contract; definition drops STAR/CAR body",
+      "pass": true
+    },
+    {
+      "name": "Coding ask forces coding contract even with Conversational+CAR settings",
+      "pass": true
+    },
+    {
+      "name": "Answered questions from prior turns inject into user turn",
+      "pass": true
+    },
+    {
+      "name": "set-store path persists answer keys (main wiring)",
+      "pass": true
+    },
+    {
+      "name": "live LLM pass skipped (pass --live + VEILASSIST_EVAL_API_KEY to enable)",
+      "pass": true
+    },
+    {
+      "name": "nested test-general-answer-settings-wiring.cjs exit 0",
+      "pass": true
+    },
+    {
+      "name": "nested test-desktop-interview-wiring.cjs exit 0",
+      "pass": true
+    },
+    {
+      "name": "nested test-im-answer-ui-parity.cjs exit 0",
+      "pass": true
+    },
+    {
+      "name": "nested test-conversation-memory-window.cjs exit 0",
+      "pass": true
+    }
+  ]
+}

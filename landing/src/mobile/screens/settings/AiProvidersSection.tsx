@@ -1,6 +1,6 @@
 import type { AppSettings } from '../../profileTypes'
 import { CHAT_MODEL_CATALOG } from '../../modelCatalog'
-import { groqModelOptions, nvidiaFallbackHint, nvidiaModelOptions } from '../../modelDisplay'
+import { groqModelOptions, nvidiaModelOptions, vendorFallbackHint } from '../../modelDisplay'
 import { CHAT_PROVIDER_ORDER, CHAT_PROVIDERS, providerKeyConfigured } from '../../providerRegistry'
 import { loadAppSettings } from '../../profileStorage'
 import { syncChatModels } from '../../modelSync'
@@ -37,6 +37,7 @@ export function AiProvidersSection({
   return (
     <ProviderConfigSection
       groupLabel="AI providers"
+      intro="NVIDIA answers first with the model you pick. If that model fails, the next-fastest NVIDIA is tried, then Groq. Models are not all run at once."
       selectLabel="Provider"
       value={settings.provider}
       onChange={(v) => onChange({ provider: v as AppSettings['provider'] })}
@@ -87,7 +88,7 @@ export function AiProvidersSection({
           }
         />
         {meta.id === 'nvidia' || meta.id === 'groq' ? (
-          <p className="mobile-fallback-hint">{nvidiaFallbackHint()}</p>
+          <p className="mobile-fallback-hint">{vendorFallbackHint(meta.id)}</p>
         ) : null}
       </label>
     </ProviderConfigSection>

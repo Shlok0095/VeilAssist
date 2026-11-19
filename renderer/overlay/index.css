@@ -2,38 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
+/* InterviewMan-aligned UI type: Poppins (IM google_fonts), not system Segoe. */
+html,
+body,
+#root {
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 /*
- * Glossy dark glass (Cluely-style notch)
- * Electron transparent windows: backdrop-filter blurs empty pixels → grey mud.
- * We simulate glass with opaque dark fill + top specular shine + edge highlights.
+ * ============================================================================
+ * CRYSTAL GLASS — Enhanced Electron Overlay Stylesheet
+ * ============================================================================
+ * Electron transparent windows can't use backdrop-filter over empty desktop
+ * pixels (it blurs into grey mud), so this simulates true glass with:
+ *   - layered opaque dark fills (multiple radial/linear gradients stacked)
+ *   - a crisp top specular "cap" highlight + soft edge rim-light
+ *   - inner shadows for concavity + outer shadows for elevation
+ *   - subtle chromatic accent bleed instead of flat single-hue borders
+ *
+ * All original class names are preserved 1:1 so existing components keep
+ * working — this is a drop-in visual upgrade, not a rename.
+ * ============================================================================
  */
+
 :root {
-  --accent-rgb: 59 130 246;
-  --accent-mid-rgb: 37 99 235;
-  --accent-light-rgb: 147 197 253;
-  --glass-base: rgba(18, 18, 22, 0.92);
-  --glass-base-pill: rgba(20, 20, 25, 0.94);
-  --glass-base-panel: rgba(16, 16, 20, 0.93);
-  --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-border-top: rgba(255, 255, 255, 0.32);
-  --glass-border-left: rgba(255, 255, 255, 0.18);
-  --glass-text: rgba(255, 255, 255, 0.97);
-  --glass-sub: rgba(255, 255, 255, 0.72);
-  --glass-muted: rgba(255, 255, 255, 0.55);
-  --glass-answer: rgba(255, 255, 255, 0.98);
+  /*
+   * InterviewMan helper ChatColors — cAt() + helper_body_opacity default 0.7
+   * (veilassist2 / InterviewMan-2.7.7-194 main.dart.js):
+   *   primary B.cm #6FA0FF @ 0.7, onPrimary/onSurface B.aH #F4F4F4,
+   *   surface/surfaceContainer transparent, surfaceContainerHigh B.my #272729 @ 0.7.
+   * Question (isSentByMe): primary fill, 12px radius, padding 16×10.
+   * Answer (helper): transparent fill, same bodyMedium 14px.
+   * Generating Answer: primary@0.1 pill + 12px spinner + 11px/500 label.
+   */
+  --im-primary: #6fa0ff;
+  --im-primary-rgb: 111 160 255;
+  --im-on-primary: #f4f4f4;
+  --im-on-surface: #f4f4f4;
+  --im-surface-high: #272729;
+  --im-scheme-surface: #161618;
+  --im-dialog-surface: #1c1c1e;
+  --im-helper-opacity: 0.7;
+
+  /* --- Core accent (IM B.cm / styles.css loader) --- */
+  --accent-rgb: 111 160 255;
+  --accent-mid-rgb: 102 126 255;
+  --accent-light-rgb: 145 180 255;
+  --accent-deep-rgb: 90 110 230;
+
+  /* --- Semantic accents (new — used for status/feedback states) --- */
+  --success-rgb: 74 222 128;
+  --warning-rgb: 250 204 21;
+  --danger-rgb: 220 38 38; /* Quit / Listen mid #dc2626 */
+  --violet-rgb: 139 92 246;
+
+  /* --- Glass surface fills (IM scheme surface + high container) --- */
+  --glass-base: rgba(22, 22, 24, 0.88);
+  --glass-base-pill: rgba(39, 39, 41, 0.7);
+  --glass-base-panel: rgba(22, 22, 24, 0.88);
+
+  /* --- Borders / rim light --- */
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-border-top: rgba(255, 255, 255, 0.12);
+  --glass-border-left: rgba(255, 255, 255, 0.08);
+  --glass-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* --- Text --- */
+  --glass-text: var(--im-on-surface);
+  --glass-sub: rgba(244, 244, 244, 0.72);
+  --glass-muted: rgba(161, 161, 163, 0.85);
+  --glass-answer: var(--im-on-surface);
+
+  /* --- Question bar (IM primary @ helper opacity — not dark grey) --- */
+  --glass-question-bg: rgba(var(--im-primary-rgb) / 0.7);
+  --glass-question-border: transparent;
+  --glass-question-text: var(--im-on-primary);
+
+  /* --- Reusable gradient layers --- */
   --glass-cap: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.22) 0%,
-    rgba(255, 255, 255, 0.08) 14%,
-    rgba(255, 255, 255, 0.02) 32%,
+    rgba(255, 255, 255, 0.24) 0%,
+    rgba(255, 255, 255, 0.09) 13%,
+    rgba(255, 255, 255, 0.025) 30%,
     transparent 48%
   );
   --glass-sheen: linear-gradient(
     118deg,
-    rgba(255, 255, 255, 0.10) 0%,
-    transparent 42%,
-    transparent 100%
+    rgba(255, 255, 255, 0.11) 0%,
+    transparent 40%,
+    transparent 78%,
+    rgba(255, 255, 255, 0.035) 100%
   );
+  --glass-floor-glow: radial-gradient(
+    ellipse 90% 60% at 50% 115%,
+    rgba(var(--accent-rgb) / 0.05) 0%,
+    transparent 70%
+  );
+
+  /* --- Motion (aliases — canonical tokens in shared/designTokens.css) --- */
 }
 
 @keyframes answerIn {
@@ -42,11 +110,35 @@
 }
 
 .animate-answer-in {
-  animation: answerIn 0.25s ease-out both;
+  animation: answerIn var(--duration-slow) var(--ease-out) both;
+}
+
+/* Missing keyframe — used by LiveTranscriptPanel via .animate-overlay-live-line */
+@keyframes overlayLiveLine {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-overlay-live-line {
+  animation: overlayLiveLine var(--duration-base) var(--ease-out) both;
+}
+
+/* Blanket reduced-motion safety net — most transitions/animations in this file
+ * hardcode a literal duration (e.g. `0.15s`) rather than a --duration-* token,
+ * so the per-class rules below can't reach them individually. 0.01ms (not 0)
+ * keeps transitionend/animationend firing for any JS that waits on them. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-answer-in { animation: none !important; }
+  .animate-answer-in,
+  .animate-overlay-live-line { animation: none !important; }
+  .crystal-caption-phase-dot { animation: none !important; }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -57,6 +149,9 @@ html, body {
   width: 100%;
   margin: 0;
   background: transparent !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -67,6 +162,50 @@ html, body {
 }
 
 .crystal-stack { background: transparent; }
+
+/* During handle drag — disable transitions/animations that fight live layout. */
+.overlay-resizing,
+.overlay-resizing * {
+  transition: none !important;
+  animation: none !important;
+}
+
+.crystal-stack-passthrough {
+  pointer-events: none;
+}
+
+/** Bounded chrome rects — notch, panel, footer (always). Passthrough mode also uses these for hover capture. */
+.crystal-overlay-bounded {
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.crystal-overlay-inert,
+.crystal-overlay-inert .crystal-overlay-bounded {
+  pointer-events: none !important;
+}
+
+.crystal-chrome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  contain: layout style;
+}
+
+.crystal-chrome--expanded {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.crystal-chrome-body {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  gap: 8px;
+}
 
 .crystal-notch-shell {
   width: 252px;
@@ -87,10 +226,12 @@ html, body {
   cursor: move;
 }
 
-/* Shared glossy surface — no backdrop-filter, no outer shadow */
+/* ============================================================================
+ * Shared glossy surface — layered fills, dual rim light, soft elevation.
+ * No backdrop-filter (transparent window constraint), no outer window shadow.
+ * ============================================================================ */
 .crystal-pill,
-.crystal-panel,
-.glass-modal-card {
+.crystal-panel {
   position: relative;
   isolation: isolate;
   border-style: solid;
@@ -99,20 +240,30 @@ html, body {
   border-top-color: var(--glass-border-top);
   border-left-color: var(--glass-border-left);
   background:
+    var(--glass-floor-glow),
     var(--glass-cap),
     var(--glass-sheen),
     var(--glass-base);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-elevation-2);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
 }
 
 .crystal-pill {
   background:
+    var(--glass-floor-glow),
     var(--glass-cap),
     var(--glass-sheen),
     var(--glass-base-pill);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
+}
+
+@keyframes crystal-panel-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.crystal-panel-reveal {
+  animation: crystal-panel-reveal 0.1s ease-out both;
 }
 
 .crystal-pill::before,
@@ -120,14 +271,14 @@ html, body {
   content: '';
   position: absolute;
   top: 1px;
-  left: 10%;
-  right: 10%;
+  left: 8%;
+  right: 8%;
   height: 1px;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.70) 50%,
+    rgba(255, 255, 255, 0.78) 50%,
     transparent 100%
   );
   pointer-events: none;
@@ -140,26 +291,26 @@ html, body {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(
-    ellipse 80% 50% at 50% -20%,
-    rgba(255, 255, 255, 0.08) 0%,
-    transparent 70%
-  );
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 255, 255, 0.09) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 85% 110%, rgba(var(--accent-rgb) / 0.06) 0%, transparent 65%);
   pointer-events: none;
   z-index: 1;
 }
 
 .crystal-panel {
   background:
+    var(--glass-floor-glow),
     var(--glass-cap),
     var(--glass-sheen),
     var(--glass-base-panel);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
+  contain: layout style paint;
 }
 
 .crystal-panel-edge {
   height: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.09), transparent);
 }
 
 .crystal-status-row {
@@ -169,7 +320,7 @@ html, body {
 }
 
 .crystal-divider {
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .crystal-label {
@@ -181,13 +332,17 @@ html, body {
 .crystal-sublabel {
   color: var(--glass-sub);
   font-size: 9.5px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .crystal-status-text {
   color: var(--glass-text);
 }
 
+/* ============================================================================
+ * Live transcript pill
+ * ============================================================================ */
 .crystal-transcript-bar {
   display: flex;
   align-items: center;
@@ -195,16 +350,22 @@ html, body {
   min-height: 40px;
   max-height: 40px;
   padding: 0 10px 0 8px;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-top-color: rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-top-color: rgba(255, 255, 255, 0.18);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 55%),
-    rgba(8, 8, 12, 0.55);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
+    rgba(7, 7, 11, 0.58);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.38),
+    0 4px 14px -6px rgba(0, 0, 0, 0.4);
   overflow: hidden;
+  transition: border-color 0.2s var(--ease-glass), box-shadow 0.2s var(--ease-glass);
+}
+
+.crystal-transcript-bar:focus-within {
+  border-color: rgba(var(--accent-rgb) / 0.35);
 }
 
 .crystal-caption-row {
@@ -222,25 +383,28 @@ html, body {
   justify-content: center;
   height: 20px;
   padding: 0 8px;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   line-height: 1;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: transform 0.15s var(--ease-snap);
 }
 
 .crystal-caption-chip-me {
   color: rgb(var(--accent-light-rgb) / 0.95);
-  background: rgb(var(--accent-rgb) / 0.16);
-  border-color: rgb(var(--accent-rgb) / 0.28);
+  background:
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.22) 0%, rgb(var(--accent-rgb) / 0.12) 100%);
+  border-color: rgb(var(--accent-rgb) / 0.32);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 0 10px -4px rgb(var(--accent-rgb) / 0.5);
 }
 
 .crystal-caption-chip-them {
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.80);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .crystal-caption-text {
@@ -253,20 +417,22 @@ html, body {
   font-weight: 500;
   line-height: 1.35;
   letter-spacing: 0.01em;
-  mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 18px), transparent 100%);
-  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 18px), transparent 100%);
+  /* Fade the leading (older) edge — scrollLeft pins the newest words on the right. */
+  mask-image: linear-gradient(90deg, transparent 0%, #000 18px, #000 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 18px, #000 100%);
 }
 
 .crystal-caption-final {
-  color: rgba(255, 255, 255, 0.88);
-  transition: opacity 0.12s ease;
+  color: rgba(255, 255, 255, 0.90);
+  transition: opacity 0.15s var(--ease-glass);
 }
 
 .crystal-caption-interim {
-  color: rgba(255, 255, 255, 0.48);
+  color: rgba(255, 255, 255, 0.66);
+  font-style: italic;
   font-weight: 500;
   letter-spacing: 0.015em;
-  transition: opacity 0.12s ease;
+  transition: opacity 0.15s var(--ease-glass);
 }
 
 .crystal-caption-idle,
@@ -278,7 +444,7 @@ html, body {
   width: 100%;
   font-size: 11.5px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.58);
   letter-spacing: 0.02em;
 }
 
@@ -287,21 +453,26 @@ html, body {
   width: 6px;
   height: 6px;
   flex-shrink: 0;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.28);
 }
 
+@keyframes crystalListeningPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
+}
+
 .crystal-caption-phase-dot {
-  background: rgb(var(--accent-rgb) / 0.75);
-  box-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.35);
+  background: rgb(var(--accent-rgb) / 0.8);
+  box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.45);
   animation: crystalListeningPulse 1.6s ease-in-out infinite;
 }
 
 .crystal-caption-phase-label {
   flex-shrink: 0;
   font-size: 11.5px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.72);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.76);
   letter-spacing: 0.03em;
 }
 
@@ -312,25 +483,10 @@ html, body {
   white-space: nowrap;
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.52);
 }
 
-/* Legacy speaker colors — still used in answer-panel transcript echoes */
-.crystal-transcript-live {
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.35;
-  letter-spacing: 0.01em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-}
-
-.crystal-transcript-live-body {
-  color: #ffffff;
-  font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-}
-
+/* Legacy speaker colors — used in answer-panel transcript echoes */
 .crystal-speaker-me {
   color: rgb(var(--accent-light-rgb) / 1);
   font-weight: 800;
@@ -338,104 +494,49 @@ html, body {
 }
 
 .crystal-speaker-participant {
-  color: #b91c1c;
+  color: var(--danger-mid, #dc2626);
   font-weight: 800;
   letter-spacing: 0.02em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-.crystal-transcript-waiting {
-  color: var(--glass-muted);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.35;
-}
-
-.crystal-transcript-idle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--glass-sub);
-  letter-spacing: 0.02em;
-}
-
-.crystal-transcript-idle-mark {
-  width: 6px;
-  height: 6px;
-  flex-shrink: 0;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.28);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.12);
-}
-
-.crystal-transcript-listening {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.crystal-listening-dot {
-  width: 7px;
-  height: 7px;
-  flex-shrink: 0;
-  border-radius: 9999px;
-  background: rgb(var(--accent-rgb) / 1);
-  box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.55);
-  animation: crystalListeningPulse 1.5s ease-in-out infinite;
-}
-
-.crystal-listening-label {
-  flex-shrink: 0;
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #4ade80;
-  text-shadow: 0 0 12px rgba(74, 222, 128, 0.35);
-}
-
-.crystal-listening-sub {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--glass-sub);
-}
-
-@keyframes crystalListeningPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.45; transform: scale(0.82); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .crystal-listening-dot,
-  .crystal-caption-phase-dot { animation: none !important; }
-  .crystal-caption-final,
-  .crystal-caption-interim { transition: none !important; }
-}
-
+/* ============================================================================
+ * Buttons
+ * ============================================================================ */
 .crystal-send-btn {
-  background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-top-color: rgba(255, 255, 255, 0.32);
+  background:
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.95) 0%, rgb(var(--accent-rgb) / 0.72) 100%),
+    rgba(255, 255, 255, 0.06);
+  border: 1px solid rgb(var(--accent-rgb) / 0.45);
+  border-top-color: rgb(var(--accent-rgb) / 0.65);
   color: #fff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 2px 10px -2px rgb(var(--accent-rgb) / 0.55),
     0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s var(--ease-snap), box-shadow 0.15s var(--ease-glass), filter 0.15s;
 }
 
-.crystal-send-btn:hover {
-  background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+.crystal-send-btn:hover:not(:disabled) {
+  background:
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 1) 0%, rgb(var(--accent-rgb) / 0.82) 100%),
+    rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 4px 16px -3px rgb(var(--accent-rgb) / 0.65);
+  transform: translateY(-1px);
+}
+
+.crystal-send-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.94);
 }
 
 .crystal-send-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
+  filter: grayscale(0.3);
+  transform: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .crystal-body-text {
@@ -444,18 +545,30 @@ html, body {
 
 .crystal-answer-text {
   color: var(--glass-answer);
-  line-height: 1.75;
+  line-height: 1.45;
+  letter-spacing: 0;
+  /* IM bodyMedium ≈ 500 — Poppins Regular looks thin next to their helper text */
+  font-weight: 500;
+  /* Size comes from Overlay look → Font size (parent em / Tailwind); do not hardcode px. */
+  text-shadow: none;
 }
 
+/* IM helper answer bubble — surfaceContainer transparent, onSurface text */
 .crystal-answer-shell {
-  background: rgba(0, 0, 0, 0.38);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-top-color: rgba(255, 255, 255, 0.12);
+  background: transparent;
+  border: none;
   border-radius: 12px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
 }
 
-/* Generating panel: isolate layout from token growth so the overlay chrome stays still. */
+/* Committed answer history: isolate layout from live stream growth. */
+.response-turns-list {
+  contain: layout paint;
+}
+
+/* Generating panel: isolate layout from token growth so overlay chrome stays still. */
 .crystal-stream-shell {
   contain: layout paint style;
   min-height: 4.75rem;
@@ -470,13 +583,14 @@ html, body {
 .crystal-stream-text:not(:empty)::after {
   content: '';
   display: inline-block;
-  width: 7px;
-  height: 0.95em;
+  width: 6px;
+  height: 0.9em;
   margin-left: 3px;
   vertical-align: -2px;
-  border-radius: 1px;
-  background: rgba(180, 225, 255, 0.7);
-  animation: streamCaret 1s step-end infinite;
+  border-radius: 1.5px;
+  background: var(--im-primary);
+  box-shadow: none;
+  animation: streamCaret 1.05s step-end infinite;
 }
 
 @keyframes streamCaret {
@@ -493,25 +607,47 @@ html, body {
 
 .crystal-icon-btn {
   color: var(--glass-muted);
-  transition: background 0.12s, color 0.12s;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s var(--ease-glass), color 0.15s var(--ease-glass), transform 0.12s var(--ease-snap);
 }
 
 .crystal-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.09);
   color: var(--glass-text);
+  transform: translateY(-1px);
+}
+
+.crystal-icon-btn:active {
+  transform: translateY(0);
 }
 
 .crystal-notch-logo {
   display: block;
-  height: 38px;
+  height: 34px;
   width: auto;
-  max-width: 112px;
+  max-width: 108px;
   object-fit: contain;
   object-position: left center;
+  filter:
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35))
+    brightness(1.04)
+    contrast(1.06);
+  opacity: 0.96;
+  transition: filter 0.2s var(--ease-glass), transform 0.2s var(--ease-snap), opacity 0.2s;
+  will-change: transform;
+}
+
+.crystal-notch-bar:hover .crystal-notch-logo {
+  filter:
+    drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45))
+    brightness(1.1)
+    contrast(1.08);
+  opacity: 1;
 }
 
 .crystal-wave-bar {
-  background: rgba(255, 255, 255, 0.78);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.62));
+  border-radius: 2px;
 }
 
 .crystal-session-btn {
@@ -536,37 +672,72 @@ html, body {
   width: 46px;
   height: 26px;
   padding: 0;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-top-color: rgba(255, 255, 255, 0.24);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-top-color: rgba(255, 255, 255, 0.26);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%),
-    rgba(22, 22, 26, 0.95);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%),
+    rgba(20, 20, 24, 0.96);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.42);
   outline: none;
-  transition: background 0.18s ease, border-color 0.18s ease;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-glass), border-color 0.2s var(--ease-glass), box-shadow 0.2s var(--ease-glass);
 }
 
 .crystal-listen-switch:hover {
-  border-color: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.crystal-listen-switch:active {
+  filter: brightness(0.92);
+}
+
+/* Off state — neutral idle (no green/red fill) */
+.crystal-listen-switch[aria-checked='false'] {
+  border-color: rgba(255, 255, 255, 0.17);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%),
+    rgba(20, 20, 24, 0.96);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.42);
+}
+
+.crystal-listen-switch[aria-checked='false']:hover {
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .crystal-listen-switch:focus,
 .crystal-listen-switch:focus-visible {
   outline: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-    0 0 0 2px rgba(255, 255, 255, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.42),
+    0 0 0 2px rgba(255, 255, 255, 0.16);
 }
 
+/* On state — same 3D gloss language as Quit (track fill + rim), toggle only */
 .crystal-listen-switch[aria-checked='true'] {
-  border-color: rgba(255, 255, 255, 0.42);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 100%),
-    rgba(48, 48, 54, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  border-top-color: rgba(255, 255, 255, 0.34);
+  background: var(--danger-fill, linear-gradient(180deg, #f87171 0%, #dc2626 55%, #b91c1c 100%));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    0 1px 2px rgba(0, 0, 0, 0.38);
+}
+
+.crystal-listen-switch[aria-checked='true']:hover {
+  background: var(--danger-fill-hover, linear-gradient(180deg, #fb8787 0%, #ef4444 55%, #dc2626 100%));
+}
+
+.crystal-listen-switch[aria-checked='true']:focus,
+.crystal-listen-switch[aria-checked='true']:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    0 1px 2px rgba(0, 0, 0, 0.38),
+    0 0 0 2px rgba(255, 255, 255, 0.16);
 }
 
 .crystal-listen-switch-knob {
@@ -579,10 +750,11 @@ html, body {
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 9999px;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  transition: transform 0.18s ease;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  transition: transform 0.22s var(--ease-snap);
+  will-change: transform;
 }
 
 .crystal-listen-switch[aria-checked='true'] .crystal-listen-switch-knob {
@@ -606,7 +778,7 @@ html, body {
   width: 2.5px;
   height: 9px;
   border-radius: 1px;
-  background: #1a1a1e;
+  background: #17171b;
 }
 
 .crystal-listen-switch-stop {
@@ -614,28 +786,7 @@ html, body {
   width: 8px;
   height: 8px;
   border-radius: 1.5px;
-  background: #1a1a1e;
-}
-
-.crystal-listen-active {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.24);
-  border-top-color: rgba(255, 255, 255, 0.32);
-  color: var(--glass-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-}
-
-.crystal-listen-idle {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.10);
-  color: var(--glass-sub);
-}
-
-.crystal-listen-idle:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.18);
-  border-top-color: rgba(255, 255, 255, 0.24);
-  color: var(--glass-text);
+  background: #17171b;
 }
 
 .crystal-stealth-track {
@@ -644,16 +795,16 @@ html, body {
   align-items: center;
   gap: 2px;
   padding: 3px;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--glass-border);
   border-top-color: var(--glass-border-top);
   border-left-color: var(--glass-border-left);
   background:
     var(--glass-cap),
     var(--glass-sheen),
-    rgba(0, 0, 0, 0.44);
+    rgba(0, 0, 0, 0.46);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
     inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
@@ -664,117 +815,198 @@ html, body {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-top-color: rgba(255, 255, 255, 0.18);
-  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-top-color: rgba(255, 255, 255, 0.20);
+  border-radius: var(--radius-pill);
   outline: none;
+  cursor: pointer;
   background:
     var(--glass-cap),
-    rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13);
+  transition: background 0.15s var(--ease-glass), border-color 0.15s var(--ease-glass), transform 0.12s var(--ease-snap);
 }
 
 .crystal-stealth-btn-active {
   background:
     var(--glass-cap),
-    rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.18);
-  border-top-color: rgba(255, 255, 255, 0.32);
+    rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.20);
+  border-top-color: rgba(255, 255, 255, 0.34);
   color: var(--glass-text);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.crystal-stealth-btn-active:hover {
+  background:
+    var(--glass-cap),
+    rgba(255, 255, 255, 0.20);
+}
+
+.crystal-stealth-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .crystal-stealth-btn-idle {
   color: var(--glass-muted);
-  opacity: 0.78;
+  opacity: 0.8;
 }
 
 .crystal-stealth-btn-idle:hover {
   opacity: 1;
   background:
     var(--glass-cap),
-    rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.14);
-  border-top-color: rgba(255, 255, 255, 0.22);
+    rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.16);
+  border-top-color: rgba(255, 255, 255, 0.24);
   color: var(--glass-text);
+  transform: translateY(-1px);
 }
 
 .crystal-input {
-  background: rgba(0, 0, 0, 0.36);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-top-color: rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 38%),
+    rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.22);
   color: var(--glass-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  transition: border-color 0.15s var(--ease-glass), box-shadow 0.15s var(--ease-glass), background 0.15s;
 }
 
 .crystal-input::placeholder {
-  color: rgba(255, 255, 255, 0.44);
+  color: rgba(244, 244, 244, 0.38);
+  font-family: inherit;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .crystal-input:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.26);
-  border-top-color: rgba(255, 255, 255, 0.34);
+  border-color: rgb(var(--accent-rgb) / 0.4);
+  border-top-color: rgb(var(--accent-rgb) / 0.5);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 0 0 2px rgba(255, 255, 255, 0.06);
+    0 0 0 3px rgb(var(--accent-rgb) / 0.14);
+}
+
+/* An ask that was rejected (answer still streaming / too soon) keeps the typed text and nudges the box. */
+@keyframes crystal-input-nudge {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+.crystal-input-nudge {
+  animation: crystal-input-nudge 0.22s ease-in-out 1;
 }
 
 .crystal-resize-handle {
   opacity: 0;
-  transition: opacity 0.12s;
+  transition: opacity 0.15s var(--ease-glass);
 }
 
 .crystal-resize-handle:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .crystal-code-block {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-top-color: rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-top-color: rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .crystal-code-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.38);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%),
+    rgba(0, 0, 0, 0.40);
 }
 
 .crystal-panel-inset {
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-top-color: rgba(255, 255, 255, 0.11);
-  background: rgba(0, 0, 0, 0.26);
+  border: none;
+  border-radius: 12px;
+  background: rgba(var(--im-primary-rgb) / 0.06);
 }
 
 .crystal-takeaway {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-top-color: rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(var(--accent-rgb) / 0.22);
+  border-top-color: rgba(var(--accent-rgb) / 0.32);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb) / 0.07) 0%, rgba(0, 0, 0, 0.22) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+/* IM question / user bubble — primary fill @ 0.7, onPrimary text, 12px radius */
 .crystal-user-bubble,
 .crystal-question-bubble {
-  border: 1px solid rgba(99, 116, 255, 0.72);
-  border-top-color: rgba(133, 168, 255, 0.88);
-  background:
-    linear-gradient(145deg, rgba(35, 78, 178, 0.96) 0%, rgba(29, 50, 130, 0.98) 48%, rgba(47, 37, 135, 0.98) 100%);
-  color: #fff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.20),
-    inset 0 -1px 0 rgba(4, 12, 48, 0.45),
-    0 8px 22px rgba(26, 43, 138, 0.28),
-    0 0 14px rgba(65, 105, 225, 0.10);
-  text-shadow: 0 1px 1px rgba(0, 8, 38, 0.45);
+  border: none;
+  border-radius: 12px;
+  background: var(--glass-question-bg);
+  color: var(--glass-question-text);
+  box-shadow: none;
+  text-shadow: none;
 }
 
 .crystal-question-bubble .crystal-speaker-me,
 .crystal-question-bubble .crystal-speaker-participant {
-  color: #fff;
+  color: var(--im-on-primary);
+  opacity: 0.92;
 }
 
+/* IM axj status chip — primary@0.1 pill + spinner + 11px/500 label */
+.crystal-generating-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: rgba(var(--im-primary-rgb) / 0.1);
+  color: var(--im-primary);
+}
+
+.crystal-generating-spinner {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 2px solid rgba(var(--im-primary-rgb) / 0.28);
+  border-top-color: var(--im-primary);
+  animation: imGeneratingSpin 0.75s linear infinite;
+}
+
+@keyframes imGeneratingSpin {
+  to { transform: rotate(360deg); }
+}
+
+.crystal-generating-label {
+  color: var(--im-primary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crystal-generating-spinner { animation: none; border-top-color: var(--im-primary); }
+}
+
+/* ============================================================================
+ * Mode picker dropdown
+ * ============================================================================ */
 .crystal-mode-picker {
   display: flex;
   height: 32px;
@@ -783,29 +1015,33 @@ html, body {
   align-items: center;
   justify-content: center;
   z-index: 30;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-top-color: rgba(255, 255, 255, 0.28);
-  border-left-color: rgba(255, 255, 255, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-top-color: rgba(255, 255, 255, 0.30);
+  border-left-color: rgba(255, 255, 255, 0.21);
   border-bottom-color: rgba(255, 255, 255, 0.09);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   background:
     var(--glass-cap),
     var(--glass-sheen),
-    rgba(0, 0, 0, 0.42);
+    rgba(0, 0, 0, 0.44);
   padding: 0 8px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
     inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 1px 3px rgba(0, 0, 0, 0.28);
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+    0 1px 3px rgba(0, 0, 0, 0.30);
+  transition: border-color 150ms var(--ease-glass), box-shadow 150ms var(--ease-glass), transform 120ms var(--ease-snap);
+}
+
+.crystal-mode-picker:hover {
+  border-color: rgba(255, 255, 255, 0.24);
 }
 
 .crystal-mode-picker:focus-within {
-  border-color: rgba(255, 255, 255, 0.28);
-  border-top-color: rgba(255, 255, 255, 0.38);
+  border-color: rgba(255, 255, 255, 0.30);
+  border-top-color: rgba(255, 255, 255, 0.40);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 0 0 2px rgba(255, 255, 255, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    0 0 0 2px rgba(255, 255, 255, 0.06);
 }
 
 .crystal-mode-picker-trigger {
@@ -826,6 +1062,7 @@ html, body {
 
 .crystal-mode-picker-trigger:disabled {
   cursor: default;
+  opacity: 0.45;
 }
 
 .crystal-mode-menu {
@@ -836,21 +1073,37 @@ html, body {
   width: max-content;
   min-width: 108px;
   max-width: 154px;
+  max-height: 220px;
   flex-direction: column;
   gap: 2px;
   padding: 5px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-top-color: rgba(255, 255, 255, 0.25);
-  border-radius: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(255, 255, 255, 0.27);
+  border-radius: 13px;
   background:
     var(--glass-cap),
     var(--glass-sheen),
-    rgba(9, 9, 12, 0.96);
+    rgba(8, 8, 11, 0.97);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 10px 24px rgba(0, 0, 0, 0.48);
-  backdrop-filter: blur(18px) saturate(125%);
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 12px 28px rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(20px) saturate(130%);
+  animation: answerIn 0.16s var(--ease-glass) both;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.20) transparent;
+}
+
+.crystal-mode-menu::-webkit-scrollbar { width: 5px; }
+.crystal-mode-menu::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+.crystal-mode-menu::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.20);
+  transition: background 0.15s var(--ease-glass);
+}
+.crystal-mode-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .crystal-mode-option {
@@ -863,150 +1116,529 @@ html, body {
   padding: 7px 9px;
   cursor: pointer;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: rgba(255, 255, 255, 0.88);
   font-size: 11px;
   font-weight: 550;
   text-align: left;
-  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+  transition: background 100ms var(--ease-glass), border-color 100ms var(--ease-glass), color 100ms var(--ease-glass);
 }
 
 .crystal-mode-option:hover,
 .crystal-mode-option:focus-visible {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.10);
   color: #fff;
 }
 
 .crystal-mode-option-active {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.13);
+  border-color: rgb(var(--accent-rgb) / 0.30);
+  background: rgb(var(--accent-rgb) / 0.16);
   color: #fff;
-}
-
-.crystal-toolbar-active {
-  background: rgba(255, 255, 255, 0.10);
-  color: var(--glass-text);
 }
 
 .crystal-quit-btn {
-  background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-top-color: rgba(255, 255, 255, 0.32);
-  color: #fff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 1px 2px rgba(0, 0, 0, 0.35);
+  background: var(--danger-fill);
+  border: var(--danger-rim, 1px solid rgba(255, 255, 255, 0.2));
+  border-top-color: var(--danger-rim-top, rgba(255, 255, 255, 0.34));
+  color: var(--danger-on, #fff);
+  box-shadow: var(--danger-shadow);
+  transition: transform 0.12s var(--ease-snap), filter 0.15s var(--ease-glass);
 }
 
 .crystal-quit-btn:hover {
-  background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+  background: var(--danger-fill-hover);
+  transform: translateY(-1px);
 }
 
-.crystal-tab-btn {
-  border-radius: 8px;
-  padding: 4px 11px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+.crystal-quit-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.94);
 }
 
-.crystal-tab-btn-idle {
-  background: rgba(255, 255, 255, 0.05);
-  border-top-color: rgba(255, 255, 255, 0.14);
-  color: var(--glass-muted);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+/* Stop generating — same Quit 3D red fill */
+.crystal-stop-btn {
+  border: var(--danger-rim, 1px solid rgba(255, 255, 255, 0.2));
+  border-top-color: var(--danger-rim-top, rgba(255, 255, 255, 0.34));
+  background: var(--danger-fill);
+  color: var(--danger-on, #fff);
+  box-shadow: var(--danger-shadow);
 }
 
-.crystal-tab-btn-idle:hover {
-  background: rgba(255, 255, 255, 0.10);
-  color: var(--glass-text);
+.crystal-stop-btn:hover {
+  background: var(--danger-fill-hover);
 }
 
-.crystal-tab-btn-latest-active {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.72) 0%, rgba(29, 78, 216, 0.88) 100%);
-  border-color: rgba(147, 197, 253, 0.35);
-  border-top-color: rgba(191, 219, 254, 0.50);
-  color: #fff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 1px 3px rgba(29, 78, 216, 0.35);
-}
-
-.crystal-tab-btn-history-active {
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.72) 0%, rgba(109, 40, 217, 0.88) 100%);
-  border-color: rgba(196, 181, 253, 0.35);
-  border-top-color: rgba(221, 214, 254, 0.50);
-  color: #fff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 1px 3px rgba(109, 40, 217, 0.35);
+.crystal-stop-btn:focus-visible {
+  outline-color: rgb(var(--danger-rgb) / 0.55);
 }
 
 .response-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.20) transparent;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Instant by default — the streaming auto-follow sets scrollTop every ~120ms and
+     smooth easing would fight the next forced jump, causing visible stutter. */
+  scroll-behavior: auto;
+}
+
+/* Applied only for the brief duration of an explicit user-initiated scroll
+   (e.g. the "scroll answers" keyboard shortcut) — never during active streaming. */
+.response-scroll--smooth {
+  scroll-behavior: smooth;
+}
+
+.response-scroll::-webkit-scrollbar { width: 5px; }
+.response-scroll::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+.response-scroll::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.20);
+  transition: background 0.15s var(--ease-glass);
+}
+.response-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.overlay-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.20) transparent;
   overflow-anchor: none;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Clickable overlay chrome — must sit above scroll layer and opt out of notch drag. */
-.crystal-panel-controls {
-  position: relative;
-  z-index: 20;
-  -webkit-app-region: no-drag;
-}
-
-.response-scroll::-webkit-scrollbar { width: 4px; }
-.response-scroll::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
-.response-scroll::-webkit-scrollbar-thumb {
+.overlay-scroll::-webkit-scrollbar { width: 5px; }
+.overlay-scroll::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+.overlay-scroll::-webkit-scrollbar-thumb {
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.20);
+  transition: background 0.15s var(--ease-glass);
+}
+.overlay-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .code-scroll-x {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.20) transparent;
 }
 
-.code-scroll-x::-webkit-scrollbar { height: 3px; }
+.code-scroll-x::-webkit-scrollbar { height: 4px; }
 .code-scroll-x::-webkit-scrollbar-track { background: transparent; }
 .code-scroll-x::-webkit-scrollbar-thumb {
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.20);
 }
 
 .hljs { background: transparent !important; color: var(--glass-answer) !important; }
 
 .glass-modal-card {
-  border-radius: 16px;
-  /* Stand alone — no full-window dim layer behind it */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
-    0 12px 40px rgba(0, 0, 0, 0.35);
+  position: relative;
+  isolation: isolate;
+  border-style: solid;
+  border-width: 1px;
+  border-color: var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  border-left-color: var(--glass-border-left);
+  background:
+    var(--glass-floor-glow),
+    var(--glass-cap),
+    var(--glass-sheen),
+    var(--glass-base);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-3);
+  animation: answerIn var(--duration-base) var(--ease-out) both;
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
 }
 
 .glass-modal-btn {
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-top-color: rgba(255, 255, 255, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
   color: var(--glass-text);
+  transition: background var(--transition-fast), transform var(--transition-spring);
 }
 
 .glass-modal-btn-primary {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-top-color: rgba(255, 255, 255, 0.30);
-  color: var(--glass-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.9) 0%, rgb(var(--accent-deep-rgb) / 0.95) 100%);
+  border: 1px solid rgb(var(--accent-light-rgb) / 0.35);
+  border-top-color: rgb(var(--accent-light-rgb) / 0.5);
+  border-radius: 10px;
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    0 2px 10px -3px rgb(var(--accent-rgb) / 0.55);
+  transition: background var(--transition-fast), transform var(--transition-spring), box-shadow var(--transition-base);
 }
 
-.glass-modal-btn:hover,
+.glass-modal-btn:hover {
+  background: rgba(255, 255, 255, 0.13);
+  transform: translateY(-1px);
+}
+
 .glass-modal-btn-primary:hover {
-  background: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 4px 16px -3px rgb(var(--accent-rgb) / 0.65);
+  transform: translateY(-1px);
+}
+
+.glass-modal-btn:active,
+.glass-modal-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* ============================================================================
+ * New: status/feedback utility classes (semantic accents)
+ * Use where a state needs color meaning beyond the default blue accent —
+ * e.g. RAG-confidence badges, latency warnings, error toasts in the panel.
+ * ============================================================================ */
+.crystal-badge-success {
+  color: rgb(var(--success-rgb));
+  background: rgb(var(--success-rgb) / 0.14);
+  border: 1px solid rgb(var(--success-rgb) / 0.28);
+}
+
+.crystal-badge-warning {
+  color: rgb(var(--warning-rgb));
+  background: rgb(var(--warning-rgb) / 0.14);
+  border: 1px solid rgb(var(--warning-rgb) / 0.28);
+}
+
+.crystal-badge-danger {
+  color: rgb(var(--danger-rgb));
+  background: rgb(var(--danger-rgb) / 0.14);
+  border: 1px solid rgb(var(--danger-rgb) / 0.28);
+}
+
+.crystal-badge-success,
+.crystal-badge-warning,
+.crystal-badge-danger {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/*
+ * Focus-visible ring, consistent across all interactive overlay controls.
+ * A solid accent outline (the old 20%-white box-shadow was close to invisible on the glass panel and also
+ * replaced each button's own shadow). tabindex="-1" containers are only focused from script, so they
+ * are excluded to avoid a ring flashing around the scroll area.
+ */
+button:focus-visible,
+[role='button']:focus-visible,
+[tabindex]:not([tabindex='-1']):focus-visible {
+  outline: 2px solid rgb(var(--accent-light-rgb) / 0.85);
+  outline-offset: 1px;
+}
+
+/* ============================================================================
+ * Live transcript panel (Me / Participant split columns)
+ * Brings LiveTranscriptPanel.jsx onto the same accent/glass tokens as the
+ * rest of the overlay instead of hardcoded sky-950 / zinc Tailwind colors.
+ * ============================================================================ */
+.crystal-live-panel {
+  background: rgba(255, 255, 255, 0.045);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.crystal-live-col-me {
+  background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.10) 0%, rgb(var(--accent-rgb) / 0.04) 100%);
+}
+
+.crystal-live-col-them {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+}
+
+.crystal-live-col-header {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-bottom: 4px;
+}
+
+.crystal-live-col-header-me {
+  color: rgb(var(--accent-light-rgb) / 0.95);
+  background: rgb(var(--accent-mid-rgb) / 0.30);
+}
+
+.crystal-live-col-header-them {
+  color: rgb(var(--danger-rgb) / 0.9);
+  background: rgba(20, 20, 24, 0.72);
+}
+
+.crystal-live-empty {
+  padding: 6px 8px;
+  font-size: 10.5px;
+  font-weight: 500;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.crystal-live-line {
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  word-break: break-word;
+  transition: background 0.15s var(--ease-glass), opacity 0.15s var(--ease-glass);
+}
+
+.crystal-live-line-me {
+  color: rgba(255, 255, 255, 0.94);
+  background: rgb(var(--accent-rgb) / 0.14);
+}
+
+.crystal-live-line-me-interim {
+  background: rgb(var(--accent-rgb) / 0.07);
+  opacity: 0.92;
+  font-style: italic;
+}
+
+.crystal-live-line-them {
+  color: rgb(var(--danger-rgb) / 0.92);
+  background: rgb(var(--danger-rgb) / 0.12);
+}
+
+.crystal-live-line-them-interim {
+  background: rgb(var(--danger-rgb) / 0.07);
+  opacity: 0.92;
+  font-style: italic;
+  color: rgb(var(--danger-rgb) / 0.78);
+}
+
+/* ============================================================================
+ * Rolling transcript capture indicator dots — sys(participant)/mic(me).
+ * Glow + pulse when the respective capture stream is actively feeding audio.
+ * ============================================================================ */
+.crystal-capture-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.40);
+  transition: background 0.2s var(--ease-glass), box-shadow 0.2s var(--ease-glass);
+}
+
+.crystal-capture-dot-sys-active {
+  background: rgb(var(--danger-rgb) / 0.85);
+  box-shadow: 0 0 6px rgb(var(--danger-rgb) / 0.55);
+  animation: crystalListeningPulse 1.8s ease-in-out infinite;
+}
+
+.crystal-capture-dot-mic-active {
+  background: rgb(var(--accent-rgb) / 0.9);
+  box-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.55);
+  animation: crystalListeningPulse 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crystal-capture-dot-sys-active,
+  .crystal-capture-dot-mic-active { animation: none !important; }
+}
+
+/* ============================================================================
+ * Error bubble — was plain Tailwind rose-500, now uses the shared danger
+ * token so it matches crystal-badge-danger and the red toggle/send-btn family.
+ * ============================================================================ */
+.crystal-error-bubble {
+  width: 100%;
+  border-radius: 14px;
+  padding: 13px 15px;
+  border: 1px solid rgb(var(--danger-rgb) / 0.28);
+  background: linear-gradient(135deg, rgb(var(--danger-rgb) / 0.10) 0%, rgba(0, 0, 0, 0.24) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.crystal-error-text {
+  color: rgb(var(--danger-rgb) / 0.92);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.crystal-error-retry-btn {
+  margin-top: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgb(var(--danger-rgb) / 0.35);
+  background: rgb(var(--danger-rgb) / 0.12);
+  color: rgb(var(--danger-rgb) / 0.95);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  transition: background var(--transition-fast), transform var(--transition-spring);
+}
+
+.crystal-error-retry-btn:hover {
+  background: rgb(var(--danger-rgb) / 0.20);
+  transform: translateY(-1px);
+}
+
+.crystal-error-retry-btn:active {
+  transform: translateY(0);
+}
+
+/* Shared "working" pulse dot — replaces two duplicated inline-style dots
+ * (ComposingShell + StreamingAnswerPreview) with one themed, reusable class. */
+.crystal-status-dot {
+  height: 7px;
+  width: 7px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--im-primary);
+  box-shadow: 0 0 8px rgba(111, 160, 255, 0.45);
+  animation: crystalListeningPulse 1.55s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crystal-status-dot { animation: none !important; }
+}
+
+/*
+ * Empty-state icon ring — gentle accent breathing. The glow is a pseudo-element whose OPACITY animates
+ * (compositor-only). Animating box-shadow itself repainted the ring every frame for as long as the empty
+ * panel was open on this always-on-top overlay.
+ */
+@keyframes crystalEmptyBreathe {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
+}
+
+.crystal-empty-icon-ring {
+  position: relative;
+  border: 2px solid rgb(var(--accent-light-rgb) / 0.24);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 18px -6px rgb(var(--accent-rgb) / 0.28);
+}
+
+.crystal-empty-icon-ring::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 26px -4px rgb(var(--accent-rgb) / 0.48);
+  opacity: 0;
+  animation: crystalEmptyBreathe 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crystal-empty-icon-ring::after { animation: none !important; }
+}
+
+.crystal-duplicate-label {
+  color: rgb(var(--accent-light-rgb) / 0.78);
+}
+
+/* ============================================================================
+ * Suggestion footer — vertical pills outside the answer panel (left-aligned).
+ * ============================================================================ */
+.crystal-suggestion-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-left: 2px;
+  animation: crystalFooterRise var(--duration-base) var(--ease-out) both;
+}
+
+.crystal-suggestion-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--glass-text);
+  border-style: solid;
+  border-width: 1px;
+  border-color: var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  border-left-color: var(--glass-border-left);
+  background:
+    var(--glass-floor-glow),
+    var(--glass-cap),
+    var(--glass-sheen),
+    var(--glass-base-pill);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.42),
+    0 4px 14px -6px rgba(0, 0, 0, 0.45);
+  transition:
+    background 0.15s var(--ease-glass),
+    border-color 0.15s var(--ease-glass),
+    transform 0.12s var(--ease-snap);
+}
+
+/* Same accent used for the active mode-picker option — one selection color
+ * across the overlay, not a different hue per pill. */
+.crystal-suggestion-pill:hover:not(:disabled) {
+  border-color: rgb(var(--accent-rgb) / 0.40);
+  border-top-color: rgb(var(--accent-light-rgb) / 0.55);
+  background:
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.22) 0%, rgb(var(--accent-rgb) / 0.09) 100%),
+    var(--glass-base-pill);
+  transform: translateY(-1px);
+}
+
+.crystal-suggestion-pill:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.crystal-suggestion-pill-active {
+  color: #fff;
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  border-top-color: rgb(var(--accent-light-rgb) / 0.6);
+  background:
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.85) 0%, rgb(var(--accent-deep-rgb) / 0.92) 100%);
+}
+
+.crystal-suggestion-pill:disabled {
+  cursor: not-allowed;
+}
+
+@keyframes crystalFooterRise {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crystal-suggestion-footer { animation: none !important; }
+}
+
+/* Size taper top → bottom (biggest label first). */
+.crystal-suggestion-footer .crystal-suggestion-pill:nth-child(1) {
+  font-size: 12px;
+  height: 27px;
+  padding: 0 13px;
+  font-weight: 700;
+}
+.crystal-suggestion-footer .crystal-suggestion-pill:nth-child(2) {
+  font-size: 11.5px;
+  height: 26px;
+  padding: 0 12px;
+  font-weight: 650;
+}
+.crystal-suggestion-footer .crystal-suggestion-pill:nth-child(3) {
+  font-size: 11px;
+  height: 25px;
+  padding: 0 11px;
+}
+.crystal-suggestion-footer .crystal-suggestion-pill:nth-child(4) {
+  font-size: 10.5px;
+  height: 24px;
+  padding: 0 10px;
+  opacity: 0.92;
 }

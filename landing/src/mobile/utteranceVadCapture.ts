@@ -80,14 +80,20 @@ export function startUtteranceVadCapture(
     }
   }
 
+  // ScriptProcessor only fires when connected into the graph. Route through a
+  // muted gain so the mic is never played back through the speaker (feedback).
+  const mute = ctx.createGain()
+  mute.gain.value = 0
   source.connect(processor)
-  processor.connect(ctx.destination)
+  processor.connect(mute)
+  mute.connect(ctx.destination)
 
   return {
     stop: () => {
       stopped = true
       processor.onaudioprocess = null
       processor.disconnect()
+      mute.disconnect()
       source.disconnect()
       void ctx.close()
     },

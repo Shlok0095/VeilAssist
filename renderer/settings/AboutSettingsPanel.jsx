@@ -1,21 +1,23 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
 
 import React from 'react'
+import { useBrand } from '../shared/branding'
 import { SettingsPage, SettingsSection } from './SettingsComponents'
 
 export default function AboutSettingsPanel({ logoSrc, appVersion }) {
+  const { name } = useBrand()
   return (
-    <SettingsPage title="About" description="VeilAssist — private AI overlay for meetings and interviews.">
+    <SettingsPage title="About" description="Private AI overlay for meetings and interviews.">
       <SettingsSection>
         <div className="flex flex-col items-center py-6 text-center">
           <img
             src={logoSrc}
-            alt="VeilAssist"
+            alt={name}
             className="mb-4 h-16 w-16 rounded-xl object-contain"
             draggable={false}
           />
           <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-            VeilAssist
+            {name}
           </h3>
           {appVersion ? (
             <p
@@ -38,12 +40,8 @@ export default function AboutSettingsPanel({ logoSrc, appVersion }) {
               className="rounded-lg border px-4 py-3 text-center"
               style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-input)' }}
             >
-              <p className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {item.label}
-              </p>
-              <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                {item.desc}
-              </p>
+              <p className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>{item.label}</p>
+              <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{item.desc}</p>
             </div>
           ))}
         </div>

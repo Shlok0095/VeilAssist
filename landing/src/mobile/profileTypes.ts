@@ -135,7 +135,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   deepseekKey: '',
   customOpenaiKey: '',
   customOpenaiBaseUrl: '',
-  nvidiaModel: 'nvidia/nemotron-nano-12b-v2-vl',
+  nvidiaModel: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
   groqModel: 'qwen/qwen3.6-27b',
   selectedModel: 'gpt-4o-mini',
   openrouterModel: 'nvidia/nemotron-nano-12b-v2-vl:free',

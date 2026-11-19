@@ -2,7 +2,8 @@
 // Settings window — Natively-style black professional chrome (overlay unchanged).
 
 import React, { useCallback, useState } from 'react'
-import overlayBrandLogo from '../shared/overlayBrandLogo'
+import brandLogo from '../shared/brandLogo'
+import { useBrand } from '../shared/branding'
 
 const drag = { WebkitAppRegion: 'drag' }
 const noDrag = { WebkitAppRegion: 'no-drag' }
@@ -13,10 +14,10 @@ function TitleBarButton({ onClick, title, children, danger }) {
       type="button"
       title={title}
       onClick={onClick}
-      style={noDrag}
-      className={`flex h-9 w-11 shrink-0 items-center justify-center text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-200 ${
-        danger ? 'hover:bg-red-600 hover:text-white' : ''
+      className={`flex h-9 w-11 shrink-0 items-center justify-center transition-colors hover:bg-[var(--bg-subtle-hover)] ${
+        danger ? 'hover:bg-[var(--danger-mid,#dc2626)] hover:text-white' : ''
       }`}
+      style={{ ...noDrag, color: 'var(--text-tertiary)' }}
     >
       {children}
     </button>
@@ -25,6 +26,7 @@ function TitleBarButton({ onClick, title, children, danger }) {
 
 export default function SettingsWindowFrame({ children }) {
   const api = typeof window !== 'undefined' ? window.shadowAPI : null
+  const { name } = useBrand()
   const [maximized, setMaximized] = useState(false)
 
   const minimize = useCallback(() => {
@@ -42,23 +44,27 @@ export default function SettingsWindowFrame({ children }) {
 
   return (
     <div
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[10px] border border-white/[0.08] bg-[#09090b] shadow-2xl"
-      style={{ boxShadow: '0 25px 50px -12px rgba(0,0,0,0.75)' }}
+      className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[10px]"
+      style={{
+        boxShadow: 'var(--shadow-elevation-3)',
+        background: 'var(--bg-primary)',
+        border: '1px solid var(--border-subtle)',
+      }}
     >
       <header
-        className="flex h-9 shrink-0 items-center border-b border-white/[0.08] bg-[#111113]"
-        style={drag}
+        className="flex h-9 shrink-0 items-center"
+        style={{ ...drag, background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-subtle)' }}
       >
         <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2 px-3" style={drag}>
           <img
-            src={overlayBrandLogo}
-            alt="VeilAssist"
+            src={brandLogo}
+            alt={name}
             width={18}
             height={18}
             draggable={false}
-            className="pointer-events-none h-[18px] w-[18px] shrink-0 object-contain"
+            className="settings-title-logo pointer-events-none h-[18px] w-[18px] shrink-0 object-contain"
           />
-          <span className="truncate text-[11px] font-medium text-zinc-400">VeilAssist</span>
+          <span className="truncate text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>{name}</span>
         </div>
 
         <div className="flex shrink-0 items-stretch" style={noDrag}>

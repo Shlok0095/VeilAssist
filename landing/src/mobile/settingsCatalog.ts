@@ -121,7 +121,15 @@ export function structurePrompt(value: AnswerStructure): string | null {
 export function formatPrompt(value: ResponseFormat): string {
   switch (value) {
     case 'conversational':
-      return 'Format as a natural spoken answer — short sentences, light filler is OK.'
+      return (
+        'Present the answer in a natural, spoken-like conversational tone, ' +
+        'as if thinking it through out loud in real time. Start with a brief ' +
+        'natural thinking sound or pause (e.g. "Hmm," "Uh," or "So,") before ' +
+        'the main point, and use occasional light filler words through the ' +
+        'answer (e.g. "basically", "I mean", "you know") — but don\'t overdo ' +
+        'it. The substance underneath should stay clear and complete; the ' +
+        'filler is texture, not padding.'
+      )
     case 'example':
       return 'Lead with the point, then illustrate with a concrete example from the profile when one exists.'
     default:

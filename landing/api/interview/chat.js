@@ -9,7 +9,7 @@ const PROVIDERS = {
   },
   groq: {
     base: 'https://api.groq.com/openai/v1',
-    defaultModel: 'llama-3.3-70b-versatile',
+    defaultModel: 'qwen/qwen3.8-27b',
   },
   openai: {
     base: 'https://api.openai.com/v1',
@@ -36,6 +36,52 @@ const PROVIDERS = {
     baseFromBody: true,
     defaultModel: 'gpt-4o',
   },
+}
+
+function nvidiaThinkStyle(model) {
+  const m = String(model || '').toLowerCase()
+  if (/nemotron-3-nano-omni|a3b-reasoning/.test(m)) return 'enable_thinking'
+  if (/nemotron-nano-12b|nemotron-nano-9b/.test(m)) return 'slash_think'
+  if (/llama-3\.1-nemotron/.test(m)) return 'detailed_thinking'
+  if (/nemotron/.test(m)) return 'enable_thinking'
+  return 'none'
+}
+
+function stripSlashThinkTags(text) {
+  return String(text || '')
+    .replace(/^\s*\/(?:no_)?think\b\s*/i, '')
+    .replace(/\s*\/(?:no_)?think\b/gi, '')
+    .replace(/^\s*detailed thinking (?:on|off)\s*/i, '')
+    .trimStart()
+}
+
+function applyNvidiaThinkMessages(messages, model, thinkOn) {
+  const style = nvidiaThinkStyle(model)
+  const cleaned = messages.map((m) => {
+    if (m.role !== 'system' && m.role !== 'user') return m
+    if (typeof m.content !== 'string') return m
+    return { ...m, content: stripSlashThinkTags(m.content) }
+  })
+  if (style === 'slash_think' && thinkOn) {
+    const systemIndex = cleaned.findIndex((m) => m.role === 'system')
+    if (systemIndex >= 0 && typeof cleaned[systemIndex].content === 'string') {
+      const rest = cleaned[systemIndex].content
+      cleaned[systemIndex] = { ...cleaned[systemIndex], content: rest ? `/think\n${rest}` : '/think' }
+    } else {
+      cleaned.unshift({ role: 'system', content: '/think' })
+    }
+  }
+  if (style === 'detailed_thinking') {
+    const prefix = thinkOn ? 'detailed thinking on' : 'detailed thinking off'
+    const systemIndex = cleaned.findIndex((m) => m.role === 'system')
+    if (systemIndex >= 0 && typeof cleaned[systemIndex].content === 'string') {
+      const rest = cleaned[systemIndex].content
+      cleaned[systemIndex] = { ...cleaned[systemIndex], content: rest ? `${prefix}\n${rest}` : prefix }
+    } else {
+      cleaned.unshift({ role: 'system', content: prefix })
+    }
+  }
+  return cleaned
 }
 
 const CODING_RE =
@@ -263,33 +309,18 @@ export default async function handler(req, res) {
       },
     ]
 
+    const thinkOn = Boolean(think)
     const payload = {
       model,
-      messages,
-      max_tokens: think ? 2200 : answerLength === 'long' ? 1800 : answerLength === 'short' ? 600 : 1400,
-      temperature: 0,
-      top_p: 0.7,
+      messages: applyNvidiaThinkMessages(messages, model, thinkOn),
+      max_tokens: thinkOn ? 1600 : answerLength === 'long' ? 1800 : answerLength === 'short' ? 600 : 1400,
+      temperature: thinkOn ? 0.5 : 0,
       stream: false,
     }
+    if (thinkOn) payload.top_p = 0.9
 
-    if (/nemotron/i.test(model)) {
-      payload.chat_template_kwargs = { enable_thinking: think }
-      if (!think) {
-        const systemIndex = messages.findIndex((m) => m.role === 'system')
-        if (systemIndex >= 0 && !messages[systemIndex].content.includes('/no_think')) {
-          messages[systemIndex] = {
-            ...messages[systemIndex],
-            content: `/no_think\n${messages[systemIndex].content}`,
-          }
-        } else if (systemIndex < 0) {
-          messages.unshift({ role: 'system', content: '/no_think' })
-        }
-        payload.messages = messages
-      }
-    }
-
-    if (think && /reasoner/i.test(model)) {
-      payload.temperature = 0.6
+    if (nvidiaThinkStyle(model) === 'enable_thinking') {
+      payload.chat_template_kwargs = { enable_thinking: thinkOn }
     }
 
     if (providerCfg.kind === 'anthropic') {

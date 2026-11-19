@@ -1,27 +1,59 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
 
-import React from 'react'
+import React, { useState } from 'react'
 import { createIpcShim } from '../shared/ipcShim'
-import { SettingsPage, SettingsSection } from './SettingsComponents'
+import { ConfirmDialog, SettingsPage, SettingsRow, SettingsSection, ToggleSwitch } from './SettingsComponents'
 import { useBrand } from '../shared/branding'
+import { emitSettingsToast, toastExportResult } from './settingsToast'
 
 const ipc = createIpcShim()
 
-export default function PrivacySettingsPanel({ onSelectIntelligenceTab }) {
+export default function PrivacySettingsPanel({
+  stealthModeUi = false,
+  onStealthModeChange,
+  doNotSaveMeetingsEnabled = false,
+  onDoNotSaveMeetingsChange,
+}) {
   const { name } = useBrand()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const exportData = async () => {
+    if (!ipc || exporting) return
+    setExporting(true)
+    try {
+      const r = await ipc.invoke('export-user-data')
+      toastExportResult(r, 'Data export')
+    } catch (e) {
+      emitSettingsToast({ tone: 'error', message: 'Data export failed', detail: e?.message || String(e) })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
-    <SettingsPage title="Privacy" description="What stays on your device and how to export or delete local data.">
-      <SettingsSection title="Intelligence & memory">
+    <SettingsPage title="Privacy" description="Who can see the overlay, what is saved, and how to export or delete local data.">
+      <SettingsSection title="Controls" description="Applied immediately.">
+        <SettingsRow
+          label="Hide from screen capture"
+          hint="Makes the overlay harder to capture in screen shares and recordings."
+          anchor="hide-from-capture"
+        >
+          <ToggleSwitch checked={stealthModeUi} onChange={onStealthModeChange} />
+        </SettingsRow>
+        <SettingsRow
+          label="Don't save meeting recaps"
+          hint="When on, Stop Listen will not write a session recap to this device."
+          anchor="do-not-save-meetings"
+        >
+          <ToggleSwitch checked={doNotSaveMeetingsEnabled} onChange={onDoNotSaveMeetingsChange} />
+        </SettingsRow>
+      </SettingsSection>
+
+      <SettingsSection title="Conversation">
         <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          Context routing, long-term memory, Hindsight recall, and smart mode suggestions live under{' '}
-          <button
-            type="button"
-            onClick={() => onSelectIntelligenceTab?.()}
-            className="text-accent underline underline-offset-2 hover:opacity-90"
-          >
-            Intelligence
-          </button>
-          .
+          Conversation Memory in General keeps a short tail of the live transcript and the questions already
+          answered in this session. It does not keep earlier answer text. Resumes and documents stay in Profile.
         </p>
       </SettingsSection>
 
@@ -42,37 +74,47 @@ export default function PrivacySettingsPanel({ onSelectIntelligenceTab }) {
         </ul>
       </SettingsSection>
 
-      <SettingsSection title="Your data">
+      <SettingsSection title="Your data" anchor="your-data">
         <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          Export includes profile text, consent record, and preferences — not API keys, raw audio, or live buffers.
+          Export includes profile text, consent record, and preferences. API keys and audio are not included.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={async () => {
-              if (!ipc) return
-              const r = await ipc.invoke('export-user-data')
-              if (r?.ok && r.path) {
-                window.alert(`Exported to ${r.path}`)
-              }
-            }}
-            className="nat-btn-primary px-5 py-2.5 text-[13px]"
+            onClick={() => void exportData()}
+            disabled={exporting}
+            data-settings-anchor="export-data"
+            className="nat-btn-primary px-5 py-2.5 text-[13px] disabled:opacity-60"
           >
-            Export my data
+            {exporting ? 'Exporting…' : 'Export my data'}
           </button>
           <button
             type="button"
-            onClick={async () => {
-              if (!ipc) return
-              if (!window.confirm(`Delete all local ${name} data and restart? This cannot be undone.`)) return
-              await ipc.invoke('delete-all-data-relaunch')
-            }}
-            className="nat-btn-secondary border-rose-500/30 px-5 py-2.5 text-[13px] text-rose-300 hover:bg-rose-500/10"
+            onClick={() => setConfirmDelete(true)}
+            data-settings-anchor="delete-data"
+            className="btn-danger px-5 py-2.5 text-[13px]"
           >
             Delete all my data
           </button>
         </div>
       </SettingsSection>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete all local data?"
+        description={`This permanently deletes all local ${name} data and restarts the app. This cannot be undone.`}
+        confirmLabel="Delete & restart"
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          setConfirmDelete(false)
+          if (!ipc) return
+          try {
+            await ipc.invoke('delete-all-data-relaunch')
+          } catch (e) {
+            emitSettingsToast({ tone: 'error', message: 'Could not delete your data', detail: e?.message || String(e) })
+          }
+        }}
+      />
     </SettingsPage>
   )
 }

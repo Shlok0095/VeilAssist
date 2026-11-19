@@ -271,6 +271,8 @@ export function SettingsScreen({
                   interviewLanguage: lang.value,
                   micListenLanguage: micFromInterviewLanguage(lang.value),
                 })
+                setSheet(null)
+                setLangQuery('')
               }}
             />
           ))}

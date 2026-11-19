@@ -5,12 +5,12 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { createIpcShim } from '../shared/ipcShim'
 import AppIcon from '../shared/AppIcon'
-import { SettingsFieldLabel, SettingsPage, SettingsSection } from './SettingsComponents'
+import { ConfirmDialog, SettingsFieldLabel, SettingsPanelShell, SettingsSection } from './SettingsComponents'
 import { normalizeSkillSlug } from '../../lib/skillInvoke.js'
 
 const ipc = createIpcShim()
 
-export default function SkillsSettingsPanel() {
+export default function SkillsSettingsPanel({ embedded = false }) {
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedSlug, setSelectedSlug] = useState('')
@@ -21,6 +21,7 @@ export default function SkillsSettingsPanel() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [saved, setSaved] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!ipc) return
@@ -91,7 +92,6 @@ export default function SkillsSettingsPanel() {
 
   const deleteSkill = async () => {
     if (!ipc || !selectedSlug) return
-    if (!window.confirm(`Delete skill "/${selectedSlug}"?`)) return
     setBusy(true)
     try {
       await ipc.invoke('skills:delete', selectedSlug)
@@ -119,7 +119,8 @@ export default function SkillsSettingsPanel() {
   }
 
   return (
-    <SettingsPage
+    <SettingsPanelShell
+      embedded={embedded}
       title="Skills"
       description="Custom instructions invoked from the overlay with /skill-name — e.g. /interview or /sales what should I say?"
     >
@@ -133,7 +134,11 @@ export default function SkillsSettingsPanel() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_1fr]">
         <SettingsSection title="Your skills" className="!p-0">
           <div className="nat-section-body space-y-2 px-4 pb-4">
-            <button type="button" onClick={startNew} className="btn-ghost flex w-full items-center justify-center gap-2 py-2 text-xs">
+            <button
+              type="button"
+              onClick={startNew}
+              className="btn-ghost flex w-full items-center justify-center gap-2 py-2 text-xs"
+            >
               <AppIcon icon={Plus} size={14} />
               New skill
             </button>
@@ -150,6 +155,7 @@ export default function SkillsSettingsPanel() {
                       onClick={() => void loadSkill(s.slug)}
                       className={[
                         'w-full rounded-lg px-3 py-2 text-left text-[12px] transition-colors',
+                        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/40 focus-visible:-outline-offset-2',
                         selectedSlug === s.slug
                           ? 'bg-white/[0.08] text-white'
                           : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200',
@@ -214,7 +220,12 @@ export default function SkillsSettingsPanel() {
                 {busy ? 'Saving…' : 'Save skill'}
               </button>
               {selectedSlug ? (
-                <button type="button" disabled={busy} onClick={() => void deleteSkill()} className="btn-ghost flex items-center gap-1 px-3 py-2 text-xs text-rose-300">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setConfirmDelete(true)}
+                  className="btn-danger flex items-center gap-1 px-3 py-2 text-xs"
+                >
                   <AppIcon icon={Trash2} size={14} />
                   Delete
                 </button>
@@ -227,15 +238,37 @@ export default function SkillsSettingsPanel() {
       <SettingsSection title="Starter templates">
         <p className="mb-3 text-[11px] text-zinc-600">One-click install — you can edit the text after adding.</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={busy} onClick={() => void addStarter({ slug: 'interview', name: 'Interview coach', description: 'Technical and behavioral interview help.', body: STARTER_INTERVIEW })} className="btn-ghost px-3 py-2 text-xs">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void addStarter({ slug: 'interview', name: 'Interview coach', description: 'Technical and behavioral interview help.', body: STARTER_INTERVIEW })}
+            className="btn-ghost px-3 py-2 text-xs"
+          >
             + Interview
           </button>
-          <button type="button" disabled={busy} onClick={() => void addStarter({ slug: 'sales', name: 'Sales call', description: 'Discovery and objection handling.', body: STARTER_SALES })} className="btn-ghost px-3 py-2 text-xs">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void addStarter({ slug: 'sales', name: 'Sales call', description: 'Discovery and objection handling.', body: STARTER_SALES })}
+            className="btn-ghost px-3 py-2 text-xs"
+          >
             + Sales
           </button>
         </div>
       </SettingsSection>
-    </SettingsPage>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete skill "/${selectedSlug}"?`}
+        description="This permanently removes the skill. It can no longer be invoked from the overlay."
+        confirmLabel="Delete skill"
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false)
+          void deleteSkill()
+        }}
+      />
+    </SettingsPanelShell>
   )
 }
 

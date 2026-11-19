@@ -1,0 +1,50 @@
+[
+  {
+    "id": "screen_behavioral",
+    "categories": ["screen_understanding", "text_in_image", "camera_frame", "instruction_following", "long_answer"],
+    "prompt": "Read the interview question on this laptop screen and give the spoken first-person answer in 4-6 sentences.",
+    "image": "screen_behavioral.png",
+    "expected_visual": ["outage", "production", "tell me"],
+    "expected_answer": ["i", "when", "team"]
+  },
+  {
+    "id": "screen_coding",
+    "categories": ["screen_understanding", "text_in_image", "visual_reasoning", "complex_reasoning"],
+    "prompt": "Read the coding interview question on screen. Give a concise spoken approach, then 6-10 lines of Python.",
+    "image": "screen_coding.png",
+    "expected_visual": ["two sum", "indices", "target"],
+    "expected_answer": ["hash", "dict", "index"]
+  },
+  {
+    "id": "color_object",
+    "categories": ["object_identification", "visual_question_answering", "short_answer", "image_understanding"],
+    "prompt": "What is the dominant shape color, and how many circles are visible? Reply in one sentence.",
+    "image": "color_objects.png",
+    "expected_visual": ["red", "circle"],
+    "expected_answer": ["red", "3", "three"]
+  },
+  {
+    "id": "ocr_label",
+    "categories": ["text_in_image", "short_answer", "instruction_following"],
+    "prompt": "Read the badge text exactly. Reply with only the name and role, nothing else.",
+    "image": "badge_ocr.png",
+    "expected_visual": ["shlok kumar", "staff engineer"],
+    "expected_answer": ["shlok", "staff"]
+  },
+  {
+    "id": "whiteboard",
+    "categories": ["visual_reasoning", "image_understanding", "camera_frame"],
+    "prompt": "This is a whiteboard photo from an interview. What system is being designed? Answer in 2 sentences.",
+    "image": "whiteboard.png",
+    "expected_visual": ["url", "shortener", "redis"],
+    "expected_answer": ["url", "short"]
+  },
+  {
+    "id": "follow_format",
+    "categories": ["instruction_following", "short_answer", "visual_question_answering"],
+    "prompt": "Look at the chart. Reply using EXACTLY this format:\nTREND: <up|down|flat>\nVALUE: <number>",
+    "image": "chart.png",
+    "expected_visual": ["trend", "up"],
+    "expected_answer": ["trend:", "up", "42"]
+  }
+]

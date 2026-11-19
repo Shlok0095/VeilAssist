@@ -1,9 +1,10 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { BookOpen, ExternalLink, RefreshCw } from 'lucide-react'
 import { createIpcShim } from '../shared/ipcShim'
 import AppIcon from '../shared/AppIcon'
+import HelpGuideMarkdown, { splitGuideChapters } from './HelpGuideMarkdown'
 import { SettingsPage, SettingsSection } from './SettingsComponents'
 import { useBrand } from '../shared/branding'
 
@@ -12,35 +13,44 @@ const ipc = createIpcShim()
 const FAQ = [
   {
     q: 'Does closing the overlay quit the app?',
-    a: 'No. VeilAssist stays in the system tray. Use tray → Quit or the Quit control in settings to fully exit.',
+    a: 'No. The app stays in the system tray. Use Quit in settings or the tray menu to exit fully.',
   },
   {
     q: 'How does screen context work?',
-    a: 'When you ask (or auto-trigger fires), the app captures your display and sends it to a vision-capable model together with live transcript text. No manual crop step.',
+    a: 'When you ask, the app captures your display and sends it to a vision model with live transcript text.',
   },
   {
     q: 'Where are API keys stored?',
-    a: 'On this device only, encrypted when Windows DPAPI is available. Nothing is uploaded to VeilAssist servers.',
+    a: 'On this device only, encrypted when Windows DPAPI is available.',
   },
   {
-    q: 'What happens when I Stop Listen?',
-    a: 'Unless “Do not save meetings” is on in General, a session recap is generated and stored locally under Calendar → Session recaps.',
+    q: 'What happens when I stop Listen?',
+    a: 'Unless "Don\'t save meeting recaps" is on in Privacy, a session recap is saved under Meetings.',
   },
   {
     q: 'Where is debug logging?',
-    a: 'General → Verbose debug logging. When enabled, a toast shows the log file path with an Open button.',
+    a: 'General > Diagnostics > Verbose debug logging. A toast shows the log file path when enabled.',
   },
   {
-    q: 'Stealth / content protection?',
-    a: 'When enabled in General, the overlay is harder to capture in screen shares. Test with your meeting app before relying on it.',
+    q: 'Stealth and content protection?',
+    a: 'When "Hide from screen capture" is on in Privacy, the overlay is harder to capture in screen shares.',
   },
 ]
+
+function prepareGuideText(raw) {
+  return String(raw || '').replace(/\r\n/g, '\n')
+}
 
 export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
   const { name } = useBrand()
   const [doc, setDoc] = useState('')
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+
+  const chapters = useMemo(() => {
+    const text = prepareGuideText(doc).replaceAll('VeilAssist', name)
+    return splitGuideChapters(text)
+  }, [doc, name])
 
   const loadDoc = async () => {
     setLoading(true)
@@ -64,61 +74,71 @@ export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
   }
 
   return (
-    <SettingsPage
-      title="Help"
-      description="Quick answers, full guide, and troubleshooting."
-    >
-      <SettingsSection title="FAQ">
+    <SettingsPage title="Help" description="FAQ, user guide, and troubleshooting.">
+      <SettingsSection title="FAQ" anchor="faq">
         <ul className="space-y-4">
           {FAQ.map((item) => (
             <li key={item.q}>
-              <p className="text-[13px] font-medium text-zinc-200">{item.q}</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">{item.a.replaceAll('VeilAssist', name)}</p>
+              <p className="text-[13px] font-semibold text-zinc-100">{item.q}</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-zinc-400">{item.a.replaceAll('VeilAssist', name)}</p>
             </li>
           ))}
         </ul>
       </SettingsSection>
 
-      <SettingsSection title="Full guide">
+      <SettingsSection title="Full guide" anchor="guide">
         <div className="mb-3 flex justify-end">
-          <button type="button" onClick={() => void loadDoc()} className="btn-ghost flex items-center gap-1.5 px-3 py-1.5 text-[11px]">
+          <button type="button" onClick={() => void loadDoc()} className="btn-ghost flex items-center gap-1.5 px-3 py-1.5 text-[12px]">
             <AppIcon icon={RefreshCw} size={12} />
             Reload
           </button>
         </div>
         {loading ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <p className="text-[13px] text-zinc-400">Loading…</p>
         ) : err ? (
-          <p className="text-sm text-rose-300">{err}</p>
+          <p className="text-[13px] text-danger">{err}</p>
         ) : (
-          <pre className="max-h-[420px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-black/20 p-4 font-sans text-[12px] leading-relaxed text-zinc-400">
-            {doc || 'Documentation file not found.'}
-          </pre>
+          <div className="settings-guide">
+            {chapters.length ? (
+              <div className="settings-guide-chapters">
+                {chapters.map((chapter) => (
+                  <article key={chapter.title} className="settings-guide-chapter">
+                    <h3 className="settings-guide-chapter-title">{chapter.title}</h3>
+                    <HelpGuideMarkdown text={chapter.body} />
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[13px] text-zinc-400">Documentation file not found.</p>
+            )}
+          </div>
         )}
       </SettingsSection>
 
-      <SettingsSection title="Troubleshooting">
-        <div className="space-y-3 text-[12px] text-zinc-500">
+      <SettingsSection title="Troubleshooting" anchor="troubleshooting">
+        <div className="space-y-3 text-[13px] text-zinc-400">
           <p>
-            Enable <strong className="font-medium text-zinc-300">Verbose debug logging</strong> in{' '}
-            <button type="button" className="text-zinc-300 underline hover:text-white" onClick={() => onSelectTab?.('display')}>
+            Enable <strong className="font-semibold text-zinc-200">Verbose debug logging</strong> under Diagnostics in{' '}
+            <button type="button" className="font-medium text-zinc-200 underline hover:text-white" onClick={() => onSelectTab?.('display', 'diagnostics')}>
               General
             </button>
-            , reproduce the issue, then open the log file from the toast or button below.
+            , reproduce the issue, then open the log file.
           </p>
-          <p>Version: {appVersion || '—'}</p>
+          <p>
+            <span className="font-semibold text-zinc-200">Version:</span> {appVersion || 'Unknown'}
+          </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={openLogs} className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-xs">
+            <button type="button" onClick={openLogs} className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-[12px]">
               <AppIcon icon={ExternalLink} size={13} />
               Open log folder
             </button>
-            <button type="button" onClick={() => void ipc?.invoke('debug-log:open-file')} className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-xs">
+            <button type="button" onClick={() => void ipc?.invoke('debug-log:open-file')} className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-[12px]">
               Open log file
             </button>
             <button
               type="button"
               onClick={() => onSelectTab?.('display')}
-              className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-xs"
+              className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-[12px]"
             >
               <AppIcon icon={BookOpen} size={13} />
               General settings

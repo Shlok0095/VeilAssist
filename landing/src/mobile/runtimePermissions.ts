@@ -46,3 +46,18 @@ export async function requestLaunchPermissions(): Promise<void> {
     /* web / plugin missing */
   }
 }
+
+/** Confirm the mic can actually be opened — not only that we asked earlier. */
+export async function ensureMicGranted(): Promise<{ ok: boolean; error?: string }> {
+  const state = await permissionState('microphone')
+  if (state === 'granted') return { ok: true }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return { ok: false, error: 'Microphone access is needed to start the session.' }
+  }
+  try {
+    await requestMedia('audio')
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'Microphone access is needed to start the session.' }
+  }
+}

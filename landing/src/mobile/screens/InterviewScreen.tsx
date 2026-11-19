@@ -1,60 +1,23 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { BackButton } from '../components/BackButton'
+import {
+  IconBack,
+  IconCamera,
+  IconChevron,
+  IconMic,
+  IconRefresh,
+  IconSend,
+  IconSpark,
+  IconTune,
+} from '../components/SessionIcons'
+import { SessionOrb } from '../components/SessionOrb'
 import ReactMarkdown from 'react-markdown'
 import type { AppSettings } from '../profileTypes'
 import type { useInterviewSession } from '../useInterviewSession'
 import { useAutoScrollToBottom } from '../useAutoScroll'
 import { compressImageDataUrl, providerSupportsMobileVision, readFileAsDataUrl } from '../imageQuestionExtract'
-import { SettingToggleRow, SESSION_SETTING_ICONS } from './settings/SettingsPrimitives'
-import { SettingsSheet } from '../components/SettingsSheet'
-import { SessionOrb } from '../components/SessionOrb'
+import { Toggle, SESSION_SETTING_ICONS } from './settings/SettingsPrimitives'
 
 type Session = ReturnType<typeof useInterviewSession>
-
-function CameraIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4.5 8.5h3.2l1.1-2.1h6.4l1.1 2.1H19.5A1.5 1.5 0 0 1 21 10v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5V10a1.5 1.5 0 0 1 1.5-1.5Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <circle cx="12" cy="14.2" r="3.1" stroke="currentColor" strokeWidth="1.7" />
-    </svg>
-  )
-}
-
-function GearIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.86 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.5Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function SendIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 19V6M6.5 11.5 12 6l5.5 5.5"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 const markdownComponents = {
   pre({ children }: { children?: ReactNode }) {
@@ -70,37 +33,63 @@ const markdownComponents = {
   },
 }
 
+function SessionToggleRow({
+  icon,
+  label,
+  on,
+  onChange,
+}: {
+  icon: ReactNode
+  label: string
+  on: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="mobile-interview-setting-row">
+      <div className="mobile-interview-setting-row-label">
+        <span className="mobile-interview-setting-icon">{icon}</span>
+        <span>{label}</span>
+      </div>
+      <Toggle on={on} onChange={onChange} />
+    </div>
+  )
+}
+
 export function InterviewScreen({
   session,
   settings,
-  onOpenSettings,
   onPatchSettings,
 }: {
   session: Session
   settings: AppSettings
-  onOpenSettings: () => void
   onPatchSettings: (patch: Partial<AppSettings>) => void
 }) {
   const [typed, setTyped] = useState('')
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [editText, setEditText] = useState('')
-  const [transcriptOpen, setTranscriptOpen] = useState(false)
+  const [transcriptOpen, setTranscriptOpen] = useState(true)
   const [cameraBusy, setCameraBusy] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [leaveOpen, setLeaveOpen] = useState(false)
+  const [optionsOpen, setOptionsOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const leaveOpenRef = useRef(false)
-  const settingsOpenRef = useRef(false)
   leaveOpenRef.current = leaveOpen
-  settingsOpenRef.current = settingsOpen
+  const optionsOpenRef = useRef(false)
+  optionsOpenRef.current = optionsOpen
 
   const paused = session.loopPhase === 'paused'
+  const bootLocked = session.starting || session.startFailed
   const showTranscriptPanel = settings.showTranscription
   const { containerRef: mainScrollRef, endRef: historyEndRef } = useAutoScrollToBottom(settings.autoScroll, [
     session.turnHistory,
     session.streamingAnswer,
     session.isGenerating,
   ])
+
+  const bindScrollAnchor = (el: HTMLDivElement | null) => {
+    historyEndRef.current = el
+    session.answerEndRef.current = el
+  }
 
   useEffect(() => {
     if (session.transcriptEditing) setEditText(session.transcript)
@@ -110,25 +99,24 @@ export function InterviewScreen({
     const onHardwareBack = () => {
       if (leaveOpenRef.current) {
         setLeaveOpen(false)
+        session.stopSession()
         return
       }
-      if (settingsOpenRef.current) {
-        setSettingsOpen(false)
+      if (optionsOpenRef.current) {
+        setOptionsOpen(false)
         return
       }
       setLeaveOpen(true)
     }
     window.addEventListener('veilassist:hardware-back', onHardwareBack)
     return () => window.removeEventListener('veilassist:hardware-back', onHardwareBack)
-  }, [])
+  }, [session.stopSession])
 
   const onBack = () => {
-    setSettingsOpen(false)
     setLeaveOpen(true)
   }
 
   const onPauseToggle = () => {
-    setSettingsOpen(false)
     session.pauseSession()
   }
 
@@ -154,22 +142,26 @@ export function InterviewScreen({
   }
 
   return (
-    <div className={`mobile-interview-shell${paused ? ' is-paused' : ''}`}>
+    <div className={`mobile-interview-shell${paused ? ' is-paused' : ''}${optionsOpen ? ' is-options-open' : ''}`}>
       <header className="mobile-interview-header">
-        <BackButton onClick={onBack} />
-        <SessionOrb
-          mode={session.starting ? 'loading' : paused ? 'play' : 'pause'}
-          onPause={onPauseToggle}
-          onResume={session.resumeSession}
-        />
+        <button type="button" className="mobile-session-icon-btn" aria-label="Back" onClick={onBack}>
+          <IconBack />
+        </button>
         <div className="mobile-interview-header-actions">
+          <SessionOrb
+            mode={session.starting ? 'loading' : session.startFailed ? 'error' : paused ? 'play' : 'pause'}
+            onPause={onPauseToggle}
+            onResume={session.resumeSession}
+            onRetry={session.startSession}
+          />
           <button
             type="button"
-            className="mobile-home-settings"
-            aria-label="Session settings"
-            onClick={() => setSettingsOpen((o) => !o)}
+            className="mobile-session-icon-btn"
+            aria-label="Interview options"
+            aria-expanded={optionsOpen}
+            onClick={() => setOptionsOpen((o) => !o)}
           >
-            <GearIcon />
+            <IconTune />
           </button>
         </div>
       </header>
@@ -203,40 +195,68 @@ export function InterviewScreen({
         ) : null}
 
         <main ref={mainScrollRef} className="mobile-interview-main">
-          {session.turnHistory.map((turn, i) => (
-            <article key={`turn-${i}-${turn.question.slice(0, 24)}`} className="mobile-interview-turn">
-              <p className="mobile-interview-turn-q">{turn.question}</p>
-              <div className="mobile-interview-turn-a">
-                <ReactMarkdown components={markdownComponents}>{turn.answer}</ReactMarkdown>
-              </div>
-            </article>
-          ))}
+          {!session.turnHistory.length && !session.isGenerating ? (
+            <div className="mobile-interview-empty">
+              <h2 className="mobile-interview-empty-title">Ready to assist</h2>
+              <p className="mobile-interview-empty-copy">
+                Questions will be detected automatically. Tap Assist anytime for immediate help.
+              </p>
+            </div>
+          ) : null}
 
-          {session.isGenerating && session.streamingQuestion ? (
+          {session.turnHistory.map((turn, i) => {
+            const isLast = i === session.turnHistory.length - 1
+            const isReplacing = session.isGenerating && session.replacingTurn && isLast
+            const latest = isLast && !session.isGenerating
+            return (
+              <article
+                key={`turn-${i}`}
+                className={`mobile-interview-turn${latest ? ' is-latest' : ''}${isReplacing ? ' is-replacing' : ''}`}
+              >
+                <p className="mobile-interview-turn-q">{turn.question}</p>
+                <div className="mobile-interview-turn-a">
+                  {isReplacing && session.streamingAnswer ? (
+                    <p className="mobile-interview-stream-text is-live">{session.streamingAnswer}</p>
+                  ) : isReplacing && turn.answer ? (
+                    <div className="mobile-interview-turn-a-stale">
+                      <ReactMarkdown components={markdownComponents}>{turn.answer}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <ReactMarkdown components={markdownComponents}>{turn.answer}</ReactMarkdown>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+
+          {session.isGenerating && session.streamingQuestion && !session.replacingTurn ? (
             <article className="mobile-interview-turn mobile-interview-turn-live">
               <p className="mobile-interview-turn-q">{session.streamingQuestion}</p>
               <div className="mobile-interview-turn-a">
                 {session.streamingAnswer ? (
                   <p className="mobile-interview-stream-text is-live">{session.streamingAnswer}</p>
-                ) : (
-                  <span className="mobile-interview-stream-placeholder">Composing…</span>
-                )}
+                ) : null}
               </div>
             </article>
           ) : null}
 
-          {session.isGenerating && !session.streamingQuestion ? (
-            <div className="mobile-interview-generating">
-              <span className="mobile-interview-spinner" />
-              Generating
-            </div>
-          ) : null}
-
-          <div ref={historyEndRef} />
+          <div ref={bindScrollAnchor} className="mobile-interview-scroll-anchor" data-scroll-anchor aria-hidden />
         </main>
       </div>
 
       <footer className="mobile-interview-footer">
+        {session.isGenerating ? (
+          <div
+            className={`mobile-interview-generating-bar${showTranscriptPanel ? ' has-transcript' : ''}${showTranscriptPanel && transcriptOpen ? ' transcript-open' : ''}`}
+            aria-live="polite"
+          >
+            <div className="mobile-interview-generating">
+              <span className="mobile-interview-status-dot" />
+              Generating Answer
+            </div>
+          </div>
+        ) : null}
+
         {showTranscriptPanel ? (
           <div className={`mobile-interview-transcript-mini${transcriptOpen ? ' is-open' : ''}`}>
             <button
@@ -245,12 +265,12 @@ export function InterviewScreen({
               aria-expanded={transcriptOpen}
               onClick={() => setTranscriptOpen((o) => !o)}
             >
-              <span className="mobile-transcript-toggle-label">Transcription</span>
-              <span className="mobile-transcript-preview">
-                {session.transcript.trim() || '…'}
+              <span className="mobile-transcript-toggle-label">
+                <IconMic />
+                Transcription
               </span>
               <span className="mobile-transcript-chevron" aria-hidden>
-                {transcriptOpen ? '▾' : '▴'}
+                <IconChevron up={!transcriptOpen} />
               </span>
             </button>
             {transcriptOpen ? (
@@ -274,8 +294,10 @@ export function InterviewScreen({
                     rows={3}
                     aria-label="Edit transcription"
                   />
+                ) : session.transcript.trim() ? (
+                  session.transcript
                 ) : (
-                  session.transcript || '…'
+                  <span className="mobile-transcript-placeholder">Transcription will appear here...</span>
                 )}
               </div>
             ) : null}
@@ -283,12 +305,14 @@ export function InterviewScreen({
         ) : null}
 
         <div className="mobile-interview-actions">
-          <button type="button" className="mobile-interview-action-btn" onClick={session.newQuestion}>
-            ↻ New Question
+          <button type="button" className="mobile-interview-action-btn" onClick={session.newQuestion} disabled={bootLocked}>
+            <IconRefresh />
+            New Question
           </button>
           <span className="mobile-interview-action-dot" aria-hidden />
-          <button type="button" className="mobile-interview-action-btn" onClick={session.assistNow}>
-            ✦ Assist
+          <button type="button" className="mobile-interview-action-btn" onClick={session.assistNow} disabled={bootLocked}>
+            <IconSpark />
+            Assist
           </button>
         </div>
 
@@ -313,17 +337,19 @@ export function InterviewScreen({
               type="button"
               className="mobile-interview-camera"
               aria-label="Capture question from camera"
-              disabled={cameraBusy || session.isGenerating}
+              disabled={cameraBusy || session.isGenerating || bootLocked}
               onClick={() => fileInputRef.current?.click()}
             >
-              {cameraBusy ? <span className="mobile-interview-spinner" /> : <CameraIcon />}
+              {cameraBusy ? <span className="mobile-interview-spinner" /> : <IconCamera />}
             </button>
             <input
               className="mobile-interview-input"
               placeholder="Ask about your interview…"
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
+              disabled={bootLocked}
               onKeyDown={(e) => {
+                if (bootLocked) return
                 if (e.key === 'Enter' && typed.trim()) {
                   session.sendTypedQuestion(typed)
                   setTyped('')
@@ -333,7 +359,7 @@ export function InterviewScreen({
             <button
               type="button"
               className="mobile-interview-send"
-              disabled={!typed.trim() || session.isGenerating}
+              disabled={!typed.trim() || session.isGenerating || bootLocked}
               aria-label="Send"
               onClick={() => {
                 if (!typed.trim()) return
@@ -341,45 +367,53 @@ export function InterviewScreen({
                 setTyped('')
               }}
             >
-              <SendIcon />
+              <IconSend />
             </button>
           </div>
         </div>
       </footer>
 
-      {settingsOpen ? (
-        <SettingsSheet title="Session" onClose={() => setSettingsOpen(false)}>
-          <SettingToggleRow
-            icon={SESSION_SETTING_ICONS.transcription}
-            label="Transcription"
-            on={settings.showTranscription}
-            onChange={(v) => onPatchSettings({ showTranscription: v })}
+      {optionsOpen ? (
+        <div className="mobile-sheet-root" role="dialog" aria-modal="true" aria-labelledby="session-options-title">
+          <button
+            type="button"
+            className="mobile-interview-settings-backdrop"
+            aria-label="Close options"
+            onClick={() => setOptionsOpen(false)}
           />
-          <SettingToggleRow
-            icon={SESSION_SETTING_ICONS.autoScroll}
-            label="Auto-scroll"
-            on={settings.autoScroll}
-            onChange={(v) => onPatchSettings({ autoScroll: v })}
-          />
-          <SettingToggleRow
-            icon={SESSION_SETTING_ICONS.autoAnswer}
-            label="Auto-answer"
-            on={settings.autoAnswer}
-            onChange={(v) => onPatchSettings({ autoAnswer: v })}
-          />
-          <div className="mobile-choice-pad">
-            <button
-              type="button"
-              className="mobile-interview-settings-link"
-              onClick={() => {
-                setSettingsOpen(false)
-                onOpenSettings()
-              }}
-            >
-              Full settings
-            </button>
+          <div className="mobile-interview-settings-pop">
+            <div className="mobile-sheet-handle" />
+            <div className="mobile-interview-settings-pop-head">
+              <span id="session-options-title">Interview options</span>
+              <button
+                type="button"
+                className="mobile-interview-settings-close"
+                aria-label="Close"
+                onClick={() => setOptionsOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <SessionToggleRow
+              icon={SESSION_SETTING_ICONS.autoAnswer}
+              label="Auto-answer questions"
+              on={settings.autoAnswer}
+              onChange={(v) => onPatchSettings({ autoAnswer: v })}
+            />
+            <SessionToggleRow
+              icon={SESSION_SETTING_ICONS.transcription}
+              label="Show transcription"
+              on={settings.showTranscription}
+              onChange={(v) => onPatchSettings({ showTranscription: v })}
+            />
+            <SessionToggleRow
+              icon={SESSION_SETTING_ICONS.autoScroll}
+              label="Auto-scroll answers"
+              on={settings.autoScroll}
+              onChange={(v) => onPatchSettings({ autoScroll: v })}
+            />
           </div>
-        </SettingsSheet>
+        </div>
       ) : null}
 
       {leaveOpen ? (

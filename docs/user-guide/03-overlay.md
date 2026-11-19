@@ -33,44 +33,42 @@ The panel **expands** automatically when you:
 
 - **Move** — drag the top strip (notch or panel header) to reposition anywhere on screen.
 - **Resize** — drag edges and corners when expanded (within min/max limits).
-- **Nudge position** — `Ctrl+Arrow keys` (customizable in Settings → Keybinds).
+- **Nudge position** — `Ctrl+Arrow keys` (customizable in Settings → Shortcuts).
 - **Snap to corner/edge** — Settings → General → Snap position (Top-Right, Top-Left, Bottom-Right, Bottom-Left, Center-Right).
 
-## Live transcript panel
+## Show transcript (captions)
 
-When Listen is active, the overlay can show **Me** and **Participant** columns for the running transcript.
+When Listen is active, **Show transcript** turns on short captions in the mode bar only — there is no separate Me/Participant transcript panel.
 
-- **Settings → General → Live transcript panel** — turn on/off.
-- **Transcript auto-scroll** — follows new speech automatically.
-
-Speaker labels use a heuristic (your mic vs system/loopback audio) — not true diarization.
+- Speech-to-text still runs whenever Listen is on (for auto-answer and Ask context).
+- **Show transcript** only controls whether those captions are visible in the chrome.
 
 ## Reading modes
 
 | Setting | Location | Effect |
 |---------|----------|--------|
-| **Teleprompter mode** | General → Advanced | Larger type, minimal chrome for reading answers aloud |
-| **Focus mode** | General → Advanced | Hides input until you tap — less visual clutter |
-| **Pin answers to top** | General | Streaming answers stay pinned at the top while scrolling history |
+| **Teleprompter mode** | Overlay → Reading | Larger type, minimal chrome for reading answers aloud |
+| **Focus mode** | Overlay → Reading | Hides input until you tap — less visual clutter |
+| **Pin answers to top** | Overlay → Reading | Streaming answers stay pinned at the top while scrolling history |
 
 ## Appearance
 
-**Settings → General → Overlay appearance:**
+**Settings → Overlay → Appearance:**
 
 | Control | What it does |
 |---------|--------------|
-| **Accent color** | Applies to overlay and Global Chat (settings UI stays neutral) |
 | **Window opacity** | Subtle (65%), Balanced (85%), Clear (92%), or custom slider |
-| **Answer text size** | Small, medium, or large |
-| **Panel width / height** | Set dimensions and click Apply |
+| **Font size** | Small, medium, or large |
+| **Panel width / height** | Overlay → Size and position — set dimensions and click Apply |
 
-## Stealth and discretion
+## Invisible mode (stealth) and discretion
 
 | Setting | What it does |
 |---------|--------------|
-| **Hide from screen capture** | Windows content protection — harder to capture in shares and recordings |
-| **Mouse passthrough** | Clicks pass through outside the overlay; move cursor over the notch/panel to interact |
-| **Hide from taskbar** | No taskbar icon for the overlay window |
+| **Hide from screen capture** / overlay **Invisible** | Windows content protection (`WDA_EXCLUDEFROMCAPTURE`) — you still see the UI; shares and recordings should not |
+| **Quit confirm** | Same protection when Invisible is on — the “Quit VeilAssist?” dialog stays on your screen but should not appear in captures |
+| **Mouse passthrough** | Clicks pass through transparent overlay areas; hover the notch or panel to interact |
+| **Hide from taskbar** | No taskbar icon for the overlay window (Invisible always hides it) |
 
 ## Audio consent
 

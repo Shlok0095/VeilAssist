@@ -54,8 +54,9 @@ if (!block.includes('LONG-TERM MEMORY')) fail('format block', new Error('missing
 else pass('formatRecallBlock')
 
 const mainSrc = require('fs').readFileSync(path.join(appRoot, 'main', 'index.js'), 'utf8')
-if (!mainSrc.includes('createLongTermMemoryStore')) fail('main wiring', new Error('missing import'))
-else pass('main/index.js longTermMemory wired')
+if (mainSrc.includes('longTermMemory.retain') || mainSrc.includes('createLongTermMemoryStore')) {
+  fail('main no longer retains long-term memory', new Error('retain or store still wired'))
+} else pass('main does not retain long-term memory')
 
 console.log('')
 console.log(`Done: ${passed} passed`)

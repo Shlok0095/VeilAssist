@@ -4,7 +4,7 @@ VeilAssist uses **bring your own key (BYOK)** for all cloud AI. Configure chat a
 
 ## Chat providers
 
-**Settings → AI Providers:**
+**Settings → AI Provider:**
 
 | Provider | Vision | Best for |
 |----------|--------|----------|
@@ -26,6 +26,16 @@ VeilAssist uses **bring your own key (BYOK)** for all cloud AI. Configure chat a
 6. Click **Test connection** — fix key or model if it fails.
 
 Keys are stored locally and encrypted with Windows DPAPI when available.
+
+## Fallback provider
+
+**Settings → AI Provider → Fallback provider** lets you pick a second chat provider that takes over when the active one fails *before it starts answering* — for example NVIDIA returning a 403, a rate limit (429), a server error, or no response in time. It applies to answers and to auto-answer's question check.
+
+- Off by default. Only providers with a saved key are listed, and never the active provider.
+- Screen asks only fall back to a **vision-capable** provider; text asks can use any.
+- It is opt-in on purpose: a key you saved only for speech-to-text (the OpenAI and Groq chat keys double as Whisper keys) is never used for chat unless you choose that provider here.
+- Existing safety nets still run first: NVIDIA tries its other vision models, and with an NVIDIA primary and a Groq key, text asks also fall back to Groq.
+- Only one provider answers a given turn: once the first token has streamed, there is no switch.
 
 ## Custom OpenAI-compatible endpoint
 
@@ -49,10 +59,10 @@ For **Custom** provider:
 
 ## STT providers (separate from chat)
 
-Cloud speech-to-text is configured under **Settings → Audio**, not AI Providers. See [Listen and transcription](/docs/listen-and-transcription).
+Cloud speech-to-text is configured under **Settings → Audio**, not AI Provider. See [Listen and transcription](/docs/listen-and-transcription).
 
-Groq and OpenAI chat keys can often double for Whisper STT on the same account; other STT keys go under Audio → Advanced STT keys.
+Groq and OpenAI chat keys can often double for Whisper STT on the same account; other STT keys go under Audio → Backup provider keys.
 
 ## Onboarding vs full Settings
 
-First-run onboarding offers Groq, OpenAI, and NVIDIA NIM. All seven chat providers are available in **Settings → AI Providers** after onboarding.
+First-run onboarding offers Groq, OpenAI, and NVIDIA NIM. All seven chat providers are available in **Settings → AI Provider** after onboarding.

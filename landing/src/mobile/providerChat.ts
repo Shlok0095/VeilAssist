@@ -3,7 +3,7 @@ import { profileToContextText } from './profileTypes'
 import { getActiveApiKey, getActiveModel } from './profileStorage'
 import { buildChatPayload } from './promptBuilder'
 import { getChatBaseUrl, getChatProviderMeta, getProviderApiKey } from './providerRegistry'
-import { applyNemotronReasoning, nvidiaChatHeaders } from './nvidiaChatHelpers'
+import { applyNemotronReasoning, nvidiaChatHeaders, stripThinkingTrace } from './nvidiaChatHelpers'
 import { Capacitor } from '@capacitor/core'
 import { isLikelyCorsOrNetworkError, mobileApiGet, mobileApiPost } from './mobileHttp'
 import { readOpenAiChatStream, streamOpenAiChatViaXhr } from './chatStream'
@@ -51,7 +51,7 @@ function parseCompletion(text: string): string {
     ? raw.map((part: { text?: string }) => String(part?.text || '')).join('').trim()
     : String(raw || '').trim()
   if (!answer) throw new Error('Empty response from AI provider')
-  return answer
+  return stripThinkingTrace(answer)
 }
 
 async function emitAsTokens(
@@ -151,11 +151,12 @@ export async function requestInterviewAnswerDirect(params: {
       stream: useStream,
       imageDataUrl: params.imageDataUrl,
     })
+    const think = Boolean(params.think)
     const messages = applyNemotronReasoning(
       targetPayload.messages as Array<{ role: string; content: string | unknown }>,
       base,
       opts.model,
-      params.think,
+      think,
     )
     const body = { ...targetPayload, model: opts.model, messages, stream: useStream }
 
@@ -190,12 +191,14 @@ export async function requestInterviewAnswerDirect(params: {
       }
       try {
         if (Capacitor.isNativePlatform()) {
-          return await streamOpenAiChatViaXhr(
-            `${base}/chat/completions`,
-            { ...headers, Accept: 'text/event-stream', 'Content-Type': 'application/json' },
-            body,
-            params.onDelta,
-            params.signal,
+          return stripThinkingTrace(
+            await streamOpenAiChatViaXhr(
+              `${base}/chat/completions`,
+              { ...headers, Accept: 'text/event-stream', 'Content-Type': 'application/json' },
+              body,
+              params.onDelta,
+              params.signal,
+            ),
           )
         }
         const res = await withTimeout(
@@ -213,7 +216,7 @@ export async function requestInterviewAnswerDirect(params: {
           throw new Error(`AI provider error (${res.status}): ${errText.slice(0, 300)}`)
         }
         if (!res.body) throw new Error('Empty stream from AI provider')
-        return await readOpenAiChatStream(res.body, params.onDelta, params.signal)
+        return stripThinkingTrace(await readOpenAiChatStream(res.body, params.onDelta, params.signal))
       } catch (e) {
         if (isAbortError(e)) throw e
         const msg = e instanceof Error ? e.message : String(e)
@@ -237,7 +240,7 @@ export async function requestInterviewAnswerDirect(params: {
       }
       throw new Error(`AI provider error (${res.status}): ${detail}`)
     }
-    return parseCompletion(res.text)
+    return stripThinkingTrace(parseCompletion(res.text))
   }
 
   if (params.settings.provider === 'nvidia' || params.settings.provider === 'groq') {

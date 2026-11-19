@@ -59,7 +59,7 @@ Send audio to a cloud STT provider using your BYOK key.
 | Google Cloud STT | Cloud STT via main process |
 | Soniox | Real-time streaming STT |
 
-Enter keys under **Settings → Audio → Advanced STT keys** for providers beyond your main chat account.
+Enter keys under **Settings → Audio → Backup provider keys** for providers beyond your main chat account.
 
 ## Live transcript in overlay
 
@@ -74,7 +74,7 @@ When you press **Stop**, VeilAssist can generate a **bullet summary** of the ses
 - Falls back to a simple text recap if the provider call fails.
 - Skipped when **Settings → General → Do not save meetings** is on.
 
-Recaps appear in **Settings → Calendar → Session recaps** and in the **Launcher** recent sessions list.
+Recaps appear in **Settings → Meetings → Session recaps** and in the **Launcher** recent sessions list.
 
 ## Tips
 
