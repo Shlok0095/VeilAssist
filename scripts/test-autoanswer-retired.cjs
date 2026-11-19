@@ -42,7 +42,7 @@ check('main: no toggleAssistAutoTrigger', !/function toggleAssistAutoTrigger/.te
 check('main: no overlayFontPayloadForAutoScrollToggle', !/overlayFontPayloadForAutoScrollToggle/.test(main))
 check('main: set-store forces assistAutoTrigger false', /key === 'assistAutoTrigger'[\s\S]{0,160}store\.set\('assistAutoTrigger',\s*false\)/.test(main))
 check('main: set-store forces overlayAnswerAutoScroll false', /key === 'overlayAnswerAutoScroll'[\s\S]{0,120}store\.set\('overlayAnswerAutoScroll',\s*false\)/.test(main))
-check('main: answerLength always syncs font', /function overlayFontPayloadForAnswerLength[\s\S]{0,220}fontSizeFromAnswerLength\(answerLength\)/.test(main))
+check('main: answerLength does NOT sync font (IM)', /overlayPayloadForAnswerLength/.test(main) && !/overlayFontPayloadForAnswerLength/.test(main))
 
 check('DisplaySettingsPanel: no Auto-answer row', !/Auto-answer questions/.test(display))
 check('DisplaySettingsPanel: no Auto-scroll answers row', !/Auto-scroll answers/.test(display))
@@ -50,13 +50,13 @@ check('DisplaySettingsPanel: no Question detection UI', !/Question detection/.te
 check('DisplaySettingsPanel: keeps Auto-scroll transcript', /Auto-scroll transcript/.test(display))
 check('settings App: no applyAssistAutoTrigger', !/applyAssistAutoTrigger/.test(settingsApp))
 check('settings App: no applyOverlayAnswerAutoScroll', !/applyOverlayAnswerAutoScroll/.test(settingsApp))
-check('settings App: answerLength always sets font', /const applyAnswerLength[\s\S]{0,350}fontSizeFromAnswerLength\(next\)/.test(settingsApp))
+check('settings App: answerLength does NOT set font (IM)', !/const applyAnswerLength[\s\S]{0,350}fontSizeFromAnswerLength\(next\)/.test(settingsApp))
 
 check('overlay: rejects opts.auto === true', /if \(opts\.auto === true\) return/.test(overlay))
 check('overlay: forces assistAutoTriggerRef false on load', /Auto-answer retired[\s\S]{0,120}assistAutoTriggerRef\.current = false/.test(overlay))
 check('overlay: forces overlayAnswerAutoScroll false on load', /overlayAnswerAutoScrollRef\.current = false\s*\n\s*setOverlayAnswerAutoScroll\(false\)/.test(overlay))
-check('overlay: clears live transcript when manual ask starts', /if \(isManualAsk\) \{\s*\n\s*clearRollingSpeech\(\)/.test(overlay))
-check('overlay: suppresses delayed STT after flush', /suppressTranscriptUntilRef/.test(overlay) && /manualAskBusy/.test(overlay))
+check('overlay: clears live transcript after successful manual ask', /askResult\?\.ok === true && isManualAsk[\s\S]{0,40}clearRollingSpeech\(\)/.test(overlay))
+check('overlay: no STT suppress blackout (2026.11.01.03.01-aligned)', !/suppressTranscriptUntilRef/.test(overlay) && !/manualAskBusy/.test(overlay))
 check('overlay: clearRollingSpeech wipes micTranscriptRef', /micTranscriptRef\.current = ''/.test(overlay) && /latestTranscriptRef\.current = ''/.test(overlay))
 check('ResponsePanel: followStream always false', /const followStream = false/.test(panel))
 

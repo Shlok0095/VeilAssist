@@ -1,12 +1,68 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
+// AI Provider tab: pick the vendor, save its key, choose the model, test the connection, set a fallback.
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef } from 'react'
 import {
   CheckmarkSelect,
   ModelInput,
+  SecretKeyField,
+  SettingsFieldLabel,
   SettingsPanelShell,
+  SettingsSection,
 } from './SettingsComponents'
 import { useBrand } from '../shared/branding'
+
+function ProviderPills({ providerMeta, provider, onSelectProvider }) {
+  const refs = useRef([])
+  const activeIndex = Math.max(
+    0,
+    providerMeta.findIndex((pm) => pm.id === provider),
+  )
+  const move = (to) => {
+    const i = (to + providerMeta.length) % providerMeta.length
+    onSelectProvider(providerMeta[i].id)
+    refs.current[i]?.focus()
+  }
+  const onKeyDown = (e, index) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      move(index + 1)
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      move(index - 1)
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      move(0)
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      move(providerMeta.length - 1)
+    }
+  }
+  return (
+    <div className="settings-advance-pills" role="radiogroup" aria-label="AI provider">
+      {providerMeta.map((pm, index) => {
+        const active = pm.id === provider
+        return (
+          <button
+            key={pm.id}
+            ref={(el) => {
+              refs.current[index] = el
+            }}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            tabIndex={index === activeIndex ? 0 : -1}
+            className={`settings-advance-pill ${active ? 'settings-advance-pill-active' : ''}`}
+            onClick={() => onSelectProvider(pm.id)}
+            onKeyDown={(e) => onKeyDown(e, index)}
+          >
+            {pm.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function AiProviderPanel({
   embedded = false,
@@ -58,217 +114,204 @@ export default function AiProviderPanel({
     ? snap.chatFallbackProvider
     : 'none'
 
+  const ready = !!snap && !!providerMeta?.length
+  const hasVendor = ready && !!chatVendor
+
   return (
-    <SettingsPanelShell embedded={embedded}>
-      {!snap || !providerMeta.length ? (
-        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+    <SettingsPanelShell
+      embedded={embedded}
+      title="AI Provider"
+      description="Choose the model that writes your answers. Your key stays on this device."
+    >
+      {!ready ? (
+        <p className="text-sm" style={{ color: 'var(--text-tertiary)' }} role="status">
           Loading providers…
         </p>
       ) : (
-        <div className="settings-advance-ai">
-          <div className="settings-advance-ai-block">
-            <p className="settings-advance-ai-label">Provider</p>
-            <div className="settings-advance-pills" role="list">
-              {providerMeta.map((pm) => {
-                const active = pm.id === provider
-                return (
-                  <button
-                    key={pm.id}
-                    type="button"
-                    role="listitem"
-                    className={`settings-advance-pill ${active ? 'settings-advance-pill-active' : ''}`}
-                    onClick={() => onSelectProvider(pm.id)}
-                  >
-                    {pm.label}
-                  </button>
-                )
-              })}
+        <>
+          <SettingsSection title="Provider" anchor="provider">
+            <div className="settings-advance-ai-block">
+              <ProviderPills providerMeta={providerMeta} provider={provider} onSelectProvider={onSelectProvider} />
             </div>
-          </div>
 
-          {chatVendor && snap ? (
-            <>
-              {chatVendor.kind === 'anthropic' ? (
-                <p className="settings-advance-ai-note">
-                  Claude uses the Anthropic Messages API — not OpenAI-compatible. Model ID must match your
-                  Anthropic account.
-                </p>
-              ) : null}
+            {hasVendor && chatVendor.kind === 'anthropic' ? (
+              <p className="settings-advance-ai-note">
+                Claude uses the Anthropic Messages API, not the OpenAI-compatible one. The model ID must match your
+                Anthropic account.
+              </p>
+            ) : null}
 
-              {chatVendor.usesCustomBase ? (
-                <div className="settings-advance-ai-block settings-advance-ai-divider">
-                  <p className="settings-advance-ai-label">Base URL</p>
-                  <input
-                    type="url"
-                    value={snap.customOpenaiBaseUrl || ''}
-                    onChange={(e) => onPatchSnap('customOpenaiBaseUrl', e.target.value)}
-                    onBlur={(e) => onSave('customOpenaiBaseUrl', e.target.value.trim())}
-                    className="input-shadow w-full px-3 py-2.5 font-mono text-xs"
-                    placeholder="https://api.openai.com/v1"
-                  />
-                </div>
-              ) : null}
-
+            {hasVendor && chatVendor.usesCustomBase ? (
               <div className="settings-advance-ai-block settings-advance-ai-divider">
-                <div className="settings-advance-ai-row-head">
-                  <p className="settings-advance-ai-label">API key</p>
-                  {chatKeySaved ? (
-                    <span className="settings-advance-badge rounded-full border px-[7px] py-0.5 text-[10px] font-semibold">
-                      Saved
-                    </span>
-                  ) : null}
-                </div>
-                <div className="settings-advance-ai-key-row">
-                  <input
-                    type="password"
+                <SettingsFieldLabel htmlFor="settings-custom-base-url">Base URL</SettingsFieldLabel>
+                <input
+                  id="settings-custom-base-url"
+                  type="url"
+                  value={snap.customOpenaiBaseUrl || ''}
+                  onChange={(e) => onPatchSnap('customOpenaiBaseUrl', e.target.value)}
+                  onBlur={(e) => onSave('customOpenaiBaseUrl', e.target.value.trim())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onSave('customOpenaiBaseUrl', e.currentTarget.value.trim())
+                  }}
+                  className="input-shadow w-full px-3 py-2.5 font-mono text-xs"
+                  placeholder="https://api.openai.com/v1"
+                />
+              </div>
+            ) : null}
+          </SettingsSection>
+
+          {hasVendor ? (
+            <>
+              <SettingsSection title="API key" anchor="api-key">
+                <div className="settings-advance-ai-block">
+                  <SecretKeyField
+                    label={`${chatVendor.label || 'Provider'} API key`}
+                    saved={chatKeySaved}
+                    placeholder="Paste API key here"
                     value={secretByProvider[chatVendor.id] ?? ''}
-                    onChange={(e) =>
-                      setSecretByProvider((m) => ({ ...m, [chatVendor.id]: e.target.value }))
+                    onChange={(v) => setSecretByProvider((m) => ({ ...m, [chatVendor.id]: v }))}
+                    onSave={(text) => (chatKf ? onSaveKey(chatKf, text, chatVendor.id) : false)}
+                    hint={
+                      <>
+                        {chatVendor.docs ? (
+                          <a
+                            href={chatVendor.docs}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="settings-advance-ai-link"
+                          >
+                            Get API key ↗
+                          </a>
+                        ) : null}
+                        {['groq', 'openai', 'nvidia'].includes(chatVendor.id) ? (
+                          <p className="settings-advance-ai-hint">Shared with Audio speech recognition.</p>
+                        ) : null}
+                      </>
                     }
-                    placeholder={chatKeySaved ? '••••••••••••••••' : 'Paste API key here'}
-                    className="input-shadow min-w-0 flex-1 px-3 py-2.5 text-[13px]"
                   />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      chatKf && onSaveKey(chatKf, secretByProvider[chatVendor.id] || '', chatVendor.id)
-                    }
-                    className="btn-ghost shrink-0 px-3.5 py-2.5 text-xs"
-                  >
-                    Save
-                  </button>
                 </div>
-                {chatVendor.docs ? (
-                  <a
-                    href={chatVendor.docs}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="settings-advance-ai-link"
-                  >
-                    Get API key ↗
-                  </a>
+              </SettingsSection>
+
+              <SettingsSection title="Model" anchor="model">
+                {chatMf && chatOpts.length > 0 ? (
+                  <div className="settings-advance-ai-block settings-advance-ai-model-row">
+                    <div className="min-w-0 flex-1">
+                      <p id="settings-chat-model-label" className="settings-advance-ai-label">
+                        Model
+                      </p>
+                      <p className="settings-advance-ai-hint" style={{ marginTop: 2 }}>
+                        Screen questions need a model that accepts images.
+                      </p>
+                    </div>
+                    <CheckmarkSelect
+                      value={chatModel || chatVendor.defaultModel || chatOpts[0]}
+                      onChange={(v) => {
+                        onPatchSnap(chatMf, v)
+                        onSave(chatMf, v)
+                      }}
+                      options={modelOptions}
+                      menuMinWidth={280}
+                      className="settings-advance-model-dd"
+                      aria-labelledby="settings-chat-model-label"
+                    />
+                  </div>
                 ) : null}
-                {['groq', 'openai', 'nvidia'].includes(chatVendor.id) ? (
-                  <p className="settings-advance-ai-hint">
-                    Shared with Audio STT.
+
+                {chatMf && chatOpts.length === 0 ? (
+                  <div className="settings-advance-ai-block">
+                    <ModelInput
+                      label={
+                        chatListLoading
+                          ? 'Loading models…'
+                          : chatKeySaved
+                            ? 'Model ID'
+                            : 'Model ID (save key to sync list)'
+                      }
+                      value={chatModel}
+                      onChange={(v) => onPatchSnap(chatMf, v)}
+                      onCommit={(v) => onSave(chatMf, v)}
+                      suggestions={
+                        modelCatalog[chatVendor.id] ||
+                        (chatVendor.defaultModel ? [chatVendor.defaultModel] : [])
+                      }
+                      hint="Save your key, then use Sync models to load the full list."
+                    />
+                  </div>
+                ) : null}
+
+                {chatListErr ? (
+                  <p className="settings-advance-ai-hint" style={{ color: 'var(--text-primary)' }} role="status">
+                    {chatListErr}
                   </p>
                 ) : null}
-              </div>
 
-              {chatMf && chatOpts.length > 0 ? (
-                <div className="settings-advance-ai-block settings-advance-ai-divider settings-advance-ai-model-row">
+                <div className="settings-advance-ai-actions settings-advance-ai-divider" data-settings-anchor="test-connection">
+                  <button
+                    type="button"
+                    onClick={() => onSyncModels(chatVendor.id)}
+                    disabled={chatListLoading}
+                    className="btn-ghost px-3.5 py-2 text-xs"
+                  >
+                    {chatListLoading ? 'Syncing…' : 'Sync models'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onTestConnection(chatVendor.id)}
+                    disabled={chatTesting}
+                    className="btn-ghost px-3.5 py-2 text-xs disabled:opacity-50"
+                  >
+                    {chatTesting ? 'Testing…' : 'Test connection'}
+                  </button>
+                  {showSetupBanner && embedded ? (
+                    <button type="button" onClick={onLaunchFromSetup} className="btn-glow px-3.5 py-2 text-xs">
+                      Launch
+                    </button>
+                  ) : null}
+                </div>
+
+                <p
+                  className="settings-advance-ai-hint"
+                  role="status"
+                  style={{ color: chatTest ? (chatTest.success ? 'var(--text-secondary)' : 'var(--text-primary)') : undefined }}
+                >
+                  {chatTest
+                    ? chatTest.success
+                      ? 'Connection verified'
+                      : chatTest.error
+                    : chatKeySaved
+                      ? 'Run a test to verify your saved key.'
+                      : 'Save a key, then run a test.'}
+                </p>
+              </SettingsSection>
+
+              <SettingsSection title="Fallback provider" anchor="fallback-provider">
+                <div className="settings-advance-ai-block settings-advance-ai-model-row">
                   <div className="min-w-0 flex-1">
-                    <p className="settings-advance-ai-label">Model</p>
+                    <p id="settings-fallback-label" className="settings-advance-ai-label">
+                      Fallback provider
+                    </p>
                     <p className="settings-advance-ai-hint" style={{ marginTop: 2 }}>
-                      Vision for screen Ask
+                      Used if {chatVendor.label} fails before answering (403, rate limit, timeout). Only providers
+                      with a saved key are listed. Screen questions need a vision-capable fallback.
                     </p>
                   </div>
                   <CheckmarkSelect
-                    value={chatModel || chatVendor.defaultModel || chatOpts[0]}
+                    value={fallbackValue}
                     onChange={(v) => {
-                      onPatchSnap(chatMf, v)
-                      onSave(chatMf, v)
+                      const next = v === 'none' ? '' : v
+                      onPatchSnap('chatFallbackProvider', next)
+                      onSave('chatFallbackProvider', next)
                     }}
-                    options={modelOptions}
-                    menuMinWidth={280}
+                    options={fallbackOptions}
+                    menuMinWidth={220}
                     className="settings-advance-model-dd"
-                    aria-label="Chat model"
+                    aria-labelledby="settings-fallback-label"
                   />
                 </div>
-              ) : null}
-
-              {chatMf && chatOpts.length === 0 ? (
-                <div className="settings-advance-ai-block settings-advance-ai-divider">
-                  <ModelInput
-                    label={
-                      chatListLoading
-                        ? 'Loading models…'
-                        : chatKeySaved
-                          ? 'Model ID'
-                          : 'Model ID (save key to sync list)'
-                    }
-                    value={chatModel}
-                    onChange={(v) => onPatchSnap(chatMf, v)}
-                    onCommit={(v) => onSave(chatMf, v)}
-                    suggestions={
-                      modelCatalog[chatVendor.id] ||
-                      (chatVendor.defaultModel ? [chatVendor.defaultModel] : [])
-                    }
-                    hint="Save your key, then use Sync models to load the full list."
-                  />
-                </div>
-              ) : null}
-
-              {chatListErr ? (
-                <p className="settings-advance-ai-hint" style={{ color: 'var(--text-primary)' }}>
-                  {chatListErr}
-                </p>
-              ) : null}
-
-              <div className="settings-advance-ai-actions settings-advance-ai-divider">
-                <button
-                  type="button"
-                  onClick={() => onSyncModels(chatVendor.id)}
-                  disabled={chatListLoading}
-                  className="btn-ghost px-3.5 py-2 text-xs"
-                >
-                  {chatListLoading ? 'Syncing…' : 'Sync models'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTestConnection(chatVendor.id)}
-                  disabled={chatTesting}
-                  className="btn-ghost px-3.5 py-2 text-xs disabled:opacity-50"
-                >
-                  {chatTesting ? 'Testing…' : 'Test connection'}
-                </button>
-                {showSetupBanner ? (
-                  <button type="button" onClick={onLaunchFromSetup} className="btn-glow px-3.5 py-2 text-xs">
-                    Launch
-                  </button>
-                ) : null}
-              </div>
-
-              {chatTest ? (
-                <p
-                  className="settings-advance-ai-hint"
-                  style={{ color: chatTest.success ? 'var(--text-secondary)' : 'var(--text-primary)' }}
-                >
-                  {chatTest.success ? 'Connection verified' : chatTest.error}
-                </p>
-              ) : (
-                <p className="settings-advance-ai-hint">
-                  {chatKeySaved ? 'Run a test to verify your saved key.' : 'Save a key, then run a test.'}
-                </p>
-              )}
+              </SettingsSection>
             </>
           ) : null}
-
-          {chatVendor && snap ? (
-            <div className="settings-advance-ai-block settings-advance-ai-divider settings-advance-ai-model-row">
-              <div className="min-w-0 flex-1">
-                <p className="settings-advance-ai-label">Fallback provider</p>
-                <p className="settings-advance-ai-hint" style={{ marginTop: 2 }}>
-                  Used if {chatVendor.label} fails before answering (403, rate limit, timeout) — for answers
-                  and auto-answer detection. Only providers with a saved key are listed. Screen asks need a
-                  vision-capable fallback.
-                </p>
-              </div>
-              <CheckmarkSelect
-                value={fallbackValue}
-                onChange={(v) => {
-                  const next = v === 'none' ? '' : v
-                  onPatchSnap('chatFallbackProvider', next)
-                  onSave('chatFallbackProvider', next)
-                }}
-                options={fallbackOptions}
-                menuMinWidth={220}
-                className="settings-advance-model-dd"
-                aria-label="Fallback provider"
-              />
-            </div>
-          ) : null}
-        </div>
+        </>
       )}
 
       {showSetupBanner && !embedded ? (

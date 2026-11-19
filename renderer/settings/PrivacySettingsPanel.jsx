@@ -2,16 +2,54 @@
 
 import React, { useState } from 'react'
 import { createIpcShim } from '../shared/ipcShim'
-import { ConfirmDialog, SettingsPage, SettingsSection } from './SettingsComponents'
+import { ConfirmDialog, SettingsPage, SettingsRow, SettingsSection, ToggleSwitch } from './SettingsComponents'
 import { useBrand } from '../shared/branding'
+import { emitSettingsToast, toastExportResult } from './settingsToast'
 
 const ipc = createIpcShim()
 
-export default function PrivacySettingsPanel() {
+export default function PrivacySettingsPanel({
+  stealthModeUi = false,
+  onStealthModeChange,
+  doNotSaveMeetingsEnabled = false,
+  onDoNotSaveMeetingsChange,
+}) {
   const { name } = useBrand()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const exportData = async () => {
+    if (!ipc || exporting) return
+    setExporting(true)
+    try {
+      const r = await ipc.invoke('export-user-data')
+      toastExportResult(r, 'Data export')
+    } catch (e) {
+      emitSettingsToast({ tone: 'error', message: 'Data export failed', detail: e?.message || String(e) })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
-    <SettingsPage title="Privacy" description="What stays on your device and how to export or delete local data.">
+    <SettingsPage title="Privacy" description="Who can see the overlay, what is saved, and how to export or delete local data.">
+      <SettingsSection title="Controls" description="Applied immediately.">
+        <SettingsRow
+          label="Hide from screen capture"
+          hint="Makes the overlay harder to capture in screen shares and recordings."
+          anchor="hide-from-capture"
+        >
+          <ToggleSwitch checked={stealthModeUi} onChange={onStealthModeChange} />
+        </SettingsRow>
+        <SettingsRow
+          label="Don't save meeting recaps"
+          hint="When on, Stop Listen will not write a session recap to this device."
+          anchor="do-not-save-meetings"
+        >
+          <ToggleSwitch checked={doNotSaveMeetingsEnabled} onChange={onDoNotSaveMeetingsChange} />
+        </SettingsRow>
+      </SettingsSection>
+
       <SettingsSection title="Conversation">
         <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           Conversation Memory in General keeps a short tail of the live transcript and the questions already
@@ -36,28 +74,25 @@ export default function PrivacySettingsPanel() {
         </ul>
       </SettingsSection>
 
-      <SettingsSection title="Your data">
+      <SettingsSection title="Your data" anchor="your-data">
         <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           Export includes profile text, consent record, and preferences. API keys and audio are not included.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={async () => {
-              if (!ipc) return
-              const r = await ipc.invoke('export-user-data')
-              if (r?.ok && r.path) {
-                window.alert(`Exported to ${r.path}`)
-              }
-            }}
-            className="nat-btn-primary px-5 py-2.5 text-[13px]"
+            onClick={() => void exportData()}
+            disabled={exporting}
+            data-settings-anchor="export-data"
+            className="nat-btn-primary px-5 py-2.5 text-[13px] disabled:opacity-60"
           >
-            Export my data
+            {exporting ? 'Exporting…' : 'Export my data'}
           </button>
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="nat-btn-secondary border-rose-500/30 px-5 py-2.5 text-[13px] text-rose-300 hover:bg-rose-500/10"
+            data-settings-anchor="delete-data"
+            className="btn-danger px-5 py-2.5 text-[13px]"
           >
             Delete all my data
           </button>
@@ -73,7 +108,11 @@ export default function PrivacySettingsPanel() {
         onConfirm={async () => {
           setConfirmDelete(false)
           if (!ipc) return
-          await ipc.invoke('delete-all-data-relaunch')
+          try {
+            await ipc.invoke('delete-all-data-relaunch')
+          } catch (e) {
+            emitSettingsToast({ tone: 'error', message: 'Could not delete your data', detail: e?.message || String(e) })
+          }
         }}
       />
     </SettingsPage>

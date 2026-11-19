@@ -1,6 +1,6 @@
 {
   "name": "veilassist",
-  "version": "2026.1103.201",
+  "version": "1.0.0",
   "description": "Undetectable AI for live meetings — discreet on-screen meeting assistant",
   "author": "VeilAssist",
   "license": "UNLICENSED",
@@ -144,8 +144,8 @@
         "LSUIElement": true
       },
       "artifactName": "VeilAssist${version}-${arch}.${ext}",
-      "bundleShortVersion": "2026.1103.201",
-      "bundleVersion": "2026.1103.201"
+      "bundleShortVersion": "1.0.0",
+      "bundleVersion": "1.0.0"
     },
     "linux": {
       "icon": "build/icons",
@@ -189,8 +189,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@fontsource/jetbrains-mono": "^5.2.5",
-    "@fontsource/outfit": "^5.2.5",
-    "@fontsource/syne": "^5.2.5",
+    "@fontsource/poppins": "^5.3.0",
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.7.15",
     "@huggingface/transformers": "^3.8.1",

@@ -38,13 +38,13 @@ Loopback uses Windows display-media capture:
 ## Ask with screen fails or no vision
 
 1. Confirm your provider supports vision (Groq, OpenAI, Anthropic, Google, NVIDIA NIM).
-2. Pick a vision-capable model in Settings → AI Providers.
+2. Pick a vision-capable model in Settings → AI Provider.
 3. Run **Test connection**.
 4. DeepSeek and non-vision custom endpoints only support text asks — use `Ctrl+Shift+Enter`.
 
 ## API key / connection errors
 
-1. Settings → AI Providers → verify key saved (badge shows Saved).
+1. Settings → AI Provider → verify key saved (badge shows Saved).
 2. Click **Test connection**.
 3. Check vendor dashboard for quota, billing, and key validity.
 4. For Custom provider, verify base URL ends without trailing path issues and model name matches server.

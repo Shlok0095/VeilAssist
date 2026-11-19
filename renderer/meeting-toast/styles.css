@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 ShadowAssist. Meeting toast — uses shared design tokens. */
 
+@import '../shared/app-fonts.css';
 @import '../shared/designTokens.css';
 
 * {

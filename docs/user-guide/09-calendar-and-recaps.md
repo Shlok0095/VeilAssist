@@ -1,6 +1,6 @@
 # Calendar and session recaps
 
-**Settings → Calendar** — optional Google Calendar integration, meeting reminders, foreground detection, and saved Listen session summaries.
+**Settings → Meetings** — optional Google Calendar integration, meeting reminders, foreground detection, and saved Listen session summaries.
 
 ## Google Calendar
 
@@ -8,7 +8,7 @@ Connect to see **upcoming accepted meetings** (the same events you accepted in G
 
 ### Connect
 
-1. Open **Settings → Calendar**.
+1. Open **Settings → Meetings**.
 2. If not using bundled OAuth, enter your **Google Cloud desktop app** Client ID and Client Secret, then Save.
 3. Click **Connect Google Calendar** and complete the browser OAuth flow.
 4. Connected email appears in the panel.
@@ -46,7 +46,7 @@ Every time you **Stop Listen**, VeilAssist may save a recap:
 
 ### View and manage recaps
 
-**Settings → Calendar → Session recaps:**
+**Settings → Meetings → Session recaps:**
 
 - Browse by date
 - Expand entries for preview

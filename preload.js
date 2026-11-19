@@ -1,7 +1,7 @@
 // Copyright (c) 2026 ShadowAssist. All rights reserved.
 // Unauthorized copying or distribution is prohibited.
 
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 // IPC allowlist — the renderer must never be able to invoke/send/listen on an
 // arbitrary main-process channel (a single XSS in any privileged window would
@@ -25,7 +25,8 @@ const INVOKE_CHANNELS = new Set([
   'logs:open-folder', 'long-term-memory:clear', 'meeting-sessions:clear', 'meeting-sessions:delete',
   'meeting-sessions:export', 'meeting-sessions:follow-up-draft', 'meeting-sessions:get',
   'meeting-sessions:list', 'meeting-sessions:update-speakers', 'memory:search-past-meetings',
-  'mode-document:parse', 'nvidia-nim:transcribe-wav', 'overlay:set-ignore-mouse-events', 'parse-playbook', 'resume-profile:parse',
+  'mode-document:parse', 'nvidia-nim:transcribe-wav', 'overlay:set-ignore-mouse-events', 'parse-playbook', 'register-user-file',
+  'resume-profile:parse',
   'phone-link:regenerate-token', 'phone-link:status', 'phone-mirror:list-devices', 'phone-mirror:probe',
   'phone-mirror:start', 'phone-mirror:status', 'phone-mirror:stop', 'protection:get', 'protection:set',
   'quit-confirm:ready', 'resize-window', 'session-active', 'session-start-confirmed', 'session-transcript-append',
@@ -94,6 +95,14 @@ patchConsoleForward()
 contextBridge.exposeInMainWorld('shadowAPI', {
   setProtection: (enabled) => ipcRenderer.invoke('protection:set', enabled),
   getProtection: () => ipcRenderer.invoke('protection:get'),
+  /** Absolute path for a drag-dropped File (Electron webUtils). */
+  getPathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file) || ''
+    } catch {
+      return ''
+    }
+  },
   invoke: (channel, ...args) => {
     if (!INVOKE_CHANNELS.has(channel)) {
       return Promise.reject(new Error(`Blocked IPC invoke on unlisted channel: ${channel}`))

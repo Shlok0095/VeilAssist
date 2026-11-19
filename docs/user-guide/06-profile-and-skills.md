@@ -36,14 +36,27 @@ Upload PDF, TXT, or MD files per mode. Enabled references are included in Ask co
 
 With **Intelligence → Reference file vectors** enabled, chunks are embedded for semantic retrieval; keyword fallback always remains.
 
+## Interview resumes
+
+**Settings → Profile → Interview** — upload a PDF/TXT/MD resume. VeilAssist extracts structured fields (summary, experience, skills, projects, education). Interview answers use the **selected** resume.
+
+| Action | How |
+|--------|-----|
+| **Upload** | **Upload resume** opens the file picker (PDF preferred, max 10MB; TXT/MD also OK) |
+| **Select** | Click a resume row to make it active for answers |
+| **Edit** | Expand a resume to edit name, summary, experience, skills, projects, education, extra context |
+| **Reorder** | After extract, drag the **six-dot grip** on Work Experience, Projects, or Education rows to change order (same idea as InterviewMan’s Edit Personal Info) |
+
+There is **no** “drop a PDF on this page” zone — drag-and-drop here means reordering those list rows, not uploading.
+
 ## Personal background (global)
 
 Separate from modes, under Profile:
 
 | Asset | Purpose |
 |-------|---------|
-| **Resume** | Upload PDF/TXT/MD — text extracted for first-person answers about your experience |
-| **Job description** | Target role notes so answers align with a specific position |
+| **Resume library** | Structured resumes above — first-person answers about your experience |
+| **Job description** | Target role notes so answers align with a specific position (when present in your flow) |
 
 These apply across modes when routing includes them.
 

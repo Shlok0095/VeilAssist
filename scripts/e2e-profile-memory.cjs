@@ -87,6 +87,15 @@ check('Interview attaches personal info only when the question needs it', () => 
   })
   assert.match(manual, /My personal information is:/)
 
+  // InterviewMan: router useResume attaches even without detector meta.
+  const routed = personalInfoAppendix({
+    isInterview: true,
+    useResume: true,
+    question: 'how would you lead a team?',
+    profile: sample,
+  })
+  assert.match(routed, /My personal information is:/)
+
   const definition = personalInfoAppendix({
     isInterview: true,
     requiresPersonalInfo: false,
@@ -152,6 +161,8 @@ check('ask startup does not call vector, embedding, or Hindsight code', () => {
   assert.doesNotMatch(main, /hybridRecall/)
   assert.doesNotMatch(main, /contextVectorStore/)
   assert.match(main, /resumeLibrary: store\.get\('resumeLibrary'\)/)
+  assert.match(main, /useResume: routeDecision\?\.useResume === true/)
+  assert.match(main, /profileHasContent/)
   assert.match(main, /buildAnswerContext\(/)
   assert.match(read('lib', 'resumeProfile.cjs'), /My personal information is:/)
   assert.match(main, /resume-profile:parse/)

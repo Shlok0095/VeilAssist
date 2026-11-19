@@ -1,0 +1,58 @@
+{
+  "at": "2026-11-19T19:33:58.795Z",
+  "failed": 0,
+  "passed": 11,
+  "results": [
+    {
+      "name": "no suppressTranscriptUntilRef",
+      "ok": true
+    },
+    {
+      "name": "no manualAskBusy gate",
+      "ok": true
+    },
+    {
+      "name": "micPaused only after flush+watermark",
+      "ok": true
+    },
+    {
+      "name": "clear only after askResult.ok && isManualAsk",
+      "ok": true
+    },
+    {
+      "name": "all 50 snapshots include their question",
+      "ok": true
+    },
+    {
+      "name": "buffer cleared after every successful ask",
+      "ok": true
+    },
+    {
+      "name": "no stale previous-Q carry into next snapshot",
+      "ok": true
+    },
+    {
+      "name": "broken early-pause pattern would drop finals (sanity)",
+      "ok": true
+    },
+    {
+      "name": "50 distinct snapshots",
+      "ok": true
+    },
+    {
+      "name": "rolling bar survives 50 finals without empty",
+      "ok": true
+    },
+    {
+      "name": "rolling cap respected",
+      "ok": true
+    }
+  ],
+  "snapshotSample": [
+    "Q1 What is concept number 1 in system design?",
+    "Q2 What is concept number 2 in system design?",
+    "Q3 What is concept number 3 in system design?",
+    "Q49 What is concept number 49 in system design?",
+    "Q50 What is concept number 50 in system design?"
+  ]
+}

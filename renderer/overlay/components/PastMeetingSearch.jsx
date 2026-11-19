@@ -22,14 +22,23 @@ function PastMeetingSearch({ onAskWithContext, disabled = false }) {
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState([])
   const [busy, setBusy] = useState(false)
+  /** The query the current results belong to — "No matches" is only true once a search for it has run. */
+  const [searched, setSearched] = useState('')
+  const [failed, setFailed] = useState(false)
 
   const runSearch = useCallback(async () => {
     const q = query.trim()
     if (!q || !ipc) return
     setBusy(true)
+    setFailed(false)
     try {
       const r = await ipc.invoke('memory:search-past-meetings', q)
       setHits(Array.isArray(r?.hits) ? r.hits : [])
+      setSearched(q)
+    } catch {
+      setHits([])
+      setSearched('')
+      setFailed(true)
     } finally {
       setBusy(false)
     }
@@ -109,8 +118,10 @@ function PastMeetingSearch({ onAskWithContext, disabled = false }) {
             </li>
           ))}
         </ul>
-      ) : query.trim() && !busy ? (
-        <p className="mt-2 text-[10px] text-zinc-600">No matches in saved sessions.</p>
+      ) : failed && !busy ? (
+        <p className="mt-2 text-[10px] text-zinc-500" role="status">Search failed. Try again.</p>
+      ) : searched && searched === query.trim() && !busy ? (
+        <p className="mt-2 text-[10px] text-zinc-600" role="status">No matches in saved sessions.</p>
       ) : null}
     </div>
   )

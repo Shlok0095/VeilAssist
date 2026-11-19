@@ -1,0 +1,43 @@
+{
+  "at": "2026-11-19T13:01:22.731Z",
+  "pass": 9,
+  "fail": 0,
+  "results": [
+    {
+      "name": "memory choices match IM [30,60,120,180]",
+      "pass": true
+    },
+    {
+      "name": "answered_questions limit clamp(seconds/15,3,12)",
+      "pass": true
+    },
+    {
+      "name": "transcript tail chars = seconds * 15",
+      "pass": true
+    },
+    {
+      "name": "answered_questions empty placeholder",
+      "pass": true
+    },
+    {
+      "name": "personal info gate: definition skips",
+      "pass": true
+    },
+    {
+      "name": "personal info gate: behavioral attaches",
+      "pass": true
+    },
+    {
+      "name": "personal info appendix shape",
+      "pass": true
+    },
+    {
+      "name": "IM dart contains overlap markers",
+      "pass": true
+    },
+    {
+      "name": "our CV PDF size constant is 10MB (IM)",
+      "pass": true
+    }
+  ]
+}

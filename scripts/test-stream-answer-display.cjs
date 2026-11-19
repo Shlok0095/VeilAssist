@@ -1,16 +1,11 @@
 #!/usr/bin/env node
 /**
- * Overlay stream display — Natively-style plain text while generating.
+ * Overlay stream display — InterviewMan paints markdown into the helper bubble live (A.mz / gpt_markdown).
  * Usage: node scripts/test-stream-answer-display.cjs
  */
 const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
-const {
-  stripMarkdownForStreamDisplay,
-  splitStreamTakeaway,
-  streamPreviewIntervalFor,
-} = require('../renderer/overlay/streamAnswerDisplay.js')
 
 let passed = 0
 let failed = 0
@@ -26,52 +21,49 @@ function test(name, fn) {
   }
 }
 
-console.log('\n── Stream answer display ──\n')
+console.log('\n── Stream answer display (InterviewMan live markdown) ──\n')
 
-test('strips markdown fences and bold', () => {
-  const raw = '**Takeaway:** Use a hash map.\n\n```python\nx = 1\n```'
-  const plain = stripMarkdownForStreamDisplay(raw)
-  assert(!plain.includes('**'), plain)
-  assert(!plain.includes('```'), plain)
-  assert(plain.includes('Use a hash map'), plain)
-  assert(plain.includes('x = 1'), plain)
+const panel = fs.readFileSync(
+  path.join(__dirname, '..', 'renderer', 'overlay', 'components', 'ResponsePanel.jsx'),
+  'utf8',
+)
+const app = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'overlay', 'App.jsx'), 'utf8')
+const streamHelper = fs.readFileSync(
+  path.join(__dirname, '..', 'renderer', 'overlay', 'streamAnswerDisplay.js'),
+  'utf8',
+)
+
+test('StreamingAnswerPreview renders MarkdownNodes (not stripped plain text)', () => {
+  assert(panel.includes('function StreamingAnswerPreview'), 'StreamingAnswerPreview exists')
+  assert(panel.includes('<MarkdownNodes nodes={nodes}'), 'live stream uses MarkdownNodes')
+  assert(
+    !/StreamingAnswerPreview[\s\S]{0,900}stripMarkdownForStreamDisplay/.test(panel),
+    'stream preview must not strip markdown like the old Natively path',
+  )
+  assert(panel.includes('normalizeInterviewAnswerMarkdown'), 'IM-style bullet/Takeaway normalize before paint')
 })
 
-test('splitStreamTakeaway extracts first paragraph', () => {
-  const raw = 'Lead with a direct answer.\n\nThen explain the approach in detail.'
-  const { takeaway, rest } = splitStreamTakeaway(raw)
-  assert.strictEqual(takeaway, 'Lead with a direct answer.')
-  assert.ok(rest.includes('explain the approach'))
+test('bullet glyph • becomes "- " before parse (IM cZb display path)', () => {
+  assert(panel.includes("replace(/^([ \\t]*)•[ \\t]+/gm, '$1- ')"), '• → - marker')
 })
 
-test('splitStreamTakeaway handles single paragraph', () => {
-  const { takeaway, rest } = splitStreamTakeaway('Only one block here.')
-  assert.strictEqual(takeaway, 'Only one block here.')
-  assert.strictEqual(rest, '')
+test('splitStreamTakeaway is not used for live stream layout', () => {
+  assert(!panel.includes('splitStreamTakeaway'), 'no takeaway split on live stream')
 })
 
-test('streamPreviewIntervalFor is one display frame (InterviewMan paints every chunk)', () => {
-  assert.strictEqual(streamPreviewIntervalFor(100), 16)
-  assert.strictEqual(streamPreviewIntervalFor(3000), 16)
-  assert.strictEqual(streamPreviewIntervalFor(8000), 16)
+test('streamPreviewIntervalFor remains one display frame', () => {
+  assert(streamHelper.includes('STREAM_PREVIEW_INTERVAL_MS = 16'))
 })
 
-test('overlay paints the stream on rAF and follows the growing bubble', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'overlay', 'App.jsx'), 'utf8')
+test('overlay paints the stream on rAF', () => {
   assert(app.includes('window.requestAnimationFrame'), 'stream preview uses rAF')
   assert(app.includes('cancelStreamPreviewFlush'), 'pending frames are cancelled on commit')
-  const panel = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'overlay', 'components', 'ResponsePanel.jsx'), 'utf8')
   assert(panel.includes('container.scrollTop = Math.max(0, blockBottom - container.clientHeight + 12)'))
   assert(!panel.includes('STREAM_SCROLL_MAX_STEP_PX'), 'no stepped 28px scroll lag')
-  assert(!panel.includes('splitStreamTakeaway'), 'live stream is one growing bubble, not a takeaway split')
   assert(panel.includes('STREAM_SCROLL_AWAY_PX = 50'), 'user scroll away pauses follow, like InterviewMan')
   assert(panel.includes('followPausedRef'), 'auto-scroll does not yank back after Ctrl+Shift+Up')
-  assert(
-    panel.includes('const followStream = false'),
-    'answer auto-scroll retired — stream never follows',
-  )
+  assert(panel.includes('const followStream = false'), 'answer auto-scroll retired — stream never follows')
   assert(app.includes('autoAnswerStream={autoAnswerStream}'), 'overlay passes auto-answer stream flag')
-  assert(!app.includes('overlayAnswerAutoScroll={overlayAnswerAutoScroll &&'), 'manual Ctrl+Enter is not gated at the setting prop')
 })
 
 console.log(`\n${passed}/${passed + failed} passed`)

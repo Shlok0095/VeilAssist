@@ -1,0 +1,27 @@
+{
+  "at": "2026-11-19T13:01:22.614Z",
+  "pass": 5,
+  "fail": 0,
+  "results": [
+    {
+      "name": "CV PDF max is 10MB (IM)",
+      "pass": true
+    },
+    {
+      "name": "library caps at 20 and keeps active",
+      "pass": true
+    },
+    {
+      "name": "unsupported association: interview personal block only when gated",
+      "pass": true
+    },
+    {
+      "name": "corrupted empty CV path messages exist",
+      "pass": true
+    },
+    {
+      "name": "create temp multi-file fixtures for later UI runs",
+      "pass": true
+    }
+  ]
+}

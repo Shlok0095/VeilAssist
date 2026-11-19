@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-All shortcuts are **global** (work while other apps are focused) and **customizable** in **Settings → Keybinds**.
+All shortcuts are **global** (work while other apps are focused) and **customizable** in **Settings → Shortcuts**.
 
 Defaults below use **Ctrl** on Windows (shown as `Ctrl`; macOS builds would use `Cmd`).
 
@@ -42,7 +42,7 @@ Defaults below use **Ctrl** on Windows (shown as `Ctrl`; macOS builds would use 
 
 ## Customizing
 
-1. Open **Settings → Keybinds**.
+1. Open **Settings → Shortcuts**.
 2. Click a row and press your desired key combination.
 3. Conflicts show a warning — pick a unique combo.
 4. **Reset to defaults** restores the table above.

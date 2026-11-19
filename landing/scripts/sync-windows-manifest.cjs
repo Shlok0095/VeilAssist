@@ -35,8 +35,11 @@ function compareCompactVersions(a, b) {
 }
 
 function compactToDotted(compact) {
-  const [y, md, hm] = String(compact).replace(/^v/, '').split('.')
-  if (!y || !md || !hm) return String(compact)
+  const s = String(compact).replace(/^v/, '')
+  // Semver product versions (e.g. 1.0.0) — keep as-is for display + release tags.
+  if (/^\d+\.\d+\.\d+$/.test(s)) return s
+  const [y, md, hm] = s.split('.')
+  if (!y || !md || !hm) return s
   const mdNum = Number(md)
   const hmNum = Number(hm)
   const month = Math.floor(mdNum / 100)

@@ -15,7 +15,7 @@ function TitleBarButton({ onClick, title, children, danger }) {
       title={title}
       onClick={onClick}
       className={`flex h-9 w-11 shrink-0 items-center justify-center transition-colors hover:bg-[var(--bg-subtle-hover)] ${
-        danger ? 'hover:bg-red-600 hover:text-white' : ''
+        danger ? 'hover:bg-[var(--danger-mid,#dc2626)] hover:text-white' : ''
       }`}
       style={{ ...noDrag, color: 'var(--text-tertiary)' }}
     >
@@ -64,7 +64,7 @@ export default function SettingsWindowFrame({ children }) {
             draggable={false}
             className="settings-title-logo pointer-events-none h-[18px] w-[18px] shrink-0 object-contain"
           />
-          <span className="truncate text-[11px] font-medium" style={{ color: 'var(--text-primary)' }}>{name}</span>
+          <span className="truncate text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>{name}</span>
         </div>
 
         <div className="flex shrink-0 items-stretch" style={noDrag}>

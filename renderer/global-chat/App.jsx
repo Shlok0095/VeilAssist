@@ -47,9 +47,7 @@ export default function App() {
   }, [resetStreamDom])
 
   useEffect(() => {
-    ipc?.invoke('get-store', 'uiAccentTheme').then((id) => {
-      applyUiAccentTheme(document.documentElement, normalizeUiAccentId(id))
-    })
+    applyUiAccentTheme(document.documentElement, 'im')
   }, [])
 
   useEffect(() => {
@@ -222,7 +220,7 @@ export default function App() {
         * { box-sizing: border-box; }
         body {
           margin: 0;
-          font-family: "Segoe UI", system-ui, sans-serif;
+          font-family: var(--font-ui, "Poppins", "Segoe UI", system-ui, sans-serif);
           background: #0a0a0b;
           color: #fafafa;
         }

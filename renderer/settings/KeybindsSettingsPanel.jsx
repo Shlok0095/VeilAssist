@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { DEFAULT_HOTKEYS_MAP, HOTKEY_DEFS } from './settingsConstants'
 import { ConfirmDialog, SettingsCollapsible, SettingsPage, SettingsRow, SettingsSection } from './SettingsComponents'
 import { createIpcShim } from '../shared/ipcShim'
+import { describeAccelerator, displayKeyLabel, normalizeAccelerator, validateAccelerator } from './hotkeyUtils'
 
 const ipc = createIpcShim()
 
@@ -24,36 +25,6 @@ function parseAccelerator(acc) {
   const raw = String(acc || '').trim()
   if (!raw) return []
   return raw.split('+').filter(Boolean)
-}
-
-function displayKeyLabel(part) {
-  const p = String(part || '')
-  if (
-    p === 'CommandOrControl' ||
-    p === 'CmdOrCtrl' ||
-    p === 'Control' ||
-    p === 'Command' ||
-    p === 'Meta' ||
-    p === 'Super'
-  ) {
-    return '⌘'
-  }
-  if (p === 'Shift') return '⇧'
-  if (p === 'Alt' || p === 'Option') return '⌥'
-  if (p === 'Return' || p === 'Enter') return '↵'
-  if (p === 'Escape') return '⎋'
-  if (p === 'Backspace') return '⌫'
-  if (p === 'Delete') return '⌦'
-  if (p === 'Tab') return '⇥'
-  if (p === 'ArrowUp' || p === 'Up') return '↑'
-  if (p === 'ArrowDown' || p === 'Down') return '↓'
-  if (p === 'ArrowLeft' || p === 'Left') return '←'
-  if (p === 'ArrowRight' || p === 'Right') return '→'
-  if (p === 'PageUp') return 'PageUp'
-  if (p === 'PageDown') return 'PageDown'
-  if (p === ' ') return 'Space'
-  if (p === 'Plus') return '+'
-  return p
 }
 
 function codeToElectronKey(e) {
@@ -114,7 +85,7 @@ function buildAccelerator(mods, main) {
   return [...mods, main].join('+')
 }
 
-function HotkeyCombo({ value, onCommit }) {
+function HotkeyCombo({ value, label, onCommit, onEditingChange }) {
   const [editing, setEditing] = useState(false)
   const [draftMods, setDraftMods] = useState([])
   const [draftMain, setDraftMain] = useState(null)
@@ -127,6 +98,10 @@ function HotkeyCombo({ value, onCommit }) {
   const showParts = displayMain ? [...displayMods, displayMain] : displayMods
   // Only show "key" placeholder when there is no main key yet
   const showPlaceholder = editing && !displayMain
+
+  useEffect(() => {
+    onEditingChange?.(editing)
+  }, [editing, onEditingChange])
 
   useEffect(() => {
     if (!editing) return undefined
@@ -209,7 +184,11 @@ function HotkeyCombo({ value, onCommit }) {
       ref={rootRef}
       type="button"
       className={`hotkey-combo ${editing ? 'hotkey-combo-editing' : ''}`}
-      aria-label={editing ? 'Recording shortcut' : `Shortcut ${showParts.map(displayKeyLabel).join(' + ')}`}
+      aria-label={
+        editing
+          ? `Recording shortcut for ${label}. Press the new keys, or Escape to cancel.`
+          : `${label}: ${describeAccelerator(value)}. Activate to change.`
+      }
       onClick={startEdit}
     >
       {showParts.length === 0 && !showPlaceholder ? (
@@ -231,19 +210,70 @@ function HotkeyCombo({ value, onCommit }) {
   )
 }
 
-function HotkeyRow({ action, label, hotkeysMap, onHotkeyCommit }) {
+function HotkeyRow({ action, label, hotkeysMap, onHotkeyCommit, onResetOne, failure }) {
   const value = hotkeysMap[action] ?? DEFAULT_HOTKEYS_MAP[action] ?? ''
-  const commit = useCallback((next) => onHotkeyCommit?.(action, next), [action, onHotkeyCommit])
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState(false)
+  const isDefault = normalizeAccelerator(value) === normalizeAccelerator(DEFAULT_HOTKEYS_MAP[action])
+
+  const commit = useCallback(
+    async (next) => {
+      // Validate here so an invalid combination never reaches the store or the OS registration.
+      const check = validateAccelerator(next, action, hotkeysMap, {
+        defs: HOTKEY_DEFS,
+        defaults: DEFAULT_HOTKEYS_MAP,
+      })
+      if (!check.ok) {
+        setError(check.message)
+        return
+      }
+      setError('')
+      const result = await onHotkeyCommit?.(action, next)
+      if (result && result.ok === false) setError(result.error || 'Could not register that shortcut.')
+    },
+    [action, hotkeysMap, onHotkeyCommit],
+  )
+
+  const reset = async () => {
+    setError('')
+    const result = await onResetOne?.(action)
+    if (result && result.ok === false) setError(result.error || 'Could not restore the default shortcut.')
+  }
+
+  const onEditingChange = useCallback((next) => {
+    setEditing(next)
+    if (next) setError('')
+  }, [])
+
   return (
-    <SettingsRow label={label}>
-      <HotkeyCombo value={value} onCommit={commit} />
+    <SettingsRow
+      label={label}
+      hint={editing ? 'Press the new key combination. Escape cancels.' : undefined}
+      error={error || (failure ? 'Not active: Windows or another app may already be using this shortcut.' : '')}
+      anchor={`hotkey-${action}`}
+    >
+      <div className="flex items-center justify-end gap-3">
+        {!isDefault ? (
+          <button
+            type="button"
+            className="settings-reset-link"
+            onClick={() => void reset()}
+            aria-label={`Reset ${label} to ${describeAccelerator(DEFAULT_HOTKEYS_MAP[action])}`}
+          >
+            Reset
+          </button>
+        ) : null}
+        <HotkeyCombo value={value} label={label} onCommit={commit} onEditingChange={onEditingChange} />
+      </div>
     </SettingsRow>
   )
 }
 
 export default function KeybindsSettingsPanel({
   hotkeysMap,
+  hotkeyFailures,
   onHotkeyCommit,
+  onResetOneHotkey,
   onResetAllHotkeys,
 }) {
   const [confirmResetAll, setConfirmResetAll] = useState(false)
@@ -264,8 +294,8 @@ export default function KeybindsSettingsPanel({
   }, [])
 
   return (
-    <SettingsPage title="Keybinds" description="Click a shortcut, then press the new keys.">
-      <SettingsSection title="Shortcuts">
+    <SettingsPage title="Shortcuts" description="Select a shortcut, then press the new keys. Include Ctrl, Alt or Shift.">
+      <SettingsSection title="Global shortcuts" description="Work from any app while the overlay is running." anchor="shortcuts">
         <div className="mb-1 flex justify-end">
           <button
             type="button"
@@ -283,6 +313,8 @@ export default function KeybindsSettingsPanel({
               label={label}
               hotkeysMap={hotkeysMap}
               onHotkeyCommit={onHotkeyCommit}
+              onResetOne={onResetOneHotkey}
+              failure={hotkeyFailures?.[action]}
             />
           ))}
         </div>
@@ -297,6 +329,8 @@ export default function KeybindsSettingsPanel({
               label={label}
               hotkeysMap={hotkeysMap}
               onHotkeyCommit={onHotkeyCommit}
+              onResetOne={onResetOneHotkey}
+              failure={hotkeyFailures?.[action]}
             />
           ))}
         </div>
@@ -309,8 +343,8 @@ export default function KeybindsSettingsPanel({
         confirmLabel="Restore defaults"
         onCancel={() => setConfirmResetAll(false)}
         onConfirm={() => {
-          onResetAllHotkeys()
           setConfirmResetAll(false)
+          void onResetAllHotkeys?.()
         }}
       />
     </SettingsPage>

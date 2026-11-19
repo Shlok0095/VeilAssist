@@ -10,8 +10,13 @@ const {
   setStoreGetter,
   startListening,
   stopListening,
+  isWorkerLinkError,
+  RECOGNIZE_DEADLINE_MS,
+  WORKER_LINK_RECONNECT_MS,
+  DEFAULT_FUNCTION_ID,
 } = require('../lib/nvidiaNimStt')
 const { resolveSttConfigForProvider } = require('../lib/transcriptionRouting')
+const fsSrc = fs.readFileSync(path.join(__dirname, '..', 'lib', 'nvidiaNimStt.js'), 'utf8')
 
 class FakeStreamingCall extends EventEmitter {
   constructor() {
@@ -155,4 +160,22 @@ test('bundled Riva protocol loads the hosted streaming client', async () => {
   const result = await startListening()
   assert.deepEqual(result, { ok: true, streaming: true })
   stopListening()
+})
+
+test('NVCF worker-link errors are detected and Recognize uses long deadline + retries', () => {
+  assert.equal(
+    isWorkerLinkError({
+      code: 4,
+      message: '4 DEADLINE_EXCEEDED: reason:"failed to establish link to worker"',
+    }),
+    true,
+  )
+  assert.equal(isWorkerLinkError({ code: 12, message: 'UNIMPLEMENTED' }), false)
+  assert.ok(RECOGNIZE_DEADLINE_MS >= 60000)
+  assert.ok(WORKER_LINK_RECONNECT_MS >= 5000)
+  assert.match(fsSrc, /RECOGNIZE_MAX_ATTEMPTS/)
+  assert.match(fsSrc, /grpcCallOptions\(RECOGNIZE_DEADLINE_MS\)/)
+  assert.match(fsSrc, /streamConnectChain/)
+  assert.match(fsSrc, /unaryFallbackChain/)
+  assert.equal(DEFAULT_FUNCTION_ID, '71203149-d3b7-4460-8231-1be2543a1fca')
 })

@@ -23,7 +23,6 @@ import {
   rebuildSpeechBufferFromSegments,
   lastSpeechTimestampFromSegments,
 } from '../../lib/transcriptConsume.js'
-import LiveTranscriptPanel from './components/LiveTranscriptPanel'
 import RollingTranscript from './components/RollingTranscript'
 import AppIcon from '../shared/AppIcon'
 import { applyUiAccentTheme, normalizeUiAccentId } from '../shared/uiAccentThemes'
@@ -51,7 +50,7 @@ import {
   watchMediaStream,
 } from '../shared/audioCaptureRecovery'
 import { parseTranscriptEchoForDisplay } from '../shared/formatTranscriptEcho'
-import { effectiveMinSpeechChars, fontSizeFromAnswerLength, overlayDisplayStyleFromFormat } from '../shared/interviewSettings'
+import { effectiveMinSpeechChars } from '../shared/interviewSettings'
 import { isLikelySelfReadback, spokenQuestionRemainder, stripSelfReadback } from '../shared/selfReadback'
 import { collapseRepeatedTurns, commitFinalSegment, isStaleDetectionTranscript } from '../shared/sttRevision'
 import { isUtteranceReadyForAutoAnswer, estimatedAnswerReadbackHoldMs } from '../shared/utteranceReady'
@@ -116,7 +115,7 @@ const COLLAPSED_H = PILL_H + 1
 /** Compact shell while the first-run audio consent card is shown (notch + gap + modal card). */
 const CONSENT_SHELL_H = PILL_H + STACK_GAP + 188
 const MIN_ASK_GAP_MS = 2000
-/** ~1.5s VAD slices — merge then send to Whisper. */
+/** ~1.5s VAD slices — same cadence as 2026.11.01.03.01 (tighter slices felt choppy). */
 const STT_SLICE_MS = 1500
 const STT_BATCH_FAST_MS = 2500
 /** Groq/OpenAI renderer: hold through mid-sentence pauses (was 220/320 — too fragmenty). */
@@ -175,6 +174,7 @@ function capMessages(list) {
   return list.length > MAX_RETAINED_MESSAGES ? list.slice(list.length - MAX_RETAINED_MESSAGES) : list
 }
 
+/** Debounce live-caption React updates — refs stay synchronous for Ask snapshots. */
 /** Debounce live-caption React updates — refs stay synchronous for Ask snapshots. */
 const LIVE_TRANSCRIPT_UI_MS = 120
 
@@ -243,7 +243,7 @@ function assignChunkSpeaker(trimmedChunk, silenceBeforeMs, lastSpeakerRef) {
 /**
  * Build the LLM user-turn prompt.
  * mode='audio'  → transcribing mode (speech trigger): full transcript, screen is supporting.
- * mode='screen' → non-transcribing mode (Ctrl+Enter / screen trigger): screen only, NO stale audio.
+ * mode='screen' → Ctrl+Enter / screen trigger: screenshot is primary; transcript is supporting only.
  * mode='typed'  → user typed a question: typed question + both contexts as support.
  */
 function buildStructuredUserPrompt({ rawSpeech, micFallback, screenText, typedQuestion, mode = 'audio' }) {
@@ -317,65 +317,90 @@ function ResizeHandle({ edge, onResizeEnd, onResizeStart, onResizeStop }) {
     document.documentElement.classList.add('overlay-resizing')
     ipc?.send('overlay-resize-start')
     onResizeStart?.()
-    ipc?.invoke('get-window-bounds').then((bounds) => {
-      if (!bounds) {
-        document.documentElement.classList.remove('overlay-resizing')
-        ipc?.send('overlay-resize-end')
-        onResizeStop?.()
-        return
-      }
-      const right = bounds.x + bounds.width
-      let pending = null
-      let rafId = null
-      const flushPending = () => {
-        rafId = null
-        const next = pending
-        pending = null
-        if (!next) return
-        if (next.x != null) ipc?.send('overlay:resize-live', next.w, next.h, next.x)
-        else ipc?.send('overlay:resize-live', next.w, next.h)
-      }
-      const onMove = (mv) => {
-        const dx = mv.screenX - startX
-        const dy = mv.screenY - startY
-        let w = bounds.width
-        let h = bounds.height
-        let x = null
 
-        if (edge === 'right') {
-          w = Math.max(280, Math.min(860, bounds.width + dx))
-        } else if (edge === 'left') {
-          w = Math.max(280, Math.min(860, bounds.width - dx))
-          x = right - w
-        } else if (edge === 'bottom') {
-          h = Math.max(200, Math.min(940, bounds.height + dy))
-        } else if (edge === 'se') {
-          w = Math.max(280, Math.min(860, bounds.width + dx))
-          h = Math.max(200, Math.min(940, bounds.height + dy))
-        } else if (edge === 'sw') {
-          w = Math.max(280, Math.min(860, bounds.width - dx))
-          h = Math.max(200, Math.min(940, bounds.height + dy))
-          x = right - w
+    // `mouseup` is registered synchronously: a quick click can be released before get-window-bounds resolves,
+    // and a listener added only after that IPC would never fire — leaving the overlay stuck in resize mode.
+    let released = false
+    let finished = false
+    let onMove = null
+    let activeFinish = null
+    const onUp = () => {
+      released = true
+      document.removeEventListener('mouseup', onUp)
+      if (activeFinish) activeFinish()
+    }
+    document.addEventListener('mouseup', onUp)
+
+    /** Nothing was resized (no bounds, released early, or the IPC failed): just leave resize mode cleanly. */
+    const abortResize = () => {
+      if (finished) return
+      finished = true
+      document.removeEventListener('mouseup', onUp)
+      document.documentElement.classList.remove('overlay-resizing')
+      ipc?.send('overlay-resize-end')
+      onResizeStop?.()
+    }
+
+    Promise.resolve(ipc?.invoke('get-window-bounds'))
+      .then((bounds) => {
+        if (!bounds || released) {
+          abortResize()
+          return
         }
+        const right = bounds.x + bounds.width
+        let pending = null
+        let rafId = null
+        const flushPending = () => {
+          rafId = null
+          const next = pending
+          pending = null
+          if (!next) return
+          if (next.x != null) ipc?.send('overlay:resize-live', next.w, next.h, next.x)
+          else ipc?.send('overlay:resize-live', next.w, next.h)
+        }
+        onMove = (mv) => {
+          const dx = mv.screenX - startX
+          const dy = mv.screenY - startY
+          let w = bounds.width
+          let h = bounds.height
+          let x = null
 
-        pending = { w: Math.round(w), h: Math.round(h), x: x != null ? Math.round(x) : null }
-        if (rafId == null) rafId = requestAnimationFrame(flushPending)
-      }
-      const finish = () => {
-        if (rafId != null) cancelAnimationFrame(rafId)
-        flushPending()
-        document.documentElement.classList.remove('overlay-resizing')
-        ipc?.send('overlay-resize-end')
-        onResizeStop?.()
-        ipc?.invoke('get-window-bounds').then((b) => {
-          if (b && b.height > COLLAPSED_H) onResizeEnd?.(b)
-        })
-        document.removeEventListener('mousemove', onMove)
-        document.removeEventListener('mouseup', finish)
-      }
-      document.addEventListener('mousemove', onMove)
-      document.addEventListener('mouseup', finish)
-    })
+          if (edge === 'right') {
+            w = Math.max(280, Math.min(860, bounds.width + dx))
+          } else if (edge === 'left') {
+            w = Math.max(280, Math.min(860, bounds.width - dx))
+            x = right - w
+          } else if (edge === 'bottom') {
+            h = Math.max(200, Math.min(940, bounds.height + dy))
+          } else if (edge === 'se') {
+            w = Math.max(280, Math.min(860, bounds.width + dx))
+            h = Math.max(200, Math.min(940, bounds.height + dy))
+          } else if (edge === 'sw') {
+            w = Math.max(280, Math.min(860, bounds.width - dx))
+            h = Math.max(200, Math.min(940, bounds.height + dy))
+            x = right - w
+          }
+
+          pending = { w: Math.round(w), h: Math.round(h), x: x != null ? Math.round(x) : null }
+          if (rafId == null) rafId = requestAnimationFrame(flushPending)
+        }
+        activeFinish = () => {
+          if (finished) return
+          finished = true
+          if (rafId != null) cancelAnimationFrame(rafId)
+          flushPending()
+          document.documentElement.classList.remove('overlay-resizing')
+          ipc?.send('overlay-resize-end')
+          onResizeStop?.()
+          ipc?.invoke('get-window-bounds').then((b) => {
+            if (b && b.height > COLLAPSED_H) onResizeEnd?.(b)
+          })
+          document.removeEventListener('mousemove', onMove)
+          document.removeEventListener('mouseup', onUp)
+        }
+        document.addEventListener('mousemove', onMove)
+      })
+      .catch(() => abortResize())
   }, [edge, onResizeEnd, onResizeStart, onResizeStop])
 
   const style =
@@ -412,7 +437,13 @@ function IncognitoGlyph() {
  * Rolling caption bar — subscribes to the live-transcript store directly so the
  * ~80ms rolling-bar updates only re-render this slot, not the whole overlay tree.
  */
-function TranscriptBarSlot({ sessionOn, sttLivePhase, sysCaptureActive, micCaptureActive }) {
+function TranscriptBarSlot({
+  sessionOn,
+  showTranscript,
+  sttLivePhase,
+  sysCaptureActive,
+  micCaptureActive,
+}) {
   const rollingBar = useRollingBar()
 
   if (!sessionOn) {
@@ -420,6 +451,15 @@ function TranscriptBarSlot({ sessionOn, sttLivePhase, sysCaptureActive, micCaptu
       <div className="crystal-caption-idle">
         <span className="crystal-caption-idle-dot" aria-hidden />
         <span>Listening off</span>
+      </div>
+    )
+  }
+  // Show transcript off — hide caption text only; STT / Ask keep running.
+  if (!showTranscript) {
+    return (
+      <div className="crystal-caption-idle">
+        <span className="crystal-caption-idle-dot" aria-hidden />
+        <span>Listening</span>
       </div>
     )
   }
@@ -723,21 +763,21 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [isThinking, setIsThinking] = useState(false)
   const [activeFooterAction, setActiveFooterAction] = useState(null)
-  const [opacity, setOpacity] = useState(0.92)
+  const [opacity, setOpacity] = useState(0.7)
   const [fontSize, setFontSize] = useState('medium')
-  const [answerStyle, setAnswerStyle] = useState('brief')
+  // InterviewMan: answer panel is always markdown (detailed). Response Format only affects the Ask prompt.
+  const [answerStyle, setAnswerStyle] = useState('detailed')
   const [overlayAnswerView, setOverlayAnswerView] = useState('latest')
   const [overlayTeleprompter, setOverlayTeleprompter] = useState(false)
   const [overlayFocusMode, setOverlayFocusMode] = useState(false)
   const [overlayLiveTranscriptEnabled, setOverlayLiveTranscriptEnabled] = useState(true)
-  const [overlayTranscriptAutoScroll, setOverlayTranscriptAutoScroll] = useState(true)
   const [overlayAnswerPinToTop, setOverlayAnswerPinToTop] = useState(true)
   const [overlayAnswerAutoScroll, setOverlayAnswerAutoScroll] = useState(false)
   /** Retired with auto-answer — always false so ResponsePanel never follows the stream. */
   const [autoAnswerStream, setAutoAnswerStream] = useState(false)
   const [globalMeetingSearchEnabled, setGlobalMeetingSearchEnabled] = useState(false)
   const [focusInputOpen, setFocusInputOpen] = useState(false)
-  const answerStyleRef = useRef('brief')
+  const answerStyleRef = useRef('detailed')
   const lastAskRef = useRef({ q: null, opts: {} })
   const streamPreviewFlushRef = useRef(null)
   const liveTranscriptUiFlushRef = useRef(null)
@@ -997,9 +1037,6 @@ export default function App() {
     })
   }, [])
 
-  /** Drop delayed STT finals that would re-fill the panel after a flush. */
-  const suppressTranscriptUntilRef = useRef(0)
-
   const clearRollingSpeech = useCallback(() => {
     if (speechTriggerDelayRef.current != null) {
       clearTimeout(speechTriggerDelayRef.current)
@@ -1025,11 +1062,11 @@ export default function App() {
     rollingByChannelRef.current = { mic: '', sys: '' }
     answerCompletedAtRef.current = 0
     rollingBarDisplayRef.current = { text: '', label: '', speaker: 'other' }
-    // Keep mic/latest refs in sync — otherwise the next Ask still sees the old text.
+    // Align with 2026.11.01.03.01 flush timing, but also wipe mic/latest refs so the next
+    // Ask cannot reuse stale combined text. Do not suppress live STT — that blackout made
+    // captions feel stuck compared with the working package.
     micTranscriptRef.current = ''
     latestTranscriptRef.current = ''
-    // Late Whisper/local finals from the previous utterance often arrive after clear.
-    suppressTranscriptUntilRef.current = Date.now() + 2000
     if (liveTranscriptUiFlushRef.current != null) {
       clearTimeout(liveTranscriptUiFlushRef.current)
       liveTranscriptUiFlushRef.current = null
@@ -1427,14 +1464,17 @@ export default function App() {
 
   /**
    * Paint the helper bubble on the next frame (InterviewMan updates the message on every SSE chunk).
+   * Double-rAF coalesces back-to-back IPC token batches into one React commit for smoother paint.
    * Full BriefAnswer layout is applied on commit only.
    */
   const scheduleStreamPreviewFlush = useCallback(() => {
     if (streamPreviewFlushRef.current != null) return
     streamPreviewFlushRef.current = window.requestAnimationFrame(() => {
-      streamPreviewFlushRef.current = null
-      if (!streamDomAcceptingRef.current) return
-      setStreamPreviewText(streamAccumRef.current)
+      streamPreviewFlushRef.current = window.requestAnimationFrame(() => {
+        streamPreviewFlushRef.current = null
+        if (!streamDomAcceptingRef.current) return
+        setStreamPreviewText(streamAccumRef.current)
+      })
     })
   }, [])
 
@@ -1789,24 +1829,22 @@ export default function App() {
 
   useEffect(() => {
     if (!ipc) return
-    ipc.invoke('get-store', 'uiAccentTheme').then((id) => applyUiAccentTheme(document.documentElement, normalizeUiAccentId(id)))
+    // InterviewMan helper blue only — ignore multi-accent presets.
+    applyUiAccentTheme(document.documentElement, 'im')
     ipc.invoke('get-store', 'overlayOpacity').then((o) => o != null && setOpacity(o))
-    Promise.all([
-      ipc.invoke('get-store', 'answerLength'),
-      ipc.invoke('get-store', 'responseFormat'),
-    ]).then(([length, responseFormat]) => {
-      setFontSize(fontSizeFromAnswerLength(length))
-      const derivedStyle = overlayDisplayStyleFromFormat(responseFormat)
-      answerStyleRef.current = derivedStyle
-      setAnswerStyle(derivedStyle)
+    // Font Size and answer panel layout are independent of Answer Length / Response Format (InterviewMan).
+    ipc.invoke('get-store', 'overlayFontSize').then((fs) => {
+      if (fs === 'small' || fs === 'medium' || fs === 'large') setFontSize(fs)
     })
+    // Always markdown panel (detailed) — Response Format only changes the Ask prompt.
+    answerStyleRef.current = 'detailed'
+    setAnswerStyle('detailed')
     ipc.invoke('get-store', 'overlayAnswerView').then((v) =>
       setOverlayAnswerView(v === 'history' ? 'history' : 'latest'),
     )
     ipc.invoke('get-store', 'overlayTeleprompter').then((v) => setOverlayTeleprompter(v === true))
     ipc.invoke('get-store', 'overlayFocusMode').then((v) => setOverlayFocusMode(v === true))
     ipc.invoke('get-store', 'overlayLiveTranscriptEnabled').then((v) => setOverlayLiveTranscriptEnabled(v !== false))
-    ipc.invoke('get-store', 'overlayTranscriptAutoScroll').then((v) => setOverlayTranscriptAutoScroll(v !== false))
     ipc.invoke('get-store', 'overlayAnswerPinToTop').then((v) => setOverlayAnswerPinToTop(v !== false))
     ipc.invoke('get-store', 'globalMeetingSearchEnabled').then((v) => setGlobalMeetingSearchEnabled(v === true))
     ipc.invoke('get-store', 'overlayMousePassthroughEnabled').then((v) =>
@@ -1843,14 +1881,18 @@ export default function App() {
     if (!ipc) return
     const onDisplay = (_, p) => {
       if (p?.overlayOpacity != null) setOpacity(p.overlayOpacity)
-      if (p?.overlayFontSize) setFontSize(p.overlayFontSize)
+      if (p?.overlayFontSize === 'small' || p?.overlayFontSize === 'medium' || p?.overlayFontSize === 'large') {
+        setFontSize(p.overlayFontSize)
+      }
+      // Response Format updates prompt only — keep markdown panel (InterviewMan).
       if (p?.responseFormat === 'bullets' || p?.responseFormat === 'conversational' || p?.responseFormat === 'example') {
-        const derivedStyle = overlayDisplayStyleFromFormat(p.responseFormat)
-        answerStyleRef.current = derivedStyle
-        setAnswerStyle(derivedStyle)
-      } else if (p?.answerStyle === 'brief' || p?.answerStyle === 'detailed') {
-        answerStyleRef.current = p.answerStyle
-        setAnswerStyle(p.answerStyle)
+        answerStyleRef.current = 'detailed'
+        setAnswerStyle('detailed')
+      }
+      if (p?.answerStyle === 'brief' || p?.answerStyle === 'detailed') {
+        // Ignore legacy brief Takeaway layout for answer display.
+        answerStyleRef.current = 'detailed'
+        setAnswerStyle('detailed')
       }
       if (p?.overlayAnswerView === 'latest' || p?.overlayAnswerView === 'history') {
         setOverlayAnswerView(p.overlayAnswerView)
@@ -1858,7 +1900,6 @@ export default function App() {
       if (p?.overlayTeleprompter != null) setOverlayTeleprompter(!!p.overlayTeleprompter)
       if (p?.overlayFocusMode != null) setOverlayFocusMode(!!p.overlayFocusMode)
       if (p?.overlayLiveTranscriptEnabled != null) setOverlayLiveTranscriptEnabled(!!p.overlayLiveTranscriptEnabled)
-      if (p?.overlayTranscriptAutoScroll != null) setOverlayTranscriptAutoScroll(!!p.overlayTranscriptAutoScroll)
       if (p?.overlayAnswerPinToTop != null) setOverlayAnswerPinToTop(!!p.overlayAnswerPinToTop)
       if (p?.overlayAnswerAutoScroll != null) {
         overlayAnswerAutoScrollRef.current = false
@@ -2168,8 +2209,8 @@ export default function App() {
         audioPathsRef.current.hasMic = true
       } else {
         streamRef._sys?.getTracks().forEach((t) => t.stop())
-        let sys = null
-        try {
+      let sys = null
+      try {
           sys = await acquireSystemAudioStream()
         } catch {
           return
@@ -2451,9 +2492,9 @@ export default function App() {
       if (!spec.stream?.active) return
       pendingStops += 1
       const mr = new MediaRecorder(spec.stream, recOpts)
-      const chunks = []
-      mr.ondataavailable = (e) => e.data?.size > 0 && chunks.push(e.data)
-      mr.onstop = () => {
+    const chunks = []
+    mr.ondataavailable = (e) => e.data?.size > 0 && chunks.push(e.data)
+    mr.onstop = () => {
         pendingStops -= 1
         if (pendingStops <= 0) {
           chunkEnergyRef.current.active = false
@@ -2551,22 +2592,6 @@ export default function App() {
     if (!trimmedChunk) return
 
     const tChunk = Date.now()
-    // Manual Ask flush: ignore STT that would rebuild the rolling transcript while an
-    // answer is in flight, during the echo-guard, or inside the post-clear suppress window.
-    // (Auto-answer is retired; this path is the normal Ctrl+Enter / typed Ask flow.)
-    const manualAskBusy =
-      lastAskWasAutoRef.current !== true &&
-      (responseLockRef.current ||
-        isProcessingAskRef.current ||
-        isThinkingRef.current ||
-        micPausedForAskRef.current ||
-        tChunk < suppressTranscriptUntilRef.current)
-    if (manualAskBusy) {
-      const key = audioPathKey === 'sys' ? 'sys' : audioPathKey === 'mic' ? 'mic' : null
-      if (key) pathSpeechAtRef.current[key] = tChunk
-      return
-    }
-
     const silenceBeforeMs = lastSpeechTimeRef.current > 0 ? tChunk - lastSpeechTimeRef.current : 0
     let speaker
     if (audioPathKey === 'mic') { speaker = 'me'; lastSpeakerRef.current = 'me' }
@@ -2885,7 +2910,7 @@ export default function App() {
             const agg = gated.aggregateLogprob
             if (text && typeof agg === 'number' && Number.isFinite(agg) && agg < hardMin) text = ''
           } else {
-            text = String(j.text || j.transcription || '').trim()
+          text = String(j.text || j.transcription || '').trim()
           }
         } catch {
           return
@@ -3113,10 +3138,15 @@ export default function App() {
     handleAskRef.current?.(null, { auto: true, source: 'screen' })
   }, [])
 
+  /**
+   * Starts an ask. Returns `false` when the ask was rejected up front (response in flight, busy, session off,
+   * or inside the minimum gap) and `true` once it has been accepted and started — so callers such as the
+   * input box can keep the user's typed text instead of clearing it for a request that never ran.
+   */
   const handleAsk = useCallback(
     (q, opts = {}) => {
       // Auto-answer permanently disabled — ignore auto triggers from leftover schedulers.
-      if (opts.auto === true) return
+      if (opts.auto === true) return false
       const isAuto = false
       const isScreenRead = opts.source === 'screen-read' || opts.source === 'screen'
       const assistSource = isScreenRead
@@ -3129,13 +3159,13 @@ export default function App() {
       lastAskWasAutoRef.current = false
       if (responseLockRef.current) {
         if (import.meta.env.DEV) console.log('BLOCKED: response in-flight')
-        return
+        return false
       }
       if (isThinkingRef.current) {
         if (import.meta.env.DEV) console.log('BLOCKED: already processing')
-        return
+        return false
       }
-      if (isProcessingAskRef.current) return
+      if (isProcessingAskRef.current) return false
       let trimmed = q?.trim() || null
       let skillSlug = opts.skillSlug || null
       const skillInvoke = trimmed ? parseSkillInvoke(trimmed) : null
@@ -3144,35 +3174,34 @@ export default function App() {
         trimmed = skillInvoke.question || null
       }
       const hasText = !!(trimmed && trimmed.length > 0)
-      if (!sessionOnRef.current) return
-      if (!isAuto && Date.now() - lastAskTimeRef.current < MIN_ASK_GAP_MS) return
+      if (!sessionOnRef.current) return false
+      if (!isAuto && Date.now() - lastAskTimeRef.current < MIN_ASK_GAP_MS) return false
 
       const hasSpeechBuff = String(speechBufferRef.current || '').trim().length > 0
 
       if (isAuto) {
-        if (!hasText && !hasSpeechBuff) return
+        if (!hasText && !hasSpeechBuff) return false
 
         if (assistSource === 'speech-failsafe') {
           const sp = String(speechBufferRef.current || '').trim()
-          if (sp.length <= 20) return
+          if (sp.length <= 20) return false
         } else if (assistSource !== 'screen') {
           const sp = String(speechBufferRef.current || '').trim()
-          if (sp.length < minSpeechLengthRef.current) return
+          if (sp.length < minSpeechLengthRef.current) return false
         }
       }
 
       bypassCaptureOnceRef.current = false
 
       lastAskRef.current = { q: q?.trim() || null, opts: { source: opts.source, auto: isAuto, skillSlug } }
-      if (!isAuto) micPausedForAskRef.current = true
+      // Do NOT set micPausedForAskRef before STT flush — paused/readback gates must not drop
+      // the flushed finals that belong in this Ask snapshot (2026.11.01.03.01 timing).
 
       void (async () => {
         try {
           if (isProcessingAskRef.current || isThinkingRef.current || responseLockRef.current) return
 
           isProcessingAskRef.current = true
-          // Echo guard is Ctrl+Enter only. Auto-answer keeps recording like InterviewMan.
-          if (!isAuto) micPausedForAskRef.current = true
 
           // Close the active utterance before taking the immutable Ask snapshot. Capture remains
           // live, so speech arriving after this watermark belongs to the next turn.
@@ -3217,6 +3246,8 @@ export default function App() {
           const transcriptWatermarkAt = Date.now()
           const isManualAsk = !isAuto
           const isVisionAsk = isManualAsk && !opts.noScreen && !trimmed
+          // Echo guard AFTER flush+snapshot only — Ctrl+Enter; auto keeps recording like IM.
+          if (isManualAsk) micPausedForAskRef.current = true
           if (isThinkingRef.current || responseLockRef.current) {
             isProcessingAskRef.current = false
             micPausedForAskRef.current = false
@@ -3232,8 +3263,7 @@ export default function App() {
           // Assemble speech context for this turn.
           const hasSpeechSnapshot =
             !!bufferedSpeech || segmentSnapshot.some((segment) => String(segment?.text || '').trim())
-          // Ctrl+Enter still attaches the screen, but a current spoken question remains primary.
-          // A genuinely screen-only trigger keeps the screen-led behavior.
+          // Ctrl+Enter is screen-led (NIM multimodal). Speech stays attached as supporting context.
           const {
             promptMode,
             assistTrigger,
@@ -3246,6 +3276,7 @@ export default function App() {
             fallbackAssistSource: assistSource,
           })
           const maxSegs = isManualAsk ? MAX_LLM_SEGMENTS_MANUAL : MAX_LLM_SEGMENTS
+          // Always include recent speech with vision asks so cut-off on-screen text can be completed.
           const includeSpeechWithScreen = isVisionAsk || !isScreenRead
           const preparedTranscript = buildPreparedTranscriptContext(segmentSnapshot, { maxTurns: maxSegs })
           const legacyTranscript =
@@ -3291,8 +3322,8 @@ export default function App() {
 
           if (hasText || skillSlug) {
             setMessages((m) => capMessages([...m, { role: 'user', text: q?.trim() || `/${skillSlug}`, id: ++msgId.current }]))
-            scrollBottom()
-          }
+        scrollBottom()
+      }
 
           lastAskTimeRef.current = Date.now()
           perfAskT0Ref.current = Date.now()
@@ -3320,12 +3351,6 @@ export default function App() {
             _llmTriggerAt: perfAskT0Ref.current,
           }
 
-          // Snapshot is already captured above — wipe the live transcript immediately so
-          // the panel empties as soon as Ask starts (not only after the model finishes).
-          if (isManualAsk) {
-            clearRollingSpeech()
-          }
-
           let leftoverAfterAuto = ''
           try {
             responseLockRef.current = true
@@ -3334,9 +3359,10 @@ export default function App() {
             }
             const askP = ipc?.invoke('ask-ai-with-transcript', trimmed, transcriptToSend, meta)
             const askResult = askP ? await askP : null
-            // Manual asks: wipe again after the turn settles (covers any race that
-            // slipped past the in-flight suppress gate).
-            if (isManualAsk) {
+            // Match 2026.11.01.03.01: wipe live transcript only after a successful manual ask.
+            // Clearing mid-flight + STT suppress made captions lag / stick vs that package.
+            // onThinking(false) also clears for Ctrl+Enter once the answer commits.
+            if (askResult?.ok === true && isManualAsk) {
               clearRollingSpeech()
             }
             // Auto-answer only (not Ctrl+Enter): judge leftover speech after this answer.
@@ -3387,12 +3413,23 @@ export default function App() {
           micPausedForAskRef.current = false
         }
       })()
+      return true
     },
     [scrollBottom, applySpeechSilenceWindow, clearRollingSpeech],
   )
   useEffect(() => {
     handleAskRef.current = handleAsk
   }, [handleAsk])
+
+  /** Input-box submit: close the focus-mode input only for an accepted ask, and report acceptance back. */
+  const handleInputAsk = useCallback(
+    (text, opts) => {
+      const accepted = handleAsk(text, opts || {})
+      if (accepted !== false && overlayFocusMode) setFocusInputOpen(false)
+      return accepted
+    },
+    [handleAsk, overlayFocusMode],
+  )
 
   useEffect(() => {
     answerStyleRef.current = answerStyle
@@ -3593,9 +3630,9 @@ export default function App() {
           ref={notchRef}
           data-overlay-hit=""
           className="crystal-pill crystal-notch-shell crystal-overlay-bounded relative z-20 shrink-0 overflow-hidden"
-        >
-          <StatusBar
-            sessionOn={sessionOn}
+    >
+      <StatusBar
+        sessionOn={sessionOn}
             onToggleSession={onToggleSession}
             onOpenSettings={onOpenSettings}
             onQuit={quitApp}
@@ -3658,9 +3695,11 @@ export default function App() {
                     </div>
                   ) : null}
                 </div>
-                <div className="crystal-transcript-bar min-w-0 flex-1" aria-live="polite">
+                {/* Live captions update several times a second: announcing each one would drown out the answers. */}
+                <div className="crystal-transcript-bar min-w-0 flex-1" aria-live="off">
                   <TranscriptBarSlot
                     sessionOn={sessionOn}
+                    showTranscript={overlayLiveTranscriptEnabled}
                     sttLivePhase={sttLivePhase}
                     sysCaptureActive={sysCaptureActive}
                     micCaptureActive={micCaptureActive}
@@ -3697,12 +3736,6 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              {sessionOn && overlayLiveTranscriptEnabled ? (
-                <LiveTranscriptPanel
-                  autoScroll={overlayTranscriptAutoScroll}
-                  className="border-t border-white/[0.06]"
-                />
-              ) : null}
             </div>
 
             <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -3772,10 +3805,7 @@ export default function App() {
                 ) : (
                   <InputBar
                     ref={inputBarRef}
-                    onAsk={(t, opts) => {
-                      handleAsk(t, opts || {})
-                      if (overlayFocusMode) setFocusInputOpen(false)
-                    }}
+                    onAsk={handleInputAsk}
                     onAbort={onAbortGeneration}
                     isThinking={isThinking}
                     sessionOn={sessionOn}

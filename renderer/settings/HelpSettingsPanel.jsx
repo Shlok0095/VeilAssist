@@ -25,15 +25,15 @@ const FAQ = [
   },
   {
     q: 'What happens when I stop Listen?',
-    a: 'Unless Do not save meetings is on in General, a session recap is saved under Meeting.',
+    a: 'Unless "Don\'t save meeting recaps" is on in Privacy, a session recap is saved under Meetings.',
   },
   {
     q: 'Where is debug logging?',
-    a: 'General → Verbose debug logging. A toast shows the log file path when enabled.',
+    a: 'General > Diagnostics > Verbose debug logging. A toast shows the log file path when enabled.',
   },
   {
     q: 'Stealth and content protection?',
-    a: 'When enabled in General, the overlay is harder to capture in screen shares.',
+    a: 'When "Hide from screen capture" is on in Privacy, the overlay is harder to capture in screen shares.',
   },
 ]
 
@@ -75,7 +75,7 @@ export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
 
   return (
     <SettingsPage title="Help" description="FAQ, user guide, and troubleshooting.">
-      <SettingsSection title="FAQ">
+      <SettingsSection title="FAQ" anchor="faq">
         <ul className="space-y-4">
           {FAQ.map((item) => (
             <li key={item.q}>
@@ -86,7 +86,7 @@ export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
         </ul>
       </SettingsSection>
 
-      <SettingsSection title="Full guide">
+      <SettingsSection title="Full guide" anchor="guide">
         <div className="mb-3 flex justify-end">
           <button type="button" onClick={() => void loadDoc()} className="btn-ghost flex items-center gap-1.5 px-3 py-1.5 text-[12px]">
             <AppIcon icon={RefreshCw} size={12} />
@@ -96,7 +96,7 @@ export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
         {loading ? (
           <p className="text-[13px] text-zinc-400">Loading…</p>
         ) : err ? (
-          <p className="text-[13px] text-rose-300">{err}</p>
+          <p className="text-[13px] text-danger">{err}</p>
         ) : (
           <div className="settings-guide">
             {chapters.length ? (
@@ -115,11 +115,11 @@ export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
         )}
       </SettingsSection>
 
-      <SettingsSection title="Troubleshooting">
+      <SettingsSection title="Troubleshooting" anchor="troubleshooting">
         <div className="space-y-3 text-[13px] text-zinc-400">
           <p>
-            Enable <strong className="font-semibold text-zinc-200">Verbose debug logging</strong> in{' '}
-            <button type="button" className="font-medium text-zinc-200 underline hover:text-white" onClick={() => onSelectTab?.('display')}>
+            Enable <strong className="font-semibold text-zinc-200">Verbose debug logging</strong> under Diagnostics in{' '}
+            <button type="button" className="font-medium text-zinc-200 underline hover:text-white" onClick={() => onSelectTab?.('display', 'diagnostics')}>
               General
             </button>
             , reproduce the issue, then open the log file.

@@ -12,7 +12,7 @@ const {
 const { modeTemplateFromPrompt, planAnswer } = require('../lib/answerPlanner')
 const { routeContext } = require('../lib/contextRouter')
 
-test('spoken question stays primary when Ctrl+Enter also captures the screen', () => {
+test('Ctrl+Enter with speech stays screen-led so NIM vision actually reads the screen', () => {
   assert.deepEqual(
     resolveAskContextPriority({
       isVisionAsk: true,
@@ -20,8 +20,8 @@ test('spoken question stays primary when Ctrl+Enter also captures the screen', (
       fallbackAssistSource: 'speech',
     }),
     {
-      promptMode: 'audio',
-      assistTrigger: 'speech',
+      promptMode: 'screen',
+      assistTrigger: 'screen',
       speechLedVisionAsk: true,
     },
   )

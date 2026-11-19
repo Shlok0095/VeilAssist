@@ -5,12 +5,15 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createIpcShim } from '../shared/ipcShim'
 import SettingsTabContent from './SettingsTabContent'
 import { SettingsNav, normalizeSettingsTabId, parseSettingsQuery } from './settingsNav.jsx'
-import { DEFAULT_HOTKEYS_MAP } from './settingsConstants'
+import { DEFAULT_HOTKEYS_MAP, HOTKEY_DEFS, OVERLAY_SIZE_LIMITS } from './settingsConstants'
+import { describeAccelerator } from './hotkeyUtils'
+import { trackSave } from './saveTracker'
+import { emitSettingsToast, onSettingsToast } from './settingsToast'
+import { focusSettingsAnchor } from './settingsFocus'
 import { toDateKey, friendlyCalendarError } from './settingsFormatters'
 import SettingsWindowFrame from './SettingsWindowFrame'
 import { SettingsLoadingSkeleton } from './SettingsComponents'
 import brandLogo from '../shared/brandLogo'
-import { fontSizeFromAnswerLength } from '../shared/interviewSettings'
 import { applyColorScheme, watchSystemColorScheme } from '../shared/colorScheme'
 
 const ipc = createIpcShim()
@@ -44,7 +47,12 @@ function basename(filePath) {
   return p.split('/').pop() || 'file'
 }
 
-const save = (k, v) => ipc?.invoke('set-store', k, v)
+// Every store write goes through trackSave, which raises an error toast if the write fails (there is no
+// "saved" indicator — settings apply immediately). It returns the original promise, so callers keep their
+// own await / .then behaviour.
+const save = (k, v) => trackSave(ipc?.invoke('set-store', k, v), k)
+
+const CALENDAR_CACHE_MS = 5 * 60 * 1000
 
 function useSettingsQuery() {
   return useMemo(() => parseSettingsQuery(window.location.search), [])
@@ -65,7 +73,13 @@ export default function Settings() {
   const [testByProvider, setTestByProvider] = useState({})
   const [testingProvider, setTestingProvider] = useState(null)
   const [activeTab, setActiveTab] = useState(() => settingsQuery.tab)
-  const [advanceOpenSection, setAdvanceOpenSection] = useState(() => settingsQuery.section)
+  // Which row to scroll to / focus after a tab change (deep link or search result). nonce re-triggers it.
+  const [focusTarget, setFocusTarget] = useState(() => ({ section: settingsQuery.section, nonce: 0 }))
+  const mainRef = useRef(null)
+  const firstFocusPassRef = useRef(true)
+  const calendarCacheRef = useRef({ statusAt: 0, status: null, meetingsAt: 0 })
+  const toastTimerRef = useRef(null)
+  const [hotkeyFailures, setHotkeyFailures] = useState({})
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true)
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [micSensitivity, setMicSensitivity] = useState('standard')
@@ -99,6 +113,7 @@ export default function Settings() {
   const resumeSourceNameRef = useRef('')
   const resumeSaveTimerRef = useRef(null)
   const jdSaveTimerRef = useRef(null)
+  const customInstructionsSaveTimerRef = useRef(null)
   resumeContextRef.current = resumeContext
   jdContextRef.current = jdContext
   resumeSourceNameRef.current = resumeSourceName
@@ -117,7 +132,7 @@ export default function Settings() {
   const [listModelsLoadingId, setListModelsLoadingId] = useState(null)
   const [listModelsErrByProvider, setListModelsErrByProvider] = useState({})
 
-  const [overlayOpacityUi, setOverlayOpacityUi] = useState(0.92)
+  const [overlayOpacityUi, setOverlayOpacityUi] = useState(0.7)
   const [overlayFontUi, setOverlayFontUi] = useState('medium')
   const [answerStructureUi, setAnswerStructureUi] = useState('star')
   const [responseFormatUi, setResponseFormatUi] = useState('bullets')
@@ -157,7 +172,6 @@ export default function Settings() {
   const [overlayAnswerPinToTopUi, setOverlayAnswerPinToTopUi] = useState(true)
   const [overlayMousePassthroughUi, setOverlayMousePassthroughUi] = useState(false)
   const [hideFromTaskbarUi, setHideFromTaskbarUi] = useState(false)
-  const [uiAccentThemeUi, setUiAccentThemeUi] = useState('blue')
   // null = "preference not loaded yet". The inline theme-init.js <head> script already
   // applied the correct data-color-scheme for first paint (main resolved it from the same
   // store, synchronously, before this window was even shown) — leave it untouched until the
@@ -166,6 +180,17 @@ export default function Settings() {
   const [uiColorSchemeUi, setUiColorSchemeUi] = useState(null)
   const [settingsToast, setSettingsToast] = useState(null)
   const [profileSaveStatus, setProfileSaveStatus] = useState('idle')
+
+  const showToast = useCallback((payload) => {
+    if (!payload || typeof payload !== 'object') return
+    setSettingsToast(payload)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    const ms = Number(payload.durationMs) || (payload.tone === 'error' ? 10000 : payload.tone === 'success' ? 4000 : 8000)
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null
+      setSettingsToast((cur) => (cur === payload ? null : cur))
+    }, ms)
+  }, [])
 
   useEffect(() => {
     if (uiColorSchemeUi == null) return undefined
@@ -204,15 +229,32 @@ export default function Settings() {
   const effectiveDateKey = selectedCalendarDate || availableDateKeys[0] || ''
   const meetingsForSelectedDate = effectiveDateKey ? meetingsByDate.get(effectiveDateKey) || [] : []
 
-  const refreshCalendarMeetings = async () => {
+  const applyCalendarStatus = (status) => {
+    setGoogleCalendarConnectedEmail(status?.connectedEmail || '')
+    setGoogleCalendarOAuthReady(status?.oauthReady === true)
+    setGoogleCalendarUsingEmbeddedOAuth(status?.usingEmbeddedOAuth === true)
+  }
+
+  /**
+   * Loads calendar status and upcoming meetings. Results are cached for a few minutes, so revisiting the
+   * Meetings tab does not hit Google again; pass { force: true } (Refresh button, connect, disconnect) to bypass.
+   */
+  const refreshCalendarMeetings = async (opts) => {
     if (!ipc) return
+    const force = opts?.force === true
+    const cache = calendarCacheRef.current
+    const fresh = (at) => !force && at > 0 && Date.now() - at < CALENDAR_CACHE_MS
+    if (fresh(cache.statusAt) && (!cache.status?.connected || fresh(cache.meetingsAt))) return
     setCalendarErr('')
     setCalendarEventsLoading(true)
     try {
-      const status = await ipc.invoke('google-calendar:get-status')
-      setGoogleCalendarConnectedEmail(status?.connectedEmail || '')
-      setGoogleCalendarOAuthReady(status?.oauthReady === true)
-      setGoogleCalendarUsingEmbeddedOAuth(status?.usingEmbeddedOAuth === true)
+      let status = fresh(cache.statusAt) ? cache.status : null
+      if (!status) {
+        status = await ipc.invoke('google-calendar:get-status')
+        cache.status = status
+        cache.statusAt = Date.now()
+      }
+      applyCalendarStatus(status)
       if (!status?.connected) {
         setCalendarMeetings([])
         return
@@ -220,6 +262,7 @@ export default function Settings() {
       const res = await ipc.invoke('google-calendar:list-upcoming')
       if (!res?.ok) throw new Error(res?.error || 'Could not load meetings')
       const meetings = Array.isArray(res.meetings) ? res.meetings : []
+      cache.meetingsAt = Date.now()
       setCalendarMeetings(meetings)
       if (!selectedCalendarDate) {
         const firstDate = toDateKey(meetings[0]?.start)
@@ -241,7 +284,7 @@ export default function Settings() {
         const id = String(googleCalendarClientId || '').trim()
         const secret = String(googleCalendarClientSecret || '').trim()
         if (!id || !secret || secret === '••••••••') {
-          throw new Error('No OAuth credentials configured. Use Developer setup below or set env vars and rebuild.')
+          throw new Error('Google Calendar is not set up in this build. Open Developer setup below and add your OAuth credentials.')
         }
         await save('googleCalendarClientId', id)
         await save('googleCalendarClientSecret', secret)
@@ -250,7 +293,7 @@ export default function Settings() {
       setGoogleCalendarConnectedEmail(res?.connectedEmail || '')
       setGoogleCalendarOAuthReady(true)
       setGoogleCalendarClientSecret('••••••••')
-      await refreshCalendarMeetings()
+      await refreshCalendarMeetings({ force: true })
     } catch (e) {
       setCalendarErr(friendlyCalendarError(e?.message || 'Google Calendar connect failed'))
     } finally {
@@ -273,6 +316,7 @@ export default function Settings() {
     setCalendarConnectBusy(true)
     try {
       await ipc.invoke('google-calendar:disconnect')
+      calendarCacheRef.current = { statusAt: 0, status: null, meetingsAt: 0 }
       setGoogleCalendarConnectedEmail('')
       setCalendarMeetings([])
     } catch (e) {
@@ -284,13 +328,20 @@ export default function Settings() {
 
   useEffect(() => {
     if (!ipc) return
+    // One batch: the three non-critical lookups swallow their own errors so they can never block the window.
     Promise.all([
       ipc.invoke('get-all-settings'),
       ipc.invoke('get-provider-metadata'),
       ipc.invoke('get-stt-provider-metadata'),
       ipc.invoke('get-hotkeys'),
+      ipc.invoke('get-chat-model-catalog').catch(() => null),
+      ipc.invoke('get-stt-policy').catch(() => null),
+      ipc.invoke('get-app-info').catch(() => null),
     ])
-      .then(([s, meta, sttMeta, hk]) => {
+      .then(([s, meta, sttMeta, hk, cat, pol, info]) => {
+        setModelCatalog(cat && typeof cat === 'object' ? cat : {})
+        setSttPolicy(pol)
+        if (info?.version) setAppVersion(String(info.version))
         setSnap(s)
         setProviderMeta(meta || [])
         setSttProviderMeta(sttMeta || [])
@@ -314,7 +365,6 @@ export default function Settings() {
         setOverlayAnswerPinToTopUi(s.overlayAnswerPinToTop !== false)
         setOverlayMousePassthroughUi(s.overlayMousePassthroughEnabled === true)
         setHideFromTaskbarUi(s.hideFromTaskbarEnabled === true)
-        setUiAccentThemeUi(String(s.uiAccentTheme || 'blue'))
         setUiColorSchemeUi(
           s.uiColorScheme === 'light' || s.uiColorScheme === 'dark' ? s.uiColorScheme : 'system',
         )
@@ -347,7 +397,7 @@ export default function Settings() {
           setDraftNotesSections(notesSectionsFromPrompt(activeP))
         }
         const ob = s.overlayBounds || {}
-        setOverlayOpacityUi(typeof s.overlayOpacity === 'number' ? s.overlayOpacity : 0.92)
+        setOverlayOpacityUi(typeof s.overlayOpacity === 'number' ? s.overlayOpacity : 0.7)
         setOverlayFontUi(s.overlayFontSize || 'medium')
         setAnswerStructureUi(s.answerStructure === 'car' || s.answerStructure === 'soar' || s.answerStructure === 'par' || s.answerStructure === 'soara' ? s.answerStructure : 'star')
         setResponseFormatUi(s.responseFormat === 'conversational' || s.responseFormat === 'example' ? s.responseFormat : 'bullets')
@@ -382,19 +432,6 @@ export default function Settings() {
         }
       })
       .catch(console.error)
-    ipc.invoke('get-app-info')
-      .then((info) => {
-        if (info?.version) setAppVersion(String(info.version))
-      })
-      .catch(() => {})
-    ipc.invoke('google-calendar:get-status')
-      .then((status) => {
-        if (!status) return
-        setGoogleCalendarOAuthReady(status.oauthReady === true)
-        setGoogleCalendarUsingEmbeddedOAuth(status.usingEmbeddedOAuth === true)
-        if (status.connectedEmail) setGoogleCalendarConnectedEmail(status.connectedEmail)
-      })
-      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -418,20 +455,10 @@ export default function Settings() {
     void refreshCalendarMeetings()
   }, [activeTab])
 
-  useEffect(() => {
-    if (!ipc) return
-    Promise.all([ipc.invoke('get-chat-model-catalog'), ipc.invoke('get-stt-policy')])
-      .then(([cat, pol]) => {
-        setModelCatalog(cat && typeof cat === 'object' ? cat : {})
-        setSttPolicy(pol)
-      })
-      .catch(console.error)
-  }, [])
-
   const selectSettingsTab = useCallback((tabId, section = '') => {
-    const nextTab = normalizeSettingsTabId(tabId)
-    setActiveTab(nextTab)
-    if (section) setAdvanceOpenSection(String(section).toLowerCase())
+    const nextSection = String(section || '').trim().toLowerCase()
+    setActiveTab(normalizeSettingsTabId(tabId, nextSection))
+    setFocusTarget({ section: nextSection, nonce: Date.now() })
   }, [])
 
   useEffect(() => {
@@ -446,7 +473,7 @@ export default function Settings() {
   }, [selectSettingsTab])
 
   useEffect(() => {
-    if (isFirstRunWindow) setActiveTab('advance')
+    if (isFirstRunWindow) setActiveTab('ai')
   }, [isFirstRunWindow])
 
   useEffect(() => {
@@ -456,32 +483,95 @@ export default function Settings() {
     const unsubDisplay = ipc.on('overlay-display-update', (_, p) => {
     })
     // ipcShim listeners receive (event, ...args) — payload is the second argument.
-    const unsubToast = ipc.on('settings-toast', (_, payload) => {
-      if (!payload || typeof payload !== 'object') return
-      setSettingsToast(payload)
-      const ms = Number(payload.durationMs) || 8000
-      window.setTimeout(() => {
-        setSettingsToast((cur) => (cur === payload ? null : cur))
-      }, ms)
-    })
+    // ipcShim listeners receive (event, ...args): the payload is the SECOND argument. (Verified against
+    // preload.js `on` + ipcShim `on` + main's sendToSettingsWindow('settings-toast', payload).)
+    const unsubToast = ipc.on('settings-toast', (_, payload) => showToast(payload))
     return () => {
       unsubStealth?.()
       unsubDisplay?.()
       unsubToast?.()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showToast is stable
+  }, [])
+
+  // In-window feedback (save errors, export results, resets) shares the same toast.
+  useEffect(() => {
+    const off = onSettingsToast(showToast)
+    return () => {
+      off()
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showToast is stable
   }, [])
 
   useEffect(() => {
     if (isFirstRunWindow && snap && !hasCompletedOnboarding) {
-      setActiveTab('advance')
+      setActiveTab('ai')
     }
   }, [isFirstRunWindow, snap, hasCompletedOnboarding])
 
   const showSetupBanner = isFirstRunWindow && !hasCompletedOnboarding
 
-  const saveKey = (storeKey, val, providerId) => {
-    if (!val?.trim()) return
-    save(storeKey, val.trim())
+  const activeTabId = normalizeSettingsTabId(activeTab)
+
+  // After a tab change: scroll to the requested row (search / deep link) or to the top and move focus to the
+  // page heading, so keyboard and screen-reader users land on the new page instead of the old nav button.
+  useEffect(() => {
+    if (!snap) return undefined
+    const root = mainRef.current
+    if (!root) return undefined
+    const initialPass = firstFocusPassRef.current
+    firstFocusPassRef.current = false
+    const section = focusTarget.section
+    let tries = 0
+    let raf = 0
+    const attempt = () => {
+      // Lazy tabs (Meetings, Phone) mount a frame or two later.
+      if (!root.querySelector('[data-settings-page]')) {
+        if (tries++ < 40) raf = requestAnimationFrame(attempt)
+        return
+      }
+      if (section && focusSettingsAnchor(root, section)) return
+      root.scrollTop = 0
+      if (!initialPass) root.querySelector('.settings-page-title')?.focus({ preventScroll: true })
+    }
+    raf = requestAnimationFrame(attempt)
+    return () => cancelAnimationFrame(raf)
+  }, [activeTabId, focusTarget, !!snap])
+
+  // Shortcuts tab: surface shortcuts that are saved but not actually registered with Windows.
+  useEffect(() => {
+    if (!ipc || activeTabId !== 'keybinds') return undefined
+    let cancelled = false
+    ipc
+      .invoke('hotkeys:status')
+      .then((status) => {
+        if (cancelled) return
+        const failures = {}
+        for (const [action, reg] of Object.entries(status?.registration || {})) {
+          if (reg && reg.ok === false && reg.error !== 'suspended') failures[action] = reg.error || 'not registered'
+        }
+        setHotkeyFailures(failures)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [activeTabId, hotkeysMap])
+
+  /**
+   * Saves an API key. Resolves true only after the store write succeeded (the field clears and the
+   * "Saved" badge appears then, not before); false on an empty key or a failed write (the save error
+   * itself is already surfaced by the tracked `save`).
+   */
+  const saveKey = async (storeKey, val, providerId) => {
+    const key = String(val || '').trim()
+    if (!key) return false
+    try {
+      await save(storeKey, key)
+    } catch {
+      return false
+    }
     if (providerId) {
       setSecretByProvider((m) => {
         const next = { ...m }
@@ -492,6 +582,7 @@ export default function Settings() {
     setSttSecretInput('')
     setKeySetMap((k) => ({ ...k, [storeKey]: true }))
     if (providerId) void syncRemoteModelsFor(providerId)
+    return true
   }
 
   const chatOptionsFor = (pId) => {
@@ -542,10 +633,21 @@ export default function Settings() {
       delete n[pId]
       return n
     })
-    // Main process resolves persisted keys when the renderer passes an empty string.
-    const r = await ipc.invoke('test-api', pId, localKey)
-    setTestByProvider((t) => ({ ...t, [pId]: r }))
-    setTestingProvider(null)
+    try {
+      // Main process resolves persisted keys when the renderer passes an empty string.
+      const r = await ipc.invoke('test-api', pId, localKey)
+      setTestByProvider((t) => ({
+        ...t,
+        [pId]: r && typeof r === 'object' ? r : { success: false, error: 'The test returned no result. Try again.' },
+      }))
+    } catch (e) {
+      setTestByProvider((t) => ({
+        ...t,
+        [pId]: { success: false, error: e?.message || 'The connection test failed. Try again.' },
+      }))
+    } finally {
+      setTestingProvider((cur) => (cur === pId ? null : cur))
+    }
   }
 
   const withIndexing = async (fn) => {
@@ -705,19 +807,13 @@ export default function Settings() {
     if (nextActive !== activeId) void save('activeResumeId', nextActive)
   }
 
-  const uploadInterviewResume = async () => {
-    if (!ipc) return
-    setResumeError('')
-    const { canceled, filePaths } = await ipc.invoke('show-open-dialog', {
-      properties: ['openFile'],
-      filters: [{ name: 'Documents', extensions: ['pdf', 'txt', 'md'] }],
-    })
-    if (canceled || !filePaths?.[0]) return
+  const parseInterviewResumePath = async (filePath, sourceName) => {
     setResumeBusy(true)
+    setResumeError('')
     try {
       const result = await ipc.invoke('resume-profile:parse', {
-        filePath: filePaths[0],
-        sourceName: basename(filePaths[0]),
+        filePath,
+        sourceName: sourceName || basename(filePath),
       })
       if (!result?.ok) {
         setResumeError(result?.error || 'Could not extract that resume.')
@@ -733,19 +829,24 @@ export default function Settings() {
     }
   }
 
-  const uploadModeDocument = async (kind, purposeId) => {
+  const uploadInterviewResume = async () => {
     if (!ipc) return
-    setDocumentError('')
+    setResumeError('')
     const { canceled, filePaths } = await ipc.invoke('show-open-dialog', {
       properties: ['openFile'],
       filters: [{ name: 'Documents', extensions: ['pdf', 'txt', 'md'] }],
     })
     if (canceled || !filePaths?.[0]) return
+    await parseInterviewResumePath(filePaths[0], basename(filePaths[0]))
+  }
+
+  const parseModeDocumentPath = async (filePath, sourceName, kind, purposeId) => {
     setDocumentBusy(true)
+    setDocumentError('')
     try {
       const result = await ipc.invoke('mode-document:parse', {
-        filePath: filePaths[0],
-        sourceName: basename(filePaths[0]),
+        filePath,
+        sourceName: sourceName || basename(filePath),
         kind,
         purposeId,
       })
@@ -766,6 +867,17 @@ export default function Settings() {
     } finally {
       setDocumentBusy(false)
     }
+  }
+
+  const uploadModeDocument = async (kind, purposeId) => {
+    if (!ipc) return
+    setDocumentError('')
+    const { canceled, filePaths } = await ipc.invoke('show-open-dialog', {
+      properties: ['openFile'],
+      filters: [{ name: 'Documents', extensions: ['pdf', 'txt', 'md'] }],
+    })
+    if (canceled || !filePaths?.[0]) return
+    await parseModeDocumentPath(filePaths[0], basename(filePaths[0]), kind, purposeId)
   }
 
   const saveMeetingDocuments = async (next, activeId = activeMeetingDocumentId) => {
@@ -795,7 +907,7 @@ export default function Settings() {
     try {
       const text = await ipc.invoke('parse-playbook', filePaths[0])
       if (!String(text || '').trim()) {
-        window.alert('Could not extract text from that file (empty or unsupported).')
+        showToast({ tone: 'error', message: 'Could not read that file', detail: 'It is empty or not a supported document.' })
         return
       }
       if (kind === 'resume') {
@@ -805,7 +917,7 @@ export default function Settings() {
       }
     } catch (e) {
       console.error('[profile] doc upload:', e)
-      window.alert(`Upload failed: ${e?.message || e}`)
+      showToast({ tone: 'error', message: 'Upload failed', detail: String(e?.message || e) })
     } finally {
       setProfileDocBusy(null)
     }
@@ -822,7 +934,7 @@ export default function Settings() {
     try {
       const text = await ipc.invoke('parse-playbook', filePaths[0])
       if (!String(text || '').trim()) {
-        window.alert('Could not extract text from that file (empty or unsupported).')
+        showToast({ tone: 'error', message: 'Could not read that file', detail: 'It is empty or not a supported document.' })
         return
       }
       const file = {
@@ -838,7 +950,7 @@ export default function Settings() {
       await saveContextPrompts(next)
     } catch (e) {
       console.error('[profile] upload reference file:', e)
-      window.alert(`Upload failed: ${e?.message || e}`)
+      showToast({ tone: 'error', message: 'Upload failed', detail: String(e?.message || e) })
     } finally {
       setUploadBusy(false)
     }
@@ -915,14 +1027,16 @@ export default function Settings() {
     }
   }
 
+  // The list-remote-models call goes to the vendor over HTTP, so it only runs while the AI Provider tab is
+  // open, and only once per provider per session (Sync models / saving a key still refresh it on demand).
   useEffect(() => {
-    if (!snap || !providerMeta.length) return
+    if (activeTabId !== 'ai' || !snap || !providerMeta.length) return
     const meta = providerMeta.find((p) => p.id === provider)
-    if (meta?.keyField && keySetMap[meta.keyField]) {
-      void syncRemoteModelsFor(provider)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate model list when provider/key ready
-  }, [snap, provider, providerMeta.length])
+    if (!(meta?.keyField && keySetMap[meta.keyField])) return
+    if (modelListSourceByProvider[provider]) return
+    void syncRemoteModelsFor(provider)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate model list when the tab / provider / key is ready
+  }, [activeTabId, snap, provider, providerMeta.length, keySetMap])
 
   useEffect(() => {
     if (!ipc) return
@@ -968,10 +1082,8 @@ export default function Settings() {
     setResponseFormatUi(next)
     patchSnap('responseFormat', next)
     await save('responseFormat', next)
-    const displayStyle = next === 'bullets' ? 'brief' : 'detailed'
-    patchSnap('answerStyle', displayStyle)
-    await save('answerStyle', displayStyle)
-    await ipc?.invoke('apply-overlay-display', { responseFormat: next, answerStyle: displayStyle })
+    // Response Format → Ask prompt only (InterviewMan). Panel always renders markdown.
+    await ipc?.invoke('apply-overlay-display', { responseFormat: next })
   }
 
   const applyAnswerLength = async (v) => {
@@ -979,10 +1091,7 @@ export default function Settings() {
     setAnswerLengthUi(next)
     patchSnap('answerLength', next)
     await save('answerLength', next)
-    const fs = fontSizeFromAnswerLength(next)
-    setOverlayFontUi(fs)
-    patchSnap('overlayFontSize', fs)
-    await save('overlayFontSize', fs)
+    // Answer Length → prompt/tokens only. Font Size is a separate Overlay control (InterviewMan).
     await ipc?.invoke('apply-overlay-display', { answerLength: next })
   }
 
@@ -1000,18 +1109,30 @@ export default function Settings() {
     await save('aiResponseLanguage', lang)
   }
 
-  const applyInterviewCustomInstructions = async () => {
-    const text = String(interviewCustomInstructionsUi || '').trim().slice(0, 2000)
+  const applyInterviewCustomInstructions = async (raw) => {
+    const source = raw !== undefined ? raw : interviewCustomInstructionsUi
+    const text = String(source || '').trim().slice(0, 2000)
     setInterviewCustomInstructionsUi(text)
     patchSnap('interviewCustomInstructions', text)
     await save('interviewCustomInstructions', text)
   }
 
+  // Persist while typing (debounced). Blur-only save missed Ask if the user never left the field.
   const onInterviewCustomInstructionsChange = (v) => {
-    setInterviewCustomInstructionsUi(String(v || '').slice(0, 2000))
+    const text = String(v || '').slice(0, 2000)
+    setInterviewCustomInstructionsUi(text)
+    if (customInstructionsSaveTimerRef.current) clearTimeout(customInstructionsSaveTimerRef.current)
+    customInstructionsSaveTimerRef.current = setTimeout(() => {
+      customInstructionsSaveTimerRef.current = null
+      void applyInterviewCustomInstructions(text)
+    }, 350)
   }
 
   const onInterviewCustomInstructionsBlur = () => {
+    if (customInstructionsSaveTimerRef.current) {
+      clearTimeout(customInstructionsSaveTimerRef.current)
+      customInstructionsSaveTimerRef.current = null
+    }
     void applyInterviewCustomInstructions()
   }
 
@@ -1069,12 +1190,6 @@ export default function Settings() {
     setHideFromTaskbarUi(!!v)
     patchSnap('hideFromTaskbarEnabled', !!v)
     await save('hideFromTaskbarEnabled', !!v)
-  }
-
-  const applyUiAccentTheme = async (id) => {
-    setUiAccentThemeUi(id)
-    patchSnap('uiAccentTheme', id)
-    await save('uiAccentTheme', id)
   }
 
   const applyUiColorScheme = async (id) => {
@@ -1160,9 +1275,12 @@ export default function Settings() {
     await applyOverlayOpacity(v)
   }
 
-  const applyOverlaySize = async () => {
-    const w = Math.min(860, Math.max(280, Math.round(overlayW)))
-    const h = Math.min(940, Math.max(180, Math.round(overlayH)))
+  const applyOverlaySize = async (wArg, hArg) => {
+    const { minW, maxW, minH, maxH } = OVERLAY_SIZE_LIMITS
+    const wIn = typeof wArg === 'number' && Number.isFinite(wArg) ? wArg : overlayW
+    const hIn = typeof hArg === 'number' && Number.isFinite(hArg) ? hArg : overlayH
+    const w = Math.min(maxW, Math.max(minW, Math.round(wIn)))
+    const h = Math.min(maxH, Math.max(minH, Math.round(hIn)))
     setOverlayW(w)
     setOverlayH(h)
     const prev = snap?.overlayBounds || {}
@@ -1183,45 +1301,109 @@ export default function Settings() {
     }
   }
 
+  /** Registration state main reports for one action, or null when it is registered (or unknown). */
+  const hotkeyRegistrationFailure = async (action) => {
+    try {
+      const status = await ipc.invoke('hotkeys:status')
+      const reg = status?.registration?.[action]
+      if (reg && reg.ok === false && reg.error !== 'suspended') return reg
+    } catch {
+      /* status is advisory */
+    }
+    return null
+  }
+
+  /** @returns {Promise<{ ok: true } | { ok: false, error: string }>} */
   const commitHotkey = async (action, raw) => {
-    if (!ipc) return
+    if (!ipc) return { ok: false, error: 'Shortcuts are not available right now.' }
     const fallback = DEFAULT_HOTKEYS_MAP[action]
-    if (!fallback) return
+    if (!fallback) return { ok: false, error: 'That shortcut is not recognised.' }
     let v = String(raw ?? '').trim()
     if (!v) v = fallback
+    const previous = hotkeysMap[action] || fallback
     try {
-      await ipc.invoke('update-hotkey', action, v)
+      // The Shortcuts page pauses global shortcuts while recording. Resume them first, otherwise nothing
+      // is registered and a refused combination could not be detected.
+      await ipc.invoke('hotkeys:set-suspended', false)
+      const applied = await ipc.invoke('update-hotkey', action, v)
+      if (applied === false) return { ok: false, error: 'That shortcut is not recognised.' }
+      const refused = await hotkeyRegistrationFailure(action)
+      if (refused) {
+        // Windows or another app owns this combination. Put the working shortcut back instead of keeping a dead one.
+        try {
+          await ipc.invoke('update-hotkey', action, previous)
+        } catch {
+          /* best effort */
+        }
+        return {
+          ok: false,
+          error: `${describeAccelerator(v)} could not be registered. Another app may already use it. Pick a different combination.`,
+        }
+      }
       setHotkeysMap((m) => ({ ...m, [action]: v }))
+      return { ok: true }
     } catch (e) {
       console.warn('update-hotkey', e)
+      return { ok: false, error: e?.message || 'Could not save that shortcut.' }
     }
   }
 
-  const resetOneHotkey = async (action) => {
-    const d = DEFAULT_HOTKEYS_MAP[action]
-    if (!ipc || !d) return
-    await ipc.invoke('update-hotkey', action, d)
-    setHotkeysMap((m) => ({ ...m, [action]: d }))
-  }
+  const resetOneHotkey = (action) => commitHotkey(action, DEFAULT_HOTKEYS_MAP[action])
 
   const resetAllHotkeys = async () => {
-    if (!ipc) return
-    for (const action of Object.keys(DEFAULT_HOTKEYS_MAP)) {
-      await ipc.invoke('update-hotkey', action, DEFAULT_HOTKEYS_MAP[action])
+    if (!ipc) return { ok: false }
+    try {
+      await ipc.invoke('hotkeys:set-suspended', false)
+      for (const action of Object.keys(DEFAULT_HOTKEYS_MAP)) {
+        await ipc.invoke('update-hotkey', action, DEFAULT_HOTKEYS_MAP[action])
+      }
+      setHotkeysMap({ ...DEFAULT_HOTKEYS_MAP })
+      let status = null
+      try {
+        status = await ipc.invoke('hotkeys:status')
+      } catch {
+        /* advisory */
+      }
+      const failed = Object.entries(status?.registration || {}).filter(
+        ([, reg]) => reg && reg.ok === false && reg.error !== 'suspended',
+      )
+      if (failed.length) {
+        const names = failed.map(([a]) => HOTKEY_DEFS.find((d) => d.action === a)?.label || a)
+        showToast({
+          tone: 'error',
+          message: `Defaults restored, but ${failed.length} shortcut${failed.length === 1 ? '' : 's'} could not be registered`,
+          detail: names.join(', '),
+        })
+      } else {
+        showToast({ tone: 'success', message: 'Shortcuts restored to defaults', durationMs: 3000 })
+      }
+      return { ok: true }
+    } catch (e) {
+      showToast({ tone: 'error', message: 'Could not restore the default shortcuts', detail: e?.message || String(e) })
+      return { ok: false, error: e?.message }
     }
-    setHotkeysMap({ ...DEFAULT_HOTKEYS_MAP })
   }
 
+  /** @returns {Promise<{ ok: true } | { ok: false, error: string }>} */
   const saveGoogleCalendarOAuth = async () => {
     const id = String(googleCalendarClientId || '').trim()
     const secret = String(googleCalendarClientSecret || '').trim()
-    if (!id) return
-    await save('googleCalendarClientId', id)
-    if (secret && secret !== '••••••••') {
-      await save('googleCalendarClientSecret', secret)
-      setGoogleCalendarClientSecret('••••••••')
+    // The mask means a secret is already stored on this device; an empty field means there is none.
+    const hasStoredSecret = secret === '••••••••'
+    if (!id) return { ok: false, error: 'Enter the OAuth client ID.' }
+    if (!secret) return { ok: false, error: 'Enter the OAuth client secret too. Both are required.' }
+    try {
+      await save('googleCalendarClientId', id)
+      if (!hasStoredSecret) {
+        await save('googleCalendarClientSecret', secret)
+        setGoogleCalendarClientSecret('••••••••')
+      }
+    } catch (e) {
+      return { ok: false, error: e?.message || 'Could not save the credentials.' }
     }
+    calendarCacheRef.current = { statusAt: 0, status: null, meetingsAt: 0 }
     setGoogleCalendarOAuthReady(true)
+    return { ok: true }
   }
 
   const sttKeyField = currentSttMeta?.keyField
@@ -1239,23 +1421,170 @@ export default function Settings() {
   const chatTesting = chatVendor ? testingProvider === chatVendor.id : false
   const chatListLoading = chatVendor ? listModelsLoadingId === chatVendor.id : false
 
+  // Latest-callback ref: handlers below keep a stable identity but always call the freshest closures, so the
+  // memoized Profile page only re-renders when its own data changes (not on save status, toasts or other tabs).
+  const profileApi = useRef({})
+  profileApi.current = {
+    uploadInterviewResume,
+    saveResumeLibrary,
+    activeResumeId,
+    resumeLibrary,
+    uploadModeDocument,
+    saveMeetingDocuments,
+    activeMeetingDocumentId,
+    meetingDocuments,
+    saveGeneralPurposes,
+    generalPurposes,
+    activeGeneralPurposeId,
+    selectContextPrompt,
+    addContextPrompt,
+    addModeFromTemplate,
+    deletePromptById,
+    saveActivePrompt,
+    uploadReferenceFile,
+    removeReferenceFile,
+  }
+  const profileHandlers = useMemo(() => {
+    const api = () => profileApi.current
+    return {
+      onUploadResume: () => void api().uploadInterviewResume(),
+      onSelectResume: (id) => {
+        setActiveResumeId(id)
+        void save('activeResumeId', id)
+      },
+      onChangeResumes: (next) => api().saveResumeLibrary(next, api().activeResumeId),
+      onDeleteResume: (id) =>
+        api().saveResumeLibrary(api().resumeLibrary.filter((resume) => resume.id !== id), api().activeResumeId),
+      onMeetingPromptChange: (text) => {
+        setMeetingPrompt(text)
+        void save('meetingPrompt', text)
+      },
+      onUploadMeetingDocument: () => void api().uploadModeDocument('meeting'),
+      onSelectMeetingDocument: (id) => {
+        setActiveMeetingDocumentId(id)
+        void save('activeMeetingDocumentId', id)
+      },
+      onChangeMeetingDocuments: (next) => api().saveMeetingDocuments(next, api().activeMeetingDocumentId),
+      onDeleteMeetingDocument: (id) =>
+        api().saveMeetingDocuments(
+          api().meetingDocuments.filter((doc) => doc.id !== id),
+          api().activeMeetingDocumentId,
+        ),
+      onCreatePurpose: ({ name, prompt }) => {
+        const id = `purpose-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+        const next = [
+          { id, name, prompt, documents: [], activeDocumentId: '', document: null, createdAt: Date.now(), updatedAt: Date.now() },
+          ...api().generalPurposes,
+        ].slice(0, 20)
+        void api().saveGeneralPurposes(next, id)
+      },
+      onUploadPurposeDocument: (id) => void api().uploadModeDocument('general', id),
+      onSelectPurpose: (id) => {
+        setActiveGeneralPurposeId(id)
+        void save('activeGeneralPurposeId', id)
+      },
+      onChangePurpose: (purpose) =>
+        api().saveGeneralPurposes(
+          api().generalPurposes.map((item) => (item.id === purpose.id ? { ...item, ...purpose, updatedAt: Date.now() } : item)),
+          api().activeGeneralPurposeId,
+        ),
+      onDeletePurpose: (id) =>
+        api().saveGeneralPurposes(
+          api().generalPurposes.filter((purpose) => purpose.id !== id),
+          api().activeGeneralPurposeId,
+        ),
+      onDraftNotesSectionsChange: setDraftNotesSections,
+      onDraftNameChange: setDraftName,
+      onDraftContentChange: setDraftContent,
+      onSelectPrompt: (id, override) => api().selectContextPrompt(id, override),
+      onAddEmptyMode: (name) => api().addContextPrompt(name),
+      onAddFromTemplate: (template) => api().addModeFromTemplate(template),
+      onDeletePrompt: (id) => api().deletePromptById(id),
+      onSavePrompt: () => api().saveActivePrompt(),
+      onUploadFile: () => api().uploadReferenceFile(),
+      onRemoveFile: (id) => api().removeReferenceFile(id),
+      onToggleTemplates: () => setShowModeTemplates((v) => !v),
+    }
+  }, [])
+  const profilePanel = useMemo(
+    () => ({
+      ...profileHandlers,
+      resumeLibrary,
+      activeResumeId,
+      resumeBusy,
+      resumeError,
+      meetingPrompt,
+      meetingDocuments,
+      activeMeetingDocumentId,
+      generalPurposes,
+      activeGeneralPurposeId,
+      documentBusy,
+      documentError,
+      contextPrompts,
+      activeContextPromptId,
+      activePrompt,
+      draftName,
+      draftContent,
+      draftNotesSections,
+      contextIndexing,
+      uploadBusy,
+      showTemplates: showModeTemplates,
+      resumeContext,
+      jdContext,
+      resumeSourceName,
+      profileDocBusy,
+    }),
+    [
+      profileHandlers,
+      resumeLibrary,
+      activeResumeId,
+      resumeBusy,
+      resumeError,
+      meetingPrompt,
+      meetingDocuments,
+      activeMeetingDocumentId,
+      generalPurposes,
+      activeGeneralPurposeId,
+      documentBusy,
+      documentError,
+      contextPrompts,
+      activeContextPromptId,
+      activePrompt,
+      draftName,
+      draftContent,
+      draftNotesSections,
+      contextIndexing,
+      uploadBusy,
+      showModeTemplates,
+      resumeContext,
+      jdContext,
+      resumeSourceName,
+      profileDocBusy,
+    ],
+  )
+
   return (
     <SettingsWindowFrame>
       <div className="settings-root flex h-full min-h-0 flex-1 flex-col overflow-hidden">
         {showSetupBanner && (
           <div className="settings-setup-banner shrink-0">
             <p>
-              First run: open <strong className="font-semibold text-white">AI Providers</strong>, add your API key and model, then launch.
+              First run: open <strong className="font-semibold text-white">AI Provider</strong>, add your API key and model, then launch.
             </p>
           </div>
         )}
 
         {settingsToast ? (
-          <div className="settings-toast shrink-0" role="status">
+          <div
+            className={`settings-toast settings-toast-${settingsToast.tone || 'warning'} shrink-0`}
+            role={settingsToast.tone === 'error' ? 'alert' : 'status'}
+          >
             <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-medium text-zinc-100">{settingsToast.message}</p>
+              <p className="settings-toast-message">{settingsToast.message}</p>
               {settingsToast.detail ? (
-                <p className="mt-1 truncate font-mono text-[10px] text-zinc-500">{settingsToast.detail}</p>
+                <p className="settings-toast-detail" title={settingsToast.detail}>
+                  {settingsToast.detail}
+                </p>
               ) : null}
             </div>
             {settingsToast.action === 'open-log' ? (
@@ -1281,14 +1610,13 @@ export default function Settings() {
         <div className="settings-flex-body flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <SettingsNav activeTab={activeTab} onSelectTab={selectSettingsTab} />
 
-          <main className="settings-scroll-outer px-6 pt-6">
+          <main ref={mainRef} className="settings-scroll-outer px-6 pt-6" aria-label="Settings content">
           {!snap ? (
             <SettingsLoadingSkeleton />
           ) : (
           <SettingsTabContent
-            activeTab={normalizeSettingsTabId(activeTab)}
+            activeTab={activeTabId}
             onSelectTab={selectSettingsTab}
-            advanceOpenSection={advanceOpenSection}
             snap={snap}
             providerMeta={providerMeta}
             provider={provider}
@@ -1353,7 +1681,7 @@ export default function Settings() {
             sttKeySaved={sttKeySaved}
             sttSecretInput={sttSecretInput}
             onSttSecretInputChange={setSttSecretInput}
-            onSaveSttKey={() => { if (sttKeyField && sttSecretInput.trim()) { saveKey(sttKeyField, sttSecretInput); setSttSecretInput('') } }}
+            onSaveSttKey={(text) => (sttKeyField ? saveKey(sttKeyField, text) : false)}
             meetingListenLanguageUi={meetingListenLanguageUi}
             onMeetingListenLanguageChange={applyMeetingListenLanguage}
             overlayOpacityUi={overlayOpacityUi}
@@ -1381,8 +1709,6 @@ export default function Settings() {
             onOverlayMousePassthroughChange={applyOverlayMousePassthrough}
             hideFromTaskbarUi={hideFromTaskbarUi}
             onHideFromTaskbarChange={applyHideFromTaskbar}
-            uiAccentThemeUi={uiAccentThemeUi}
-            onUiAccentThemeChange={applyUiAccentTheme}
             doNotSaveMeetingsEnabled={doNotSaveMeetingsEnabled}
             onDoNotSaveMeetingsChange={applyDoNotSaveMeetings}
             verboseDebugLogging={verboseDebugLogging}
@@ -1397,7 +1723,7 @@ export default function Settings() {
             onApplyOverlaySize={applyOverlaySize}
             onSnapOverlayPreset={snapOverlayToPreset}
             hotkeysMap={hotkeysMap}
-            onHotkeyChange={(action, v) => setHotkeysMap((m) => ({ ...m, [action]: v }))}
+            hotkeyFailures={hotkeyFailures}
             onHotkeyCommit={commitHotkey}
             onResetOneHotkey={resetOneHotkey}
             onResetAllHotkeys={resetAllHotkeys}
@@ -1448,80 +1774,7 @@ export default function Settings() {
             onFollowUpDraftEnabledChange={(v) => { patchSnap('followUpDraftEnabled', !!v); save('followUpDraftEnabled', !!v) }}
             logoSrc={brandLogo}
             appVersion={appVersion}
-            profilePanel={{
-              resumeLibrary,
-              activeResumeId,
-              resumeBusy,
-              resumeError,
-              onUploadResume: () => void uploadInterviewResume(),
-              onSelectResume: (id) => {
-                setActiveResumeId(id)
-                void save('activeResumeId', id)
-              },
-              onChangeResumes: (next) => saveResumeLibrary(next, activeResumeId),
-              onDeleteResume: (id) => saveResumeLibrary(resumeLibrary.filter((resume) => resume.id !== id), activeResumeId),
-              meetingPrompt,
-              meetingDocuments,
-              activeMeetingDocumentId,
-              generalPurposes,
-              activeGeneralPurposeId,
-              documentBusy,
-              documentError,
-              onMeetingPromptChange: (text) => {
-                setMeetingPrompt(text)
-                void save('meetingPrompt', text)
-              },
-              onUploadMeetingDocument: () => void uploadModeDocument('meeting'),
-              onSelectMeetingDocument: (id) => {
-                setActiveMeetingDocumentId(id)
-                void save('activeMeetingDocumentId', id)
-              },
-              onChangeMeetingDocuments: (next) => saveMeetingDocuments(next, activeMeetingDocumentId),
-              onDeleteMeetingDocument: (id) => saveMeetingDocuments(meetingDocuments.filter((doc) => doc.id !== id), activeMeetingDocumentId),
-              onCreatePurpose: ({ name, prompt }) => {
-                const id = `purpose-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
-                const next = [
-                  { id, name, prompt, documents: [], activeDocumentId: '', document: null, createdAt: Date.now(), updatedAt: Date.now() },
-                  ...generalPurposes,
-                ].slice(0, 20)
-                void saveGeneralPurposes(next, id)
-              },
-              onUploadPurposeDocument: (id) => void uploadModeDocument('general', id),
-              onSelectPurpose: (id) => {
-                setActiveGeneralPurposeId(id)
-                void save('activeGeneralPurposeId', id)
-              },
-              onChangePurpose: (purpose) =>
-                saveGeneralPurposes(
-                  generalPurposes.map((item) => (item.id === purpose.id ? { ...item, ...purpose, updatedAt: Date.now() } : item)),
-                  activeGeneralPurposeId,
-                ),
-              onDeletePurpose: (id) => saveGeneralPurposes(generalPurposes.filter((purpose) => purpose.id !== id), activeGeneralPurposeId),
-              contextPrompts,
-              activeContextPromptId,
-              activePrompt,
-              draftName,
-              draftContent,
-              draftNotesSections,
-              onDraftNotesSectionsChange: setDraftNotesSections,
-              contextIndexing,
-              uploadBusy,
-              showTemplates: showModeTemplates,
-              resumeContext,
-              jdContext,
-              resumeSourceName,
-              profileDocBusy,
-              onDraftNameChange: setDraftName,
-              onDraftContentChange: setDraftContent,
-              onSelectPrompt: selectContextPrompt,
-              onAddEmptyMode: addContextPrompt,
-              onAddFromTemplate: addModeFromTemplate,
-              onDeletePrompt: deletePromptById,
-              onSavePrompt: saveActivePrompt,
-              onUploadFile: uploadReferenceFile,
-              onRemoveFile: removeReferenceFile,
-              onToggleTemplates: () => setShowModeTemplates((v) => !v),
-            }}
+            profilePanel={profilePanel}
           />
           )}
         </main>

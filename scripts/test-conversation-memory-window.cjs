@@ -108,7 +108,8 @@ check('settings, detector, and answer path use the saved window', () => {
   const store = read('lib', 'store.js')
   const main = read('main', 'index.js')
   const general = read('renderer', 'settings', 'DisplaySettingsPanel.jsx')
-  const advance = read('renderer', 'settings', 'AdvanceSettingsPanel.jsx')
+  // The Advance accordion became real tabs; the tab router is where an Intelligence section would have to be mounted.
+  const advance = read('renderer', 'settings', 'SettingsTabContent.jsx')
   const app = read('renderer', 'settings', 'App.jsx')
   const overlay = read('renderer', 'overlay', 'App.jsx')
   assert.match(store, /transcriptDurationSeconds: \{ type: 'number', default: 30 \}/)

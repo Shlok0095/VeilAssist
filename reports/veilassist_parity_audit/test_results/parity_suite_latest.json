@@ -1,0 +1,663 @@
+{
+  "startedAt": "2026-11-19T13:00:51.868Z",
+  "iterations": 5,
+  "root": "C:\\Users\\shlok\\Desktop\\shadowassist-v2",
+  "scenarios": [
+    {
+      "id": "memory-window",
+      "area": "conversational_memory",
+      "script": "scripts/test-conversation-memory-window.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 148,
+          "stdoutTail": "\n── Conversation memory window ──\n\n  PASS  only 30s, 1m, 2m, and 3m are valid; anything else is 30s\n  PASS  30s keeps the last 3 questions and a 450-character tail\n  PASS  3m keeps the last 12 questions and a longer tail\n  PASS  the answer prompt lists questions and not the earlier answer\n  PASS  settings, detector, and answer path use the saved window\n\nConversation memory window: ok\n\n✔ scripts\\test-conversation-memory-window.cjs (73.7403ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 85.5765\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 155,
+          "stdoutTail": "\n── Conversation memory window ──\n\n  PASS  only 30s, 1m, 2m, and 3m are valid; anything else is 30s\n  PASS  30s keeps the last 3 questions and a 450-character tail\n  PASS  3m keeps the last 12 questions and a longer tail\n  PASS  the answer prompt lists questions and not the earlier answer\n  PASS  settings, detector, and answer path use the saved window\n\nConversation memory window: ok\n\n✔ scripts\\test-conversation-memory-window.cjs (80.2888ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 91.1968\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 149,
+          "stdoutTail": "\n── Conversation memory window ──\n\n  PASS  only 30s, 1m, 2m, and 3m are valid; anything else is 30s\n  PASS  30s keeps the last 3 questions and a 450-character tail\n  PASS  3m keeps the last 12 questions and a longer tail\n  PASS  the answer prompt lists questions and not the earlier answer\n  PASS  settings, detector, and answer path use the saved window\n\nConversation memory window: ok\n\n✔ scripts\\test-conversation-memory-window.cjs (77.9563ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 88.2333\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 153,
+          "stdoutTail": "\n── Conversation memory window ──\n\n  PASS  only 30s, 1m, 2m, and 3m are valid; anything else is 30s\n  PASS  30s keeps the last 3 questions and a 450-character tail\n  PASS  3m keeps the last 12 questions and a longer tail\n  PASS  the answer prompt lists questions and not the earlier answer\n  PASS  settings, detector, and answer path use the saved window\n\nConversation memory window: ok\n\n✔ scripts\\test-conversation-memory-window.cjs (75.9504ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 87.2149\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 154,
+          "stdoutTail": "\n── Conversation memory window ──\n\n  PASS  only 30s, 1m, 2m, and 3m are valid; anything else is 30s\n  PASS  30s keeps the last 3 questions and a 450-character tail\n  PASS  3m keeps the last 12 questions and a longer tail\n  PASS  the answer prompt lists questions and not the earlier answer\n  PASS  settings, detector, and answer path use the saved window\n\nConversation memory window: ok\n\n✔ scripts\\test-conversation-memory-window.cjs (79.6198ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 89.1915\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "autoanswer-transcript",
+      "area": "conversational_memory",
+      "script": "scripts/test-autoanswer-transcript.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 163,
+          "stdoutTail": "✔ InterviewMan speaker format: label on speaker change, blank line between speakers, same speaker joined (1.7259ms)\n✔ clipTranscriptTail keeps a short string and cuts the tail on a word (0.5664ms)\n✔ endpoint waits 2s of quiet then fires once with the latest text (1.5201ms)\n✔ interims during the 5s coalesce window do not start another check (0.426ms)\n✔ auto-answer prompt is InterviewMan's transcript template, followed by the detected question (1.7981ms)\n✔ follow-up during Generating Answer is held and judged after resume (0.3375ms)\n✔ speech added during generate is judged after the lock drops, not discarded (0.3202ms)\n✔ reset drops a pending detect (0.2333ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 100.9372\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 161,
+          "stdoutTail": "✔ InterviewMan speaker format: label on speaker change, blank line between speakers, same speaker joined (1.434ms)\n✔ clipTranscriptTail keeps a short string and cuts the tail on a word (0.4118ms)\n✔ endpoint waits 2s of quiet then fires once with the latest text (1.1099ms)\n✔ interims during the 5s coalesce window do not start another check (0.3012ms)\n✔ auto-answer prompt is InterviewMan's transcript template, followed by the detected question (1.4822ms)\n✔ follow-up during Generating Answer is held and judged after resume (0.436ms)\n✔ speech added during generate is judged after the lock drops, not discarded (0.4509ms)\n✔ reset drops a pending detect (0.3648ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 101.9705\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 165,
+          "stdoutTail": "✔ InterviewMan speaker format: label on speaker change, blank line between speakers, same speaker joined (1.263ms)\n✔ clipTranscriptTail keeps a short string and cuts the tail on a word (0.4057ms)\n✔ endpoint waits 2s of quiet then fires once with the latest text (1.248ms)\n✔ interims during the 5s coalesce window do not start another check (0.4097ms)\n✔ auto-answer prompt is InterviewMan's transcript template, followed by the detected question (1.4551ms)\n✔ follow-up during Generating Answer is held and judged after resume (0.3836ms)\n✔ speech added during generate is judged after the lock drops, not discarded (0.3317ms)\n✔ reset drops a pending detect (0.2466ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 103.6514\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 164,
+          "stdoutTail": "✔ InterviewMan speaker format: label on speaker change, blank line between speakers, same speaker joined (1.2274ms)\n✔ clipTranscriptTail keeps a short string and cuts the tail on a word (0.4788ms)\n✔ endpoint waits 2s of quiet then fires once with the latest text (1.7427ms)\n✔ interims during the 5s coalesce window do not start another check (0.397ms)\n✔ auto-answer prompt is InterviewMan's transcript template, followed by the detected question (1.2634ms)\n✔ follow-up during Generating Answer is held and judged after resume (0.3228ms)\n✔ speech added during generate is judged after the lock drops, not discarded (0.304ms)\n✔ reset drops a pending detect (0.2546ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 103.8038\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 164,
+          "stdoutTail": "✔ InterviewMan speaker format: label on speaker change, blank line between speakers, same speaker joined (2.4266ms)\n✔ clipTranscriptTail keeps a short string and cuts the tail on a word (0.5041ms)\n✔ endpoint waits 2s of quiet then fires once with the latest text (1.3083ms)\n✔ interims during the 5s coalesce window do not start another check (0.3678ms)\n✔ auto-answer prompt is InterviewMan's transcript template, followed by the detected question (1.3667ms)\n✔ follow-up during Generating Answer is held and judged after resume (0.394ms)\n✔ speech added during generate is judged after the lock drops, not discarded (0.4273ms)\n✔ reset drops a pending detect (0.8335ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 101.7633\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "question-detector",
+      "area": "conversational_memory",
+      "script": "scripts/test-question-detector.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 290,
+          "stdoutTail": "extra spoken question (0.2023ms)\n✔ a blanked duplicate still gets one check on the speech after the answered question (0.4295ms)\n✔ detectQuestion honours the model saying \"no question\" (1.0656ms)\n✔ detectQuestion falls back to rules when the model throws (0.5242ms)\n✔ detectQuestion falls back to rules on an unparseable reply (0.2746ms)\n✔ detectQuestion times out, aborts the request, and falls back (50.2913ms)\n✔ detectQuestion without a completion function still returns a rules verdict (0.2876ms)\n✔ similarity ignores case and punctuation and scales with the edit distance (0.1942ms)\n✔ repeat sensitivity maps to the 0.85 / 0.90 / 0.95 thresholds and defaults to balanced (0.1062ms)\n✔ the same near-duplicate is a repeat under strict and balanced but not lenient (0.2908ms)\n✔ detectQuestion applies the chosen repeat sensitivity to the model verdict (0.8796ms)\n✔ coordinator: one run at a time, newest queued text wins, found question drops the queue (2.1753ms)\n✔ coordinator: a throwing run counts as \"not acted\" and never wedges the queue (0.356ms)\n✔ coordinator: reset drops queued text (0.8691ms)\n✔ a final, new question fires (0.2927ms)\n✔ an unusable or degraded verdict hands over to the rules — it never fires early (0.1517ms)\n✔ text that changed while the model was thinking is re-judged, not answered (0.1357ms)\n✔ no question, duplicates and in-progress questions wait on the cached verdict (0.1869ms)\n✔ a busy pipeline or a recent trigger re-judges later instead of dropping the question (0.1445ms)\n✔ verdict checks run in priority order: stale beats everything else (0.1111ms)\n✔ \"no personal info\" keeps the resume out of a definition (planner or forced behavioral) (11.7128ms)\n✔ a definition that merely says \"you\" does not keep the resume (1.9797ms)\n✔ a model false-negative cannot strip the resume from personal questions (0.4273ms)\n✔ without the question text a behavioral answer is left alone (0.1726ms)\n✔ \"personal info\" turns the resume on when the planner left it off (0.1863ms)\n✔ coding questions are never touched by the personal-info signal (0.1873ms)\n✔ a resume pasted inside the active mode is removed for a definition (0.4739ms)\n✔ unknown signals (rules fallback / missing) leave the decision unchanged (0.2124ms)\n✔ wiring: store schema, preload allowlist and IPC handler agree (2.1044ms)\n✔ wiring: the detector handler is safe — gated, key-checked, never throws, logs no transcript (1.5751ms)\n✔ wiring: the engine setting is persisted and pushed to the overlay from both settings paths (1.5089ms)\n✔ wiring: the router applies the detector personal-info verdict (1.2676ms)\n✔ wiring: overlay keeps detector helpers but hard-rejects auto asks (1.0822ms)\n✔ wiring: overlay resets detector state on clear, purge, session change and engine switch (1.9608ms)\n✔ wiring: question-detection settings UI retired with auto-answer (1.8779ms)\n✔ wiring: a finalized transcript segment triggers the AI check at once; the tick path still waits for a pause (1.1159ms)\n✔ wiring: manual asks still send transcript context; auto speech path is disabled (1.8375ms)\n✔ wiring: leftover auto-answer scheduler code cannot fire asks (1.1ms)\n✔ wiring: the repeat filter and the opt-in fallback are persisted, validated and used by the main process (2.4252ms)\n✔ wiring: repeat filter UI retired; fallback provider remains (1.2449ms)\n✔ screen asks get the question-extraction rules; noisy transcripts get the tolerance note (0.9675ms)\n✔ InterviewMan: a question on the user's microphone (any speaker) is used as the model returns it (0.2635ms)\n✔ detectBackoffMs starts short, doubles per consecutive failure, and is capped (0.1789ms)\n✔ wiring: the overlay backs off by streak and resets it on a usable verdict, a new session and an engine switch (1.1533ms)\n✔ wiring: the detector chain leaves out slow reasoning models (1.1848ms)\n✔ detectQuestion on an empty transcript makes no model call (0.3036ms)\nℹ tests 70\nℹ suites 0\nℹ pass 70\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 226.8456\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 282,
+          "stdoutTail": "e extra spoken question (0.2321ms)\n✔ a blanked duplicate still gets one check on the speech after the answered question (0.4454ms)\n✔ detectQuestion honours the model saying \"no question\" (0.7334ms)\n✔ detectQuestion falls back to rules when the model throws (0.3072ms)\n✔ detectQuestion falls back to rules on an unparseable reply (0.2186ms)\n✔ detectQuestion times out, aborts the request, and falls back (54.7641ms)\n✔ detectQuestion without a completion function still returns a rules verdict (0.2505ms)\n✔ similarity ignores case and punctuation and scales with the edit distance (0.1833ms)\n✔ repeat sensitivity maps to the 0.85 / 0.90 / 0.95 thresholds and defaults to balanced (0.0884ms)\n✔ the same near-duplicate is a repeat under strict and balanced but not lenient (0.1771ms)\n✔ detectQuestion applies the chosen repeat sensitivity to the model verdict (0.691ms)\n✔ coordinator: one run at a time, newest queued text wins, found question drops the queue (2.1392ms)\n✔ coordinator: a throwing run counts as \"not acted\" and never wedges the queue (0.2326ms)\n✔ coordinator: reset drops queued text (0.5359ms)\n✔ a final, new question fires (0.2166ms)\n✔ an unusable or degraded verdict hands over to the rules — it never fires early (0.1219ms)\n✔ text that changed while the model was thinking is re-judged, not answered (0.1095ms)\n✔ no question, duplicates and in-progress questions wait on the cached verdict (0.1473ms)\n✔ a busy pipeline or a recent trigger re-judges later instead of dropping the question (0.1035ms)\n✔ verdict checks run in priority order: stale beats everything else (0.0828ms)\n✔ \"no personal info\" keeps the resume out of a definition (planner or forced behavioral) (8.6455ms)\n✔ a definition that merely says \"you\" does not keep the resume (1.4975ms)\n✔ a model false-negative cannot strip the resume from personal questions (0.3924ms)\n✔ without the question text a behavioral answer is left alone (0.1564ms)\n✔ \"personal info\" turns the resume on when the planner left it off (0.2267ms)\n✔ coding questions are never touched by the personal-info signal (0.24ms)\n✔ a resume pasted inside the active mode is removed for a definition (0.3784ms)\n✔ unknown signals (rules fallback / missing) leave the decision unchanged (0.1847ms)\n✔ wiring: store schema, preload allowlist and IPC handler agree (1.5095ms)\n✔ wiring: the detector handler is safe — gated, key-checked, never throws, logs no transcript (0.9098ms)\n✔ wiring: the engine setting is persisted and pushed to the overlay from both settings paths (1.0231ms)\n✔ wiring: the router applies the detector personal-info verdict (0.8799ms)\n✔ wiring: overlay keeps detector helpers but hard-rejects auto asks (0.9872ms)\n✔ wiring: overlay resets detector state on clear, purge, session change and engine switch (2.0156ms)\n✔ wiring: question-detection settings UI retired with auto-answer (0.8136ms)\n✔ wiring: a finalized transcript segment triggers the AI check at once; the tick path still waits for a pause (0.819ms)\n✔ wiring: manual asks still send transcript context; auto speech path is disabled (1.6583ms)\n✔ wiring: leftover auto-answer scheduler code cannot fire asks (1.9537ms)\n✔ wiring: the repeat filter and the opt-in fallback are persisted, validated and used by the main process (2.8025ms)\n✔ wiring: repeat filter UI retired; fallback provider remains (1.0881ms)\n✔ screen asks get the question-extraction rules; noisy transcripts get the tolerance note (0.8533ms)\n✔ InterviewMan: a question on the user's microphone (any speaker) is used as the model returns it (0.263ms)\n✔ detectBackoffMs starts short, doubles per consecutive failure, and is capped (0.1754ms)\n✔ wiring: the overlay backs off by streak and resets it on a usable verdict, a new session and an engine switch (1.3994ms)\n✔ wiring: the detector chain leaves out slow reasoning models (1.1664ms)\n✔ detectQuestion on an empty transcript makes no model call (0.2084ms)\nℹ tests 70\nℹ suites 0\nℹ pass 70\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 221.8229\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 279,
+          "stdoutTail": "extra spoken question (0.3667ms)\n✔ a blanked duplicate still gets one check on the speech after the answered question (0.6324ms)\n✔ detectQuestion honours the model saying \"no question\" (0.8026ms)\n✔ detectQuestion falls back to rules when the model throws (0.3225ms)\n✔ detectQuestion falls back to rules on an unparseable reply (0.2462ms)\n✔ detectQuestion times out, aborts the request, and falls back (46.9145ms)\n✔ detectQuestion without a completion function still returns a rules verdict (0.2722ms)\n✔ similarity ignores case and punctuation and scales with the edit distance (0.1669ms)\n✔ repeat sensitivity maps to the 0.85 / 0.90 / 0.95 thresholds and defaults to balanced (0.0902ms)\n✔ the same near-duplicate is a repeat under strict and balanced but not lenient (0.2153ms)\n✔ detectQuestion applies the chosen repeat sensitivity to the model verdict (0.6018ms)\n✔ coordinator: one run at a time, newest queued text wins, found question drops the queue (1.5421ms)\n✔ coordinator: a throwing run counts as \"not acted\" and never wedges the queue (0.2585ms)\n✔ coordinator: reset drops queued text (0.516ms)\n✔ a final, new question fires (0.2196ms)\n✔ an unusable or degraded verdict hands over to the rules — it never fires early (0.1197ms)\n✔ text that changed while the model was thinking is re-judged, not answered (0.11ms)\n✔ no question, duplicates and in-progress questions wait on the cached verdict (0.1436ms)\n✔ a busy pipeline or a recent trigger re-judges later instead of dropping the question (0.1122ms)\n✔ verdict checks run in priority order: stale beats everything else (0.1071ms)\n✔ \"no personal info\" keeps the resume out of a definition (planner or forced behavioral) (9.4695ms)\n✔ a definition that merely says \"you\" does not keep the resume (1.4231ms)\n✔ a model false-negative cannot strip the resume from personal questions (0.2838ms)\n✔ without the question text a behavioral answer is left alone (0.1284ms)\n✔ \"personal info\" turns the resume on when the planner left it off (0.1551ms)\n✔ coding questions are never touched by the personal-info signal (0.1381ms)\n✔ a resume pasted inside the active mode is removed for a definition (0.3229ms)\n✔ unknown signals (rules fallback / missing) leave the decision unchanged (0.1551ms)\n✔ wiring: store schema, preload allowlist and IPC handler agree (1.5256ms)\n✔ wiring: the detector handler is safe — gated, key-checked, never throws, logs no transcript (1.3892ms)\n✔ wiring: the engine setting is persisted and pushed to the overlay from both settings paths (1.3813ms)\n✔ wiring: the router applies the detector personal-info verdict (0.9711ms)\n✔ wiring: overlay keeps detector helpers but hard-rejects auto asks (0.7842ms)\n✔ wiring: overlay resets detector state on clear, purge, session change and engine switch (1.4081ms)\n✔ wiring: question-detection settings UI retired with auto-answer (0.8289ms)\n✔ wiring: a finalized transcript segment triggers the AI check at once; the tick path still waits for a pause (1.2732ms)\n✔ wiring: manual asks still send transcript context; auto speech path is disabled (1.9997ms)\n✔ wiring: leftover auto-answer scheduler code cannot fire asks (1.6121ms)\n✔ wiring: the repeat filter and the opt-in fallback are persisted, validated and used by the main process (1.9356ms)\n✔ wiring: repeat filter UI retired; fallback provider remains (1.4166ms)\n✔ screen asks get the question-extraction rules; noisy transcripts get the tolerance note (1.0762ms)\n✔ InterviewMan: a question on the user's microphone (any speaker) is used as the model returns it (0.2769ms)\n✔ detectBackoffMs starts short, doubles per consecutive failure, and is capped (0.1778ms)\n✔ wiring: the overlay backs off by streak and resets it on a usable verdict, a new session and an engine switch (1.1028ms)\n✔ wiring: the detector chain leaves out slow reasoning models (0.7484ms)\n✔ detectQuestion on an empty transcript makes no model call (0.1727ms)\nℹ tests 70\nℹ suites 0\nℹ pass 70\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 215.2156\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 284,
+          "stdoutTail": "tra spoken question (0.3125ms)\n✔ a blanked duplicate still gets one check on the speech after the answered question (1.196ms)\n✔ detectQuestion honours the model saying \"no question\" (0.2107ms)\n✔ detectQuestion falls back to rules when the model throws (0.3247ms)\n✔ detectQuestion falls back to rules on an unparseable reply (0.2172ms)\n✔ detectQuestion times out, aborts the request, and falls back (55.6273ms)\n✔ detectQuestion without a completion function still returns a rules verdict (0.2281ms)\n✔ similarity ignores case and punctuation and scales with the edit distance (0.1432ms)\n✔ repeat sensitivity maps to the 0.85 / 0.90 / 0.95 thresholds and defaults to balanced (0.0837ms)\n✔ the same near-duplicate is a repeat under strict and balanced but not lenient (0.1792ms)\n✔ detectQuestion applies the chosen repeat sensitivity to the model verdict (0.7469ms)\n✔ coordinator: one run at a time, newest queued text wins, found question drops the queue (1.7945ms)\n✔ coordinator: a throwing run counts as \"not acted\" and never wedges the queue (0.3123ms)\n✔ coordinator: reset drops queued text (0.9397ms)\n✔ a final, new question fires (0.3886ms)\n✔ an unusable or degraded verdict hands over to the rules — it never fires early (0.1704ms)\n✔ text that changed while the model was thinking is re-judged, not answered (0.1529ms)\n✔ no question, duplicates and in-progress questions wait on the cached verdict (0.2139ms)\n✔ a busy pipeline or a recent trigger re-judges later instead of dropping the question (0.1313ms)\n✔ verdict checks run in priority order: stale beats everything else (0.0888ms)\n✔ \"no personal info\" keeps the resume out of a definition (planner or forced behavioral) (8.8279ms)\n✔ a definition that merely says \"you\" does not keep the resume (1.2961ms)\n✔ a model false-negative cannot strip the resume from personal questions (0.3111ms)\n✔ without the question text a behavioral answer is left alone (0.1149ms)\n✔ \"personal info\" turns the resume on when the planner left it off (0.1641ms)\n✔ coding questions are never touched by the personal-info signal (0.1843ms)\n✔ a resume pasted inside the active mode is removed for a definition (0.4692ms)\n✔ unknown signals (rules fallback / missing) leave the decision unchanged (0.1761ms)\n✔ wiring: store schema, preload allowlist and IPC handler agree (1.9887ms)\n✔ wiring: the detector handler is safe — gated, key-checked, never throws, logs no transcript (0.9858ms)\n✔ wiring: the engine setting is persisted and pushed to the overlay from both settings paths (1.0394ms)\n✔ wiring: the router applies the detector personal-info verdict (0.9215ms)\n✔ wiring: overlay keeps detector helpers but hard-rejects auto asks (0.7747ms)\n✔ wiring: overlay resets detector state on clear, purge, session change and engine switch (2.0509ms)\n✔ wiring: question-detection settings UI retired with auto-answer (0.9301ms)\n✔ wiring: a finalized transcript segment triggers the AI check at once; the tick path still waits for a pause (0.8149ms)\n✔ wiring: manual asks still send transcript context; auto speech path is disabled (1.5669ms)\n✔ wiring: leftover auto-answer scheduler code cannot fire asks (1.6509ms)\n✔ wiring: the repeat filter and the opt-in fallback are persisted, validated and used by the main process (2.9192ms)\n✔ wiring: repeat filter UI retired; fallback provider remains (1.0992ms)\n✔ screen asks get the question-extraction rules; noisy transcripts get the tolerance note (0.9775ms)\n✔ InterviewMan: a question on the user's microphone (any speaker) is used as the model returns it (0.2497ms)\n✔ detectBackoffMs starts short, doubles per consecutive failure, and is capped (0.1766ms)\n✔ wiring: the overlay backs off by streak and resets it on a usable verdict, a new session and an engine switch (1.1732ms)\n✔ wiring: the detector chain leaves out slow reasoning models (1.3963ms)\n✔ detectQuestion on an empty transcript makes no model call (0.3379ms)\nℹ tests 70\nℹ suites 0\nℹ pass 70\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 223.1025\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 274,
+          "stdoutTail": "s the extra spoken question (0.1992ms)\n✔ a blanked duplicate still gets one check on the speech after the answered question (0.4916ms)\n✔ detectQuestion honours the model saying \"no question\" (1.3246ms)\n✔ detectQuestion falls back to rules when the model throws (0.4591ms)\n✔ detectQuestion falls back to rules on an unparseable reply (0.2344ms)\n✔ detectQuestion times out, aborts the request, and falls back (52.4857ms)\n✔ detectQuestion without a completion function still returns a rules verdict (0.2645ms)\n✔ similarity ignores case and punctuation and scales with the edit distance (0.1655ms)\n✔ repeat sensitivity maps to the 0.85 / 0.90 / 0.95 thresholds and defaults to balanced (0.0925ms)\n✔ the same near-duplicate is a repeat under strict and balanced but not lenient (0.1915ms)\n✔ detectQuestion applies the chosen repeat sensitivity to the model verdict (0.9258ms)\n✔ coordinator: one run at a time, newest queued text wins, found question drops the queue (1.7424ms)\n✔ coordinator: a throwing run counts as \"not acted\" and never wedges the queue (0.2716ms)\n✔ coordinator: reset drops queued text (0.5622ms)\n✔ a final, new question fires (0.192ms)\n✔ an unusable or degraded verdict hands over to the rules — it never fires early (0.1162ms)\n✔ text that changed while the model was thinking is re-judged, not answered (0.11ms)\n✔ no question, duplicates and in-progress questions wait on the cached verdict (0.1472ms)\n✔ a busy pipeline or a recent trigger re-judges later instead of dropping the question (0.1054ms)\n✔ verdict checks run in priority order: stale beats everything else (0.0839ms)\n✔ \"no personal info\" keeps the resume out of a definition (planner or forced behavioral) (8.4651ms)\n✔ a definition that merely says \"you\" does not keep the resume (1.5311ms)\n✔ a model false-negative cannot strip the resume from personal questions (0.5282ms)\n✔ without the question text a behavioral answer is left alone (0.2112ms)\n✔ \"personal info\" turns the resume on when the planner left it off (0.2164ms)\n✔ coding questions are never touched by the personal-info signal (0.183ms)\n✔ a resume pasted inside the active mode is removed for a definition (0.3909ms)\n✔ unknown signals (rules fallback / missing) leave the decision unchanged (0.1669ms)\n✔ wiring: store schema, preload allowlist and IPC handler agree (1.59ms)\n✔ wiring: the detector handler is safe — gated, key-checked, never throws, logs no transcript (0.9157ms)\n✔ wiring: the engine setting is persisted and pushed to the overlay from both settings paths (1.0253ms)\n✔ wiring: the router applies the detector personal-info verdict (1.1018ms)\n✔ wiring: overlay keeps detector helpers but hard-rejects auto asks (1.2048ms)\n✔ wiring: overlay resets detector state on clear, purge, session change and engine switch (1.7086ms)\n✔ wiring: question-detection settings UI retired with auto-answer (0.7668ms)\n✔ wiring: a finalized transcript segment triggers the AI check at once; the tick path still waits for a pause (0.7825ms)\n✔ wiring: manual asks still send transcript context; auto speech path is disabled (1.2396ms)\n✔ wiring: leftover auto-answer scheduler code cannot fire asks (1.11ms)\n✔ wiring: the repeat filter and the opt-in fallback are persisted, validated and used by the main process (2.6668ms)\n✔ wiring: repeat filter UI retired; fallback provider remains (1.0481ms)\n✔ screen asks get the question-extraction rules; noisy transcripts get the tolerance note (0.8218ms)\n✔ InterviewMan: a question on the user's microphone (any speaker) is used as the model returns it (0.2582ms)\n✔ detectBackoffMs starts short, doubles per consecutive failure, and is capped (0.1758ms)\n✔ wiring: the overlay backs off by streak and resets it on a usable verdict, a new session and an engine switch (1.0009ms)\n✔ wiring: the detector chain leaves out slow reasoning models (1.0356ms)\n✔ detectQuestion on an empty transcript makes no model call (0.268ms)\nℹ tests 70\nℹ suites 0\nℹ pass 70\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 216.7703\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "resume-upload",
+      "area": "profile_documents",
+      "script": "scripts/test-resume-upload.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 152,
+          "stdoutTail": "ok parser prompt and ParsedCV schema match Interview Man\nok a PDF is posted as input_file to /v1/responses\nok ParsedCV fields become the same profile cards\nok an empty ParsedCV is not a profile\nok text resumes still use the same parser prompt\nok responses success maps the file and retries a server error\nok NVIDIA does not send the PDF, and resume text keeps the ParsedCV schema\nok a missing responses API is reported so text can be used instead\nok a bad file, a refusal, and an empty extract are not saved\nok upload sends the picked file and does not save an empty extract\n10 passed\n✔ scripts\\test-resume-upload.cjs (79.8995ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 90.7805\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 143,
+          "stdoutTail": "ok parser prompt and ParsedCV schema match Interview Man\nok a PDF is posted as input_file to /v1/responses\nok ParsedCV fields become the same profile cards\nok an empty ParsedCV is not a profile\nok text resumes still use the same parser prompt\nok responses success maps the file and retries a server error\nok NVIDIA does not send the PDF, and resume text keeps the ParsedCV schema\nok a missing responses API is reported so text can be used instead\nok a bad file, a refusal, and an empty extract are not saved\nok upload sends the picked file and does not save an empty extract\n10 passed\n✔ scripts\\test-resume-upload.cjs (77.2525ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 86.1493\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 152,
+          "stdoutTail": "ok parser prompt and ParsedCV schema match Interview Man\nok a PDF is posted as input_file to /v1/responses\nok ParsedCV fields become the same profile cards\nok an empty ParsedCV is not a profile\nok text resumes still use the same parser prompt\nok responses success maps the file and retries a server error\nok NVIDIA does not send the PDF, and resume text keeps the ParsedCV schema\nok a missing responses API is reported so text can be used instead\nok a bad file, a refusal, and an empty extract are not saved\nok upload sends the picked file and does not save an empty extract\n10 passed\n✔ scripts\\test-resume-upload.cjs (81.3063ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 90.7617\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 152,
+          "stdoutTail": "ok parser prompt and ParsedCV schema match Interview Man\nok a PDF is posted as input_file to /v1/responses\nok ParsedCV fields become the same profile cards\nok an empty ParsedCV is not a profile\nok text resumes still use the same parser prompt\nok responses success maps the file and retries a server error\nok NVIDIA does not send the PDF, and resume text keeps the ParsedCV schema\nok a missing responses API is reported so text can be used instead\nok a bad file, a refusal, and an empty extract are not saved\nok upload sends the picked file and does not save an empty extract\n10 passed\n✔ scripts\\test-resume-upload.cjs (79.3591ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 90.0189\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 144,
+          "stdoutTail": "ok parser prompt and ParsedCV schema match Interview Man\nok a PDF is posted as input_file to /v1/responses\nok ParsedCV fields become the same profile cards\nok an empty ParsedCV is not a profile\nok text resumes still use the same parser prompt\nok responses success maps the file and retries a server error\nok NVIDIA does not send the PDF, and resume text keeps the ParsedCV schema\nok a missing responses API is reported so text can be used instead\nok a bad file, a refusal, and an empty extract are not saved\nok upload sends the picked file and does not save an empty extract\n10 passed\n✔ scripts\\test-resume-upload.cjs (76.9347ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 86.3748\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "resume-jd-routing",
+      "area": "profile_documents",
+      "script": "scripts/test-resume-jd-routing.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 179,
+          "stdoutTail": "✔ experience-with-skill is candidate experience, not technical concept (5.2406ms)\n✔ pure technical explain still forbids resume (1.6844ms)\n✔ route injects resume for experience questions (1.3375ms)\n✔ identity does not auto-inject JD when only resume is required (0.2333ms)\n✔ JD fact questions select JD without forcing resume (0.5304ms)\n✔ interview assist still keeps resume nearby (0.5419ms)\n✔ coding still excludes resume (0.2226ms)\n✔ interview mode: definition asks do not attach resume or force CAR (0.2453ms)\n✔ interview mode: coding challenge titles route to coding without resume (0.2839ms)\n✔ source separation guard separates resume from JD (0.5324ms)\n✔ what is unknown term outside interview forbids resume (3.9218ms)\n✔ interview mode: definitional asks skip resume (InterviewMan personal-info gate) (0.3115ms)\nℹ tests 12\nℹ suites 0\nℹ pass 12\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 114.3663\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 175,
+          "stdoutTail": "✔ experience-with-skill is candidate experience, not technical concept (5.5962ms)\n✔ pure technical explain still forbids resume (1.6909ms)\n✔ route injects resume for experience questions (1.6058ms)\n✔ identity does not auto-inject JD when only resume is required (0.2298ms)\n✔ JD fact questions select JD without forcing resume (0.5215ms)\n✔ interview assist still keeps resume nearby (0.5387ms)\n✔ coding still excludes resume (0.2057ms)\n✔ interview mode: definition asks do not attach resume or force CAR (0.2415ms)\n✔ interview mode: coding challenge titles route to coding without resume (0.287ms)\n✔ source separation guard separates resume from JD (0.3744ms)\n✔ what is unknown term outside interview forbids resume (4.255ms)\n✔ interview mode: definitional asks skip resume (InterviewMan personal-info gate) (0.406ms)\nℹ tests 12\nℹ suites 0\nℹ pass 12\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 115.7054\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 174,
+          "stdoutTail": "✔ experience-with-skill is candidate experience, not technical concept (4.978ms)\n✔ pure technical explain still forbids resume (1.8433ms)\n✔ route injects resume for experience questions (1.391ms)\n✔ identity does not auto-inject JD when only resume is required (0.2322ms)\n✔ JD fact questions select JD without forcing resume (0.7244ms)\n✔ interview assist still keeps resume nearby (0.7115ms)\n✔ coding still excludes resume (0.3093ms)\n✔ interview mode: definition asks do not attach resume or force CAR (0.3318ms)\n✔ interview mode: coding challenge titles route to coding without resume (0.3844ms)\n✔ source separation guard separates resume from JD (0.5377ms)\n✔ what is unknown term outside interview forbids resume (4.3237ms)\n✔ interview mode: definitional asks skip resume (InterviewMan personal-info gate) (0.3754ms)\nℹ tests 12\nℹ suites 0\nℹ pass 12\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 113.5262\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 173,
+          "stdoutTail": "✔ experience-with-skill is candidate experience, not technical concept (6.6809ms)\n✔ pure technical explain still forbids resume (1.5048ms)\n✔ route injects resume for experience questions (1.3079ms)\n✔ identity does not auto-inject JD when only resume is required (0.2603ms)\n✔ JD fact questions select JD without forcing resume (0.5879ms)\n✔ interview assist still keeps resume nearby (0.6546ms)\n✔ coding still excludes resume (0.2646ms)\n✔ interview mode: definition asks do not attach resume or force CAR (0.2603ms)\n✔ interview mode: coding challenge titles route to coding without resume (0.2855ms)\n✔ source separation guard separates resume from JD (0.4182ms)\n✔ what is unknown term outside interview forbids resume (2.9948ms)\n✔ interview mode: definitional asks skip resume (InterviewMan personal-info gate) (0.2582ms)\nℹ tests 12\nℹ suites 0\nℹ pass 12\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 113.672\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 173,
+          "stdoutTail": "✔ experience-with-skill is candidate experience, not technical concept (5.214ms)\n✔ pure technical explain still forbids resume (1.6726ms)\n✔ route injects resume for experience questions (1.3078ms)\n✔ identity does not auto-inject JD when only resume is required (0.2062ms)\n✔ JD fact questions select JD without forcing resume (0.4756ms)\n✔ interview assist still keeps resume nearby (0.5097ms)\n✔ coding still excludes resume (0.1989ms)\n✔ interview mode: definition asks do not attach resume or force CAR (0.2284ms)\n✔ interview mode: coding challenge titles route to coding without resume (0.2735ms)\n✔ source separation guard separates resume from JD (0.3787ms)\n✔ what is unknown term outside interview forbids resume (3.7147ms)\n✔ interview mode: definitional asks skip resume (InterviewMan personal-info gate) (0.2481ms)\nℹ tests 12\nℹ suites 0\nℹ pass 12\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 110.9091\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "ask-context-priority",
+      "area": "answer_generation",
+      "script": "scripts/test-ask-context-priority.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 183,
+          "stdoutTail": "✔ Ctrl+Enter with speech stays screen-led so NIM vision actually reads the screen (2.1064ms)\n✔ screen-only Ctrl+Enter remains screen-led (0.1874ms)\n✔ typed question remains primary with an attached screen (0.1229ms)\n✔ Meeting prompt routes as meeting and retains the active mode (7.2998ms)\n✔ Meeting mode reserves summary contract for explicit recap requests (5.1162ms)\n✔ generic mode questions are not mislabeled as meeting answers (0.4963ms)\n✔ technical explanation is not misrouted to coding or generic meeting output (0.3764ms)\n✔ ordinary logo and web-development code requests use the coding contract (0.2256ms)\n✔ Natively labeled transcript extracts the latest interviewer question (1.2657ms)\n✔ latest meaningful question ignores punctuation, greeting, and acknowledgement noise (0.9163ms)\n✔ new substantive turn wins over an older question (0.2384ms)\n✔ system prompt forbids reciting VeilAssist as the candidate intro (2.1385ms)\n✔ default Interview mode is treated as interviewee, not general (1.0394ms)\n✔ system prompt no longer primes the rejected unclear-answer phrase (0.6085ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 122.6215\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 181,
+          "stdoutTail": "✔ Ctrl+Enter with speech stays screen-led so NIM vision actually reads the screen (2.1618ms)\n✔ screen-only Ctrl+Enter remains screen-led (0.2055ms)\n✔ typed question remains primary with an attached screen (0.144ms)\n✔ Meeting prompt routes as meeting and retains the active mode (7.1985ms)\n✔ Meeting mode reserves summary contract for explicit recap requests (5.4485ms)\n✔ generic mode questions are not mislabeled as meeting answers (0.5095ms)\n✔ technical explanation is not misrouted to coding or generic meeting output (0.3343ms)\n✔ ordinary logo and web-development code requests use the coding contract (0.2513ms)\n✔ Natively labeled transcript extracts the latest interviewer question (1.2531ms)\n✔ latest meaningful question ignores punctuation, greeting, and acknowledgement noise (0.8836ms)\n✔ new substantive turn wins over an older question (0.2408ms)\n✔ system prompt forbids reciting VeilAssist as the candidate intro (2.198ms)\n✔ default Interview mode is treated as interviewee, not general (1.3195ms)\n✔ system prompt no longer primes the rejected unclear-answer phrase (0.7957ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 124.5669\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 181,
+          "stdoutTail": "✔ Ctrl+Enter with speech stays screen-led so NIM vision actually reads the screen (2.3683ms)\n✔ screen-only Ctrl+Enter remains screen-led (0.2252ms)\n✔ typed question remains primary with an attached screen (0.1426ms)\n✔ Meeting prompt routes as meeting and retains the active mode (7.2911ms)\n✔ Meeting mode reserves summary contract for explicit recap requests (5.1869ms)\n✔ generic mode questions are not mislabeled as meeting answers (0.5339ms)\n✔ technical explanation is not misrouted to coding or generic meeting output (0.3404ms)\n✔ ordinary logo and web-development code requests use the coding contract (0.2545ms)\n✔ Natively labeled transcript extracts the latest interviewer question (1.3064ms)\n✔ latest meaningful question ignores punctuation, greeting, and acknowledgement noise (0.917ms)\n✔ new substantive turn wins over an older question (0.2471ms)\n✔ system prompt forbids reciting VeilAssist as the candidate intro (2.4063ms)\n✔ default Interview mode is treated as interviewee, not general (1.1425ms)\n✔ system prompt no longer primes the rejected unclear-answer phrase (0.6033ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 122.611\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 184,
+          "stdoutTail": "✔ Ctrl+Enter with speech stays screen-led so NIM vision actually reads the screen (2.187ms)\n✔ screen-only Ctrl+Enter remains screen-led (0.2566ms)\n✔ typed question remains primary with an attached screen (0.2182ms)\n✔ Meeting prompt routes as meeting and retains the active mode (8.543ms)\n✔ Meeting mode reserves summary contract for explicit recap requests (4.527ms)\n✔ generic mode questions are not mislabeled as meeting answers (0.3388ms)\n✔ technical explanation is not misrouted to coding or generic meeting output (0.3649ms)\n✔ ordinary logo and web-development code requests use the coding contract (0.2697ms)\n✔ Natively labeled transcript extracts the latest interviewer question (1.5729ms)\n✔ latest meaningful question ignores punctuation, greeting, and acknowledgement noise (0.9115ms)\n✔ new substantive turn wins over an older question (0.2413ms)\n✔ system prompt forbids reciting VeilAssist as the candidate intro (1.8867ms)\n✔ default Interview mode is treated as interviewee, not general (0.6263ms)\n✔ system prompt no longer primes the rejected unclear-answer phrase (0.5332ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 123.6129\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 183,
+          "stdoutTail": "✔ Ctrl+Enter with speech stays screen-led so NIM vision actually reads the screen (2.2127ms)\n✔ screen-only Ctrl+Enter remains screen-led (0.2072ms)\n✔ typed question remains primary with an attached screen (0.1544ms)\n✔ Meeting prompt routes as meeting and retains the active mode (7.6422ms)\n✔ Meeting mode reserves summary contract for explicit recap requests (5.8517ms)\n✔ generic mode questions are not mislabeled as meeting answers (0.3783ms)\n✔ technical explanation is not misrouted to coding or generic meeting output (0.3503ms)\n✔ ordinary logo and web-development code requests use the coding contract (0.2389ms)\n✔ Natively labeled transcript extracts the latest interviewer question (1.303ms)\n✔ latest meaningful question ignores punctuation, greeting, and acknowledgement noise (0.9227ms)\n✔ new substantive turn wins over an older question (0.3304ms)\n✔ system prompt forbids reciting VeilAssist as the candidate intro (2.7986ms)\n✔ default Interview mode is treated as interviewee, not general (0.7213ms)\n✔ system prompt no longer primes the rejected unclear-answer phrase (0.658ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 123.7354\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "coding-answer-parity",
+      "area": "answer_generation",
+      "script": "scripts/test-coding-answer-parity.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 156,
+          "stdoutTail": "\n── Coding answer parity (5 questions) ──\n\nInterview mode template: looking-for-work\n\n  PASS  route coding: me the code to import a model from the hugging f…\n  PASS  no resume: me the code to import a model from the h…\n  PASS  contract coding: me the code to import a model from the h…\n  PASS  suffix is CODING contract: me the code to import a model from t…\n  PASS  suffix has no STAR structure line: me the code to import a model from t…\n  PASS  suffix forbids Situation labels: me the code to import a model from t…\n  PASS  suffix requires fenced code first: me the code to import a model from t…\n  PASS  OUTPUT RULES coding: me the code to import a model from t…\n  PASS  route coding: me the code to find the second largest number fr…\n  PASS  no resume: me the code to find the second largest n…\n  PASS  contract coding: me the code to find the second largest n…\n  PASS  suffix is CODING contract: me the code to find the second large…\n  PASS  suffix has no STAR structure line: me the code to find the second large…\n  PASS  suffix forbids Situation labels: me the code to find the second large…\n  PASS  suffix requires fenced code first: me the code to find the second large…\n  PASS  OUTPUT RULES coding: me the code to find the second large…\n  PASS  route coding: provide me the code to find the third largest nu…\n  PASS  no resume: provide me the code to find the third la…\n  PASS  contract coding: provide me the code to find the third la…\n  PASS  suffix is CODING contract: provide me the code to find the thir…\n  PASS  suffix has no STAR structure line: provide me the code to find the thir…\n  PASS  suffix forbids Situation labels: provide me the code to find the thir…\n  PASS  suffix requires fenced code first: provide me the code to find the thir…\n  PASS  OUTPUT RULES coding: provide me the code to find the thir…\n  PASS  route coding: me a code to find the second largest number from…\n  PASS  no resume: me a code to find the second largest num…\n  PASS  contract coding: me a code to find the second largest num…\n  PASS  suffix is CODING contract: me a code to find the second largest…\n  PASS  suffix has no STAR structure line: me a code to find the second largest…\n  PASS  suffix forbids Situation labels: me a code to find the second largest…\n  PASS  suffix requires fenced code first: me a code to find the second largest…\n  PASS  OUTPUT RULES coding: me a code to find the second largest…\n  PASS  route coding: provide me a code to convert a simple list into …\n  PASS  no resume: provide me a code to convert a simple li…\n  PASS  contract coding: provide me a code to convert a simple li…\n  PASS  suffix is CODING contract: provide me a code to convert a simpl…\n  PASS  suffix has no STAR structure line: provide me a code to convert a simpl…\n  PASS  suffix forbids Situation labels: provide me a code to convert a simpl…\n  PASS  suffix requires fenced code first: provide me a code to convert a simpl…\n  PASS  OUTPUT RULES coding: provide me a code to convert a simpl…\n  PASS  behavioral still uses resume\n  PASS  behavioral suffix keeps structure\n  PASS  behavioral is not CODING contract\n  PASS  main wires answerContract into suffix\n  PASS  main strips resume on non-personal screen asks\n\n45/45 passed\n\nCoding answer parity checks passed.\n\n✔ scripts\\test-coding-answer-parity.cjs (85.1668ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 94.7785\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 148,
+          "stdoutTail": "\n── Coding answer parity (5 questions) ──\n\nInterview mode template: looking-for-work\n\n  PASS  route coding: me the code to import a model from the hugging f…\n  PASS  no resume: me the code to import a model from the h…\n  PASS  contract coding: me the code to import a model from the h…\n  PASS  suffix is CODING contract: me the code to import a model from t…\n  PASS  suffix has no STAR structure line: me the code to import a model from t…\n  PASS  suffix forbids Situation labels: me the code to import a model from t…\n  PASS  suffix requires fenced code first: me the code to import a model from t…\n  PASS  OUTPUT RULES coding: me the code to import a model from t…\n  PASS  route coding: me the code to find the second largest number fr…\n  PASS  no resume: me the code to find the second largest n…\n  PASS  contract coding: me the code to find the second largest n…\n  PASS  suffix is CODING contract: me the code to find the second large…\n  PASS  suffix has no STAR structure line: me the code to find the second large…\n  PASS  suffix forbids Situation labels: me the code to find the second large…\n  PASS  suffix requires fenced code first: me the code to find the second large…\n  PASS  OUTPUT RULES coding: me the code to find the second large…\n  PASS  route coding: provide me the code to find the third largest nu…\n  PASS  no resume: provide me the code to find the third la…\n  PASS  contract coding: provide me the code to find the third la…\n  PASS  suffix is CODING contract: provide me the code to find the thir…\n  PASS  suffix has no STAR structure line: provide me the code to find the thir…\n  PASS  suffix forbids Situation labels: provide me the code to find the thir…\n  PASS  suffix requires fenced code first: provide me the code to find the thir…\n  PASS  OUTPUT RULES coding: provide me the code to find the thir…\n  PASS  route coding: me a code to find the second largest number from…\n  PASS  no resume: me a code to find the second largest num…\n  PASS  contract coding: me a code to find the second largest num…\n  PASS  suffix is CODING contract: me a code to find the second largest…\n  PASS  suffix has no STAR structure line: me a code to find the second largest…\n  PASS  suffix forbids Situation labels: me a code to find the second largest…\n  PASS  suffix requires fenced code first: me a code to find the second largest…\n  PASS  OUTPUT RULES coding: me a code to find the second largest…\n  PASS  route coding: provide me a code to convert a simple list into …\n  PASS  no resume: provide me a code to convert a simple li…\n  PASS  contract coding: provide me a code to convert a simple li…\n  PASS  suffix is CODING contract: provide me a code to convert a simpl…\n  PASS  suffix has no STAR structure line: provide me a code to convert a simpl…\n  PASS  suffix forbids Situation labels: provide me a code to convert a simpl…\n  PASS  suffix requires fenced code first: provide me a code to convert a simpl…\n  PASS  OUTPUT RULES coding: provide me a code to convert a simpl…\n  PASS  behavioral still uses resume\n  PASS  behavioral suffix keeps structure\n  PASS  behavioral is not CODING contract\n  PASS  main wires answerContract into suffix\n  PASS  main strips resume on non-personal screen asks\n\n45/45 passed\n\nCoding answer parity checks passed.\n\n✔ scripts\\test-coding-answer-parity.cjs (78.4898ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 87.713\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 156,
+          "stdoutTail": "\n── Coding answer parity (5 questions) ──\n\nInterview mode template: looking-for-work\n\n  PASS  route coding: me the code to import a model from the hugging f…\n  PASS  no resume: me the code to import a model from the h…\n  PASS  contract coding: me the code to import a model from the h…\n  PASS  suffix is CODING contract: me the code to import a model from t…\n  PASS  suffix has no STAR structure line: me the code to import a model from t…\n  PASS  suffix forbids Situation labels: me the code to import a model from t…\n  PASS  suffix requires fenced code first: me the code to import a model from t…\n  PASS  OUTPUT RULES coding: me the code to import a model from t…\n  PASS  route coding: me the code to find the second largest number fr…\n  PASS  no resume: me the code to find the second largest n…\n  PASS  contract coding: me the code to find the second largest n…\n  PASS  suffix is CODING contract: me the code to find the second large…\n  PASS  suffix has no STAR structure line: me the code to find the second large…\n  PASS  suffix forbids Situation labels: me the code to find the second large…\n  PASS  suffix requires fenced code first: me the code to find the second large…\n  PASS  OUTPUT RULES coding: me the code to find the second large…\n  PASS  route coding: provide me the code to find the third largest nu…\n  PASS  no resume: provide me the code to find the third la…\n  PASS  contract coding: provide me the code to find the third la…\n  PASS  suffix is CODING contract: provide me the code to find the thir…\n  PASS  suffix has no STAR structure line: provide me the code to find the thir…\n  PASS  suffix forbids Situation labels: provide me the code to find the thir…\n  PASS  suffix requires fenced code first: provide me the code to find the thir…\n  PASS  OUTPUT RULES coding: provide me the code to find the thir…\n  PASS  route coding: me a code to find the second largest number from…\n  PASS  no resume: me a code to find the second largest num…\n  PASS  contract coding: me a code to find the second largest num…\n  PASS  suffix is CODING contract: me a code to find the second largest…\n  PASS  suffix has no STAR structure line: me a code to find the second largest…\n  PASS  suffix forbids Situation labels: me a code to find the second largest…\n  PASS  suffix requires fenced code first: me a code to find the second largest…\n  PASS  OUTPUT RULES coding: me a code to find the second largest…\n  PASS  route coding: provide me a code to convert a simple list into …\n  PASS  no resume: provide me a code to convert a simple li…\n  PASS  contract coding: provide me a code to convert a simple li…\n  PASS  suffix is CODING contract: provide me a code to convert a simpl…\n  PASS  suffix has no STAR structure line: provide me a code to convert a simpl…\n  PASS  suffix forbids Situation labels: provide me a code to convert a simpl…\n  PASS  suffix requires fenced code first: provide me a code to convert a simpl…\n  PASS  OUTPUT RULES coding: provide me a code to convert a simpl…\n  PASS  behavioral still uses resume\n  PASS  behavioral suffix keeps structure\n  PASS  behavioral is not CODING contract\n  PASS  main wires answerContract into suffix\n  PASS  main strips resume on non-personal screen asks\n\n45/45 passed\n\nCoding answer parity checks passed.\n\n✔ scripts\\test-coding-answer-parity.cjs (85.4522ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 95.2704\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 150,
+          "stdoutTail": "\n── Coding answer parity (5 questions) ──\n\nInterview mode template: looking-for-work\n\n  PASS  route coding: me the code to import a model from the hugging f…\n  PASS  no resume: me the code to import a model from the h…\n  PASS  contract coding: me the code to import a model from the h…\n  PASS  suffix is CODING contract: me the code to import a model from t…\n  PASS  suffix has no STAR structure line: me the code to import a model from t…\n  PASS  suffix forbids Situation labels: me the code to import a model from t…\n  PASS  suffix requires fenced code first: me the code to import a model from t…\n  PASS  OUTPUT RULES coding: me the code to import a model from t…\n  PASS  route coding: me the code to find the second largest number fr…\n  PASS  no resume: me the code to find the second largest n…\n  PASS  contract coding: me the code to find the second largest n…\n  PASS  suffix is CODING contract: me the code to find the second large…\n  PASS  suffix has no STAR structure line: me the code to find the second large…\n  PASS  suffix forbids Situation labels: me the code to find the second large…\n  PASS  suffix requires fenced code first: me the code to find the second large…\n  PASS  OUTPUT RULES coding: me the code to find the second large…\n  PASS  route coding: provide me the code to find the third largest nu…\n  PASS  no resume: provide me the code to find the third la…\n  PASS  contract coding: provide me the code to find the third la…\n  PASS  suffix is CODING contract: provide me the code to find the thir…\n  PASS  suffix has no STAR structure line: provide me the code to find the thir…\n  PASS  suffix forbids Situation labels: provide me the code to find the thir…\n  PASS  suffix requires fenced code first: provide me the code to find the thir…\n  PASS  OUTPUT RULES coding: provide me the code to find the thir…\n  PASS  route coding: me a code to find the second largest number from…\n  PASS  no resume: me a code to find the second largest num…\n  PASS  contract coding: me a code to find the second largest num…\n  PASS  suffix is CODING contract: me a code to find the second largest…\n  PASS  suffix has no STAR structure line: me a code to find the second largest…\n  PASS  suffix forbids Situation labels: me a code to find the second largest…\n  PASS  suffix requires fenced code first: me a code to find the second largest…\n  PASS  OUTPUT RULES coding: me a code to find the second largest…\n  PASS  route coding: provide me a code to convert a simple list into …\n  PASS  no resume: provide me a code to convert a simple li…\n  PASS  contract coding: provide me a code to convert a simple li…\n  PASS  suffix is CODING contract: provide me a code to convert a simpl…\n  PASS  suffix has no STAR structure line: provide me a code to convert a simpl…\n  PASS  suffix forbids Situation labels: provide me a code to convert a simpl…\n  PASS  suffix requires fenced code first: provide me a code to convert a simpl…\n  PASS  OUTPUT RULES coding: provide me a code to convert a simpl…\n  PASS  behavioral still uses resume\n  PASS  behavioral suffix keeps structure\n  PASS  behavioral is not CODING contract\n  PASS  main wires answerContract into suffix\n  PASS  main strips resume on non-personal screen asks\n\n45/45 passed\n\nCoding answer parity checks passed.\n\n✔ scripts\\test-coding-answer-parity.cjs (81.195ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 92.2176\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 150,
+          "stdoutTail": "\n── Coding answer parity (5 questions) ──\n\nInterview mode template: looking-for-work\n\n  PASS  route coding: me the code to import a model from the hugging f…\n  PASS  no resume: me the code to import a model from the h…\n  PASS  contract coding: me the code to import a model from the h…\n  PASS  suffix is CODING contract: me the code to import a model from t…\n  PASS  suffix has no STAR structure line: me the code to import a model from t…\n  PASS  suffix forbids Situation labels: me the code to import a model from t…\n  PASS  suffix requires fenced code first: me the code to import a model from t…\n  PASS  OUTPUT RULES coding: me the code to import a model from t…\n  PASS  route coding: me the code to find the second largest number fr…\n  PASS  no resume: me the code to find the second largest n…\n  PASS  contract coding: me the code to find the second largest n…\n  PASS  suffix is CODING contract: me the code to find the second large…\n  PASS  suffix has no STAR structure line: me the code to find the second large…\n  PASS  suffix forbids Situation labels: me the code to find the second large…\n  PASS  suffix requires fenced code first: me the code to find the second large…\n  PASS  OUTPUT RULES coding: me the code to find the second large…\n  PASS  route coding: provide me the code to find the third largest nu…\n  PASS  no resume: provide me the code to find the third la…\n  PASS  contract coding: provide me the code to find the third la…\n  PASS  suffix is CODING contract: provide me the code to find the thir…\n  PASS  suffix has no STAR structure line: provide me the code to find the thir…\n  PASS  suffix forbids Situation labels: provide me the code to find the thir…\n  PASS  suffix requires fenced code first: provide me the code to find the thir…\n  PASS  OUTPUT RULES coding: provide me the code to find the thir…\n  PASS  route coding: me a code to find the second largest number from…\n  PASS  no resume: me a code to find the second largest num…\n  PASS  contract coding: me a code to find the second largest num…\n  PASS  suffix is CODING contract: me a code to find the second largest…\n  PASS  suffix has no STAR structure line: me a code to find the second largest…\n  PASS  suffix forbids Situation labels: me a code to find the second largest…\n  PASS  suffix requires fenced code first: me a code to find the second largest…\n  PASS  OUTPUT RULES coding: me a code to find the second largest…\n  PASS  route coding: provide me a code to convert a simple list into …\n  PASS  no resume: provide me a code to convert a simple li…\n  PASS  contract coding: provide me a code to convert a simple li…\n  PASS  suffix is CODING contract: provide me a code to convert a simpl…\n  PASS  suffix has no STAR structure line: provide me a code to convert a simpl…\n  PASS  suffix forbids Situation labels: provide me a code to convert a simpl…\n  PASS  suffix requires fenced code first: provide me a code to convert a simpl…\n  PASS  OUTPUT RULES coding: provide me a code to convert a simpl…\n  PASS  behavioral still uses resume\n  PASS  behavioral suffix keeps structure\n  PASS  behavioral is not CODING contract\n  PASS  main wires answerContract into suffix\n  PASS  main strips resume on non-personal screen asks\n\n45/45 passed\n\nCoding answer parity checks passed.\n\n✔ scripts\\test-coding-answer-parity.cjs (79.6016ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 89.2274\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "im-answer-ui-parity",
+      "area": "answer_panel",
+      "script": "scripts/test-im-answer-ui-parity.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 138,
+          "stdoutTail": "\n── InterviewMan answer UI / settings parity ──\n\n  PASS  main has no overlayFontPayloadForAnswerLength\n  PASS  main answerLength payload does not set overlayFontSize\n  PASS  settings applyAnswerLength does not call fontSizeFromAnswerLength\n  PASS  settings applyAnswerLength does not save overlayFontSize\n  PASS  Answer length hint says font is separate\n  PASS  Font size control exists separately under Overlay look\n  PASS  catalog fontSizeFromAnswerLength returns null (decoupled)\n  PASS  settings applyResponseFormat does not force answerStyle brief/detailed\n  PASS  main set-store responseFormat does not set answerStyle\n  PASS  overlay defaults answer panel to detailed markdown\n  PASS  overlay useState answerStyle starts detailed\n  PASS  ResponsePanel defaults answerStyle to detailed\n  PASS  store default answerStyle is detailed\n  PASS  overlayDisplayStyleFromFormat always detailed\n  PASS  bullets format uses \"- \" markers\n  PASS  medium length is moderate detail (IM)\n  PASS  medium FORMAT_GUIDANCE is full IM d5m (system design checklist)\n  PASS  long FORMAT_GUIDANCE is full IM d5m\n  PASS  FORMAT_GUIDANCE includes ASCII diagram instruction\n  PASS  contract forbids Takeaway section labels\n  PASS  contract HARD SCOPE blocks resume stories on coding\n  PASS  contract applies structure only to behavioral\n  PASS  contract uses IM dash sections\n  PASS  structure CAR string\n  PASS  ResponsePanel MarkdownNodes renders ul lists\n  PASS  MessageBubble detailed path uses MarkdownNodes\n  PASS  StreamingAnswerPreview paints MarkdownNodes live (IM mz)\n  PASS  panel normalizes • bullets before parse\n  PASS  screen rules include FOR CODING QUESTIONS\n  PASS  screen coding mandates fenced ```language block\n  PASS  screen coding is code-first order\n  PASS  single screen question must not use Question 1 prefix\n  PASS  conversational format still requires code fences\n  PASS  coding answerContract uses dedicated CODING suffix\n  PASS  coding answerContract omits STAR/CAR structure prompt\n\nInterviewMan answer UI parity checks passed.\n\n✔ scripts\\test-im-answer-ui-parity.cjs (70.3138ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 79.311\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 142,
+          "stdoutTail": "\n── InterviewMan answer UI / settings parity ──\n\n  PASS  main has no overlayFontPayloadForAnswerLength\n  PASS  main answerLength payload does not set overlayFontSize\n  PASS  settings applyAnswerLength does not call fontSizeFromAnswerLength\n  PASS  settings applyAnswerLength does not save overlayFontSize\n  PASS  Answer length hint says font is separate\n  PASS  Font size control exists separately under Overlay look\n  PASS  catalog fontSizeFromAnswerLength returns null (decoupled)\n  PASS  settings applyResponseFormat does not force answerStyle brief/detailed\n  PASS  main set-store responseFormat does not set answerStyle\n  PASS  overlay defaults answer panel to detailed markdown\n  PASS  overlay useState answerStyle starts detailed\n  PASS  ResponsePanel defaults answerStyle to detailed\n  PASS  store default answerStyle is detailed\n  PASS  overlayDisplayStyleFromFormat always detailed\n  PASS  bullets format uses \"- \" markers\n  PASS  medium length is moderate detail (IM)\n  PASS  medium FORMAT_GUIDANCE is full IM d5m (system design checklist)\n  PASS  long FORMAT_GUIDANCE is full IM d5m\n  PASS  FORMAT_GUIDANCE includes ASCII diagram instruction\n  PASS  contract forbids Takeaway section labels\n  PASS  contract HARD SCOPE blocks resume stories on coding\n  PASS  contract applies structure only to behavioral\n  PASS  contract uses IM dash sections\n  PASS  structure CAR string\n  PASS  ResponsePanel MarkdownNodes renders ul lists\n  PASS  MessageBubble detailed path uses MarkdownNodes\n  PASS  StreamingAnswerPreview paints MarkdownNodes live (IM mz)\n  PASS  panel normalizes • bullets before parse\n  PASS  screen rules include FOR CODING QUESTIONS\n  PASS  screen coding mandates fenced ```language block\n  PASS  screen coding is code-first order\n  PASS  single screen question must not use Question 1 prefix\n  PASS  conversational format still requires code fences\n  PASS  coding answerContract uses dedicated CODING suffix\n  PASS  coding answerContract omits STAR/CAR structure prompt\n\nInterviewMan answer UI parity checks passed.\n\n✔ scripts\\test-im-answer-ui-parity.cjs (68.7986ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 80.2115\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 136,
+          "stdoutTail": "\n── InterviewMan answer UI / settings parity ──\n\n  PASS  main has no overlayFontPayloadForAnswerLength\n  PASS  main answerLength payload does not set overlayFontSize\n  PASS  settings applyAnswerLength does not call fontSizeFromAnswerLength\n  PASS  settings applyAnswerLength does not save overlayFontSize\n  PASS  Answer length hint says font is separate\n  PASS  Font size control exists separately under Overlay look\n  PASS  catalog fontSizeFromAnswerLength returns null (decoupled)\n  PASS  settings applyResponseFormat does not force answerStyle brief/detailed\n  PASS  main set-store responseFormat does not set answerStyle\n  PASS  overlay defaults answer panel to detailed markdown\n  PASS  overlay useState answerStyle starts detailed\n  PASS  ResponsePanel defaults answerStyle to detailed\n  PASS  store default answerStyle is detailed\n  PASS  overlayDisplayStyleFromFormat always detailed\n  PASS  bullets format uses \"- \" markers\n  PASS  medium length is moderate detail (IM)\n  PASS  medium FORMAT_GUIDANCE is full IM d5m (system design checklist)\n  PASS  long FORMAT_GUIDANCE is full IM d5m\n  PASS  FORMAT_GUIDANCE includes ASCII diagram instruction\n  PASS  contract forbids Takeaway section labels\n  PASS  contract HARD SCOPE blocks resume stories on coding\n  PASS  contract applies structure only to behavioral\n  PASS  contract uses IM dash sections\n  PASS  structure CAR string\n  PASS  ResponsePanel MarkdownNodes renders ul lists\n  PASS  MessageBubble detailed path uses MarkdownNodes\n  PASS  StreamingAnswerPreview paints MarkdownNodes live (IM mz)\n  PASS  panel normalizes • bullets before parse\n  PASS  screen rules include FOR CODING QUESTIONS\n  PASS  screen coding mandates fenced ```language block\n  PASS  screen coding is code-first order\n  PASS  single screen question must not use Question 1 prefix\n  PASS  conversational format still requires code fences\n  PASS  coding answerContract uses dedicated CODING suffix\n  PASS  coding answerContract omits STAR/CAR structure prompt\n\nInterviewMan answer UI parity checks passed.\n\n✔ scripts\\test-im-answer-ui-parity.cjs (67.8484ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 76.9672\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 139,
+          "stdoutTail": "\n── InterviewMan answer UI / settings parity ──\n\n  PASS  main has no overlayFontPayloadForAnswerLength\n  PASS  main answerLength payload does not set overlayFontSize\n  PASS  settings applyAnswerLength does not call fontSizeFromAnswerLength\n  PASS  settings applyAnswerLength does not save overlayFontSize\n  PASS  Answer length hint says font is separate\n  PASS  Font size control exists separately under Overlay look\n  PASS  catalog fontSizeFromAnswerLength returns null (decoupled)\n  PASS  settings applyResponseFormat does not force answerStyle brief/detailed\n  PASS  main set-store responseFormat does not set answerStyle\n  PASS  overlay defaults answer panel to detailed markdown\n  PASS  overlay useState answerStyle starts detailed\n  PASS  ResponsePanel defaults answerStyle to detailed\n  PASS  store default answerStyle is detailed\n  PASS  overlayDisplayStyleFromFormat always detailed\n  PASS  bullets format uses \"- \" markers\n  PASS  medium length is moderate detail (IM)\n  PASS  medium FORMAT_GUIDANCE is full IM d5m (system design checklist)\n  PASS  long FORMAT_GUIDANCE is full IM d5m\n  PASS  FORMAT_GUIDANCE includes ASCII diagram instruction\n  PASS  contract forbids Takeaway section labels\n  PASS  contract HARD SCOPE blocks resume stories on coding\n  PASS  contract applies structure only to behavioral\n  PASS  contract uses IM dash sections\n  PASS  structure CAR string\n  PASS  ResponsePanel MarkdownNodes renders ul lists\n  PASS  MessageBubble detailed path uses MarkdownNodes\n  PASS  StreamingAnswerPreview paints MarkdownNodes live (IM mz)\n  PASS  panel normalizes • bullets before parse\n  PASS  screen rules include FOR CODING QUESTIONS\n  PASS  screen coding mandates fenced ```language block\n  PASS  screen coding is code-first order\n  PASS  single screen question must not use Question 1 prefix\n  PASS  conversational format still requires code fences\n  PASS  coding answerContract uses dedicated CODING suffix\n  PASS  coding answerContract omits STAR/CAR structure prompt\n\nInterviewMan answer UI parity checks passed.\n\n✔ scripts\\test-im-answer-ui-parity.cjs (67.7946ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 79.5623\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 143,
+          "stdoutTail": "\n── InterviewMan answer UI / settings parity ──\n\n  PASS  main has no overlayFontPayloadForAnswerLength\n  PASS  main answerLength payload does not set overlayFontSize\n  PASS  settings applyAnswerLength does not call fontSizeFromAnswerLength\n  PASS  settings applyAnswerLength does not save overlayFontSize\n  PASS  Answer length hint says font is separate\n  PASS  Font size control exists separately under Overlay look\n  PASS  catalog fontSizeFromAnswerLength returns null (decoupled)\n  PASS  settings applyResponseFormat does not force answerStyle brief/detailed\n  PASS  main set-store responseFormat does not set answerStyle\n  PASS  overlay defaults answer panel to detailed markdown\n  PASS  overlay useState answerStyle starts detailed\n  PASS  ResponsePanel defaults answerStyle to detailed\n  PASS  store default answerStyle is detailed\n  PASS  overlayDisplayStyleFromFormat always detailed\n  PASS  bullets format uses \"- \" markers\n  PASS  medium length is moderate detail (IM)\n  PASS  medium FORMAT_GUIDANCE is full IM d5m (system design checklist)\n  PASS  long FORMAT_GUIDANCE is full IM d5m\n  PASS  FORMAT_GUIDANCE includes ASCII diagram instruction\n  PASS  contract forbids Takeaway section labels\n  PASS  contract HARD SCOPE blocks resume stories on coding\n  PASS  contract applies structure only to behavioral\n  PASS  contract uses IM dash sections\n  PASS  structure CAR string\n  PASS  ResponsePanel MarkdownNodes renders ul lists\n  PASS  MessageBubble detailed path uses MarkdownNodes\n  PASS  StreamingAnswerPreview paints MarkdownNodes live (IM mz)\n  PASS  panel normalizes • bullets before parse\n  PASS  screen rules include FOR CODING QUESTIONS\n  PASS  screen coding mandates fenced ```language block\n  PASS  screen coding is code-first order\n  PASS  single screen question must not use Question 1 prefix\n  PASS  conversational format still requires code fences\n  PASS  coding answerContract uses dedicated CODING suffix\n  PASS  coding answerContract omits STAR/CAR structure prompt\n\nInterviewMan answer UI parity checks passed.\n\n✔ scripts\\test-im-answer-ui-parity.cjs (74.7088ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 83.641\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "stream-answer-display",
+      "area": "answer_panel",
+      "script": "scripts/test-stream-answer-display.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 136,
+          "stdoutTail": "\n── Stream answer display (InterviewMan live markdown) ──\n\n  PASS  StreamingAnswerPreview renders MarkdownNodes (not stripped plain text)\n  PASS  bullet glyph • becomes \"- \" before parse (IM cZb display path)\n  PASS  splitStreamTakeaway is not used for live stream layout\n  PASS  streamPreviewIntervalFor remains one display frame\n  PASS  overlay paints the stream on rAF\n\n5/5 passed\n✔ scripts\\test-stream-answer-display.cjs (64.2084ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 73.9678\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 139,
+          "stdoutTail": "\n── Stream answer display (InterviewMan live markdown) ──\n\n  PASS  StreamingAnswerPreview renders MarkdownNodes (not stripped plain text)\n  PASS  bullet glyph • becomes \"- \" before parse (IM cZb display path)\n  PASS  splitStreamTakeaway is not used for live stream layout\n  PASS  streamPreviewIntervalFor remains one display frame\n  PASS  overlay paints the stream on rAF\n\n5/5 passed\n✔ scripts\\test-stream-answer-display.cjs (66.1717ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 76.1959\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 135,
+          "stdoutTail": "\n── Stream answer display (InterviewMan live markdown) ──\n\n  PASS  StreamingAnswerPreview renders MarkdownNodes (not stripped plain text)\n  PASS  bullet glyph • becomes \"- \" before parse (IM cZb display path)\n  PASS  splitStreamTakeaway is not used for live stream layout\n  PASS  streamPreviewIntervalFor remains one display frame\n  PASS  overlay paints the stream on rAF\n\n5/5 passed\n✔ scripts\\test-stream-answer-display.cjs (63.571ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 72.8411\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 135,
+          "stdoutTail": "\n── Stream answer display (InterviewMan live markdown) ──\n\n  PASS  StreamingAnswerPreview renders MarkdownNodes (not stripped plain text)\n  PASS  bullet glyph • becomes \"- \" before parse (IM cZb display path)\n  PASS  splitStreamTakeaway is not used for live stream layout\n  PASS  streamPreviewIntervalFor remains one display frame\n  PASS  overlay paints the stream on rAF\n\n5/5 passed\n✔ scripts\\test-stream-answer-display.cjs (64.4897ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 74.462\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 134,
+          "stdoutTail": "\n── Stream answer display (InterviewMan live markdown) ──\n\n  PASS  StreamingAnswerPreview renders MarkdownNodes (not stripped plain text)\n  PASS  bullet glyph • becomes \"- \" before parse (IM cZb display path)\n  PASS  splitStreamTakeaway is not used for live stream layout\n  PASS  streamPreviewIntervalFor remains one display frame\n  PASS  overlay paints the stream on rAF\n\n5/5 passed\n✔ scripts\\test-stream-answer-display.cjs (64.1757ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 73.8469\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "general-answer-settings",
+      "area": "answer_generation",
+      "script": "scripts/test-general-answer-settings-wiring.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 145,
+          "stdoutTail": "\n── General answer settings wiring ──\n\n  PASS  CAR + Conversational + Short → prompt suffix\n  PASS  Conversational uses InterviewMan spoken style (hmm/uh)\n  PASS  Short answer length → 140 max tokens — 140\n  PASS  Conversational format → detailed overlay layout\n  PASS  Answer length does NOT map to overlay font (IM)\n  PASS  Empty language → no prompt block\n  PASS  Hindi language → system prompt block\n  PASS  App.jsx applyAnswerStructure → save('answerStructure'\n  PASS  App.jsx applyResponseFormat → save('responseFormat'\n  PASS  App.jsx applyResponseFormat → apply-overlay-display\n  PASS  App.jsx applyAnswerLength → save('answerLength'\n  PASS  App.jsx applyAiResponseLanguage → save('aiResponseLanguage'\n  PASS  App.jsx applyInterviewCustomInstructions → save('interviewCustomInstructions'\n  PASS  App.jsx applyAnswerLength does not couple fontSizeFromAnswerLength (IM)\n  PASS  General tab wires answerStructureUi\n  PASS  General tab wires onAnswerStructureChange\n  PASS  General tab wires responseFormatUi\n  PASS  General tab wires onResponseFormatChange\n  PASS  General tab wires answerLengthUi\n  PASS  General tab wires onAnswerLengthChange\n  PASS  General tab wires aiResponseLanguageUi\n  PASS  General tab wires onAiResponseLanguageChange\n  PASS  General tab wires interviewCustomInstructionsUi\n  PASS  General tab wires onInterviewCustomInstructionsChange\n  PASS  main/index.js does not couple answerLength → overlayFontSize (IM)\n  PASS  main/index.js no longer has auto-scroll font toggle helper\n  PASS  overlay App.jsx does not resolve font from answer length on load (IM)\n  PASS  overlay App.jsx applies overlayFontSize from display updates\n  PASS  store.js defines answerStructure\n  PASS  store.js defines responseFormat\n  PASS  store.js defines answerLength\n  PASS  store.js defines aiResponseLanguage\n  PASS  store.js defines interviewCustomInstructions\n  PASS  DisplaySettingsPanel documents answer-length ≠ font size (IM)\n  PASS  structure star → prompt\n  PASS  structure car → prompt\n  PASS  structure soar → prompt\n  PASS  structure par → prompt\n  PASS  structure soara → prompt\n  PASS  custom instructions appended to interview suffix (Android parity)\n  PASS  getInterviewAnswerSuffixFromStore includes custom instructions\n  PASS  main/index.js maxTokens from answerLength for every provider\n  PASS  overlay Answer history wired into ResponsePanel\n  PASS  aiClient OpenRouter fast-chat + Nemotron /no_think + reasoning off\n  PASS  aiClient non-NVIDIA reasoning-off helpers present\n  PASS  ACTIVE PROMPT / modeTemplates no longer force STAR+120\n  PASS  defaultSystemPrompt gates detailed/markdown when interview contract active\n  PASS  OUTPUT RULES reminder includes custom when set\n  PASS  coding:false Medium stays 280 tokens\n\n49/49 passed\n✔ scripts\\test-general-answer-settings-wiring.cjs (72.3251ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 81.7953\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 155,
+          "stdoutTail": "\n── General answer settings wiring ──\n\n  PASS  CAR + Conversational + Short → prompt suffix\n  PASS  Conversational uses InterviewMan spoken style (hmm/uh)\n  PASS  Short answer length → 140 max tokens — 140\n  PASS  Conversational format → detailed overlay layout\n  PASS  Answer length does NOT map to overlay font (IM)\n  PASS  Empty language → no prompt block\n  PASS  Hindi language → system prompt block\n  PASS  App.jsx applyAnswerStructure → save('answerStructure'\n  PASS  App.jsx applyResponseFormat → save('responseFormat'\n  PASS  App.jsx applyResponseFormat → apply-overlay-display\n  PASS  App.jsx applyAnswerLength → save('answerLength'\n  PASS  App.jsx applyAiResponseLanguage → save('aiResponseLanguage'\n  PASS  App.jsx applyInterviewCustomInstructions → save('interviewCustomInstructions'\n  PASS  App.jsx applyAnswerLength does not couple fontSizeFromAnswerLength (IM)\n  PASS  General tab wires answerStructureUi\n  PASS  General tab wires onAnswerStructureChange\n  PASS  General tab wires responseFormatUi\n  PASS  General tab wires onResponseFormatChange\n  PASS  General tab wires answerLengthUi\n  PASS  General tab wires onAnswerLengthChange\n  PASS  General tab wires aiResponseLanguageUi\n  PASS  General tab wires onAiResponseLanguageChange\n  PASS  General tab wires interviewCustomInstructionsUi\n  PASS  General tab wires onInterviewCustomInstructionsChange\n  PASS  main/index.js does not couple answerLength → overlayFontSize (IM)\n  PASS  main/index.js no longer has auto-scroll font toggle helper\n  PASS  overlay App.jsx does not resolve font from answer length on load (IM)\n  PASS  overlay App.jsx applies overlayFontSize from display updates\n  PASS  store.js defines answerStructure\n  PASS  store.js defines responseFormat\n  PASS  store.js defines answerLength\n  PASS  store.js defines aiResponseLanguage\n  PASS  store.js defines interviewCustomInstructions\n  PASS  DisplaySettingsPanel documents answer-length ≠ font size (IM)\n  PASS  structure star → prompt\n  PASS  structure car → prompt\n  PASS  structure soar → prompt\n  PASS  structure par → prompt\n  PASS  structure soara → prompt\n  PASS  custom instructions appended to interview suffix (Android parity)\n  PASS  getInterviewAnswerSuffixFromStore includes custom instructions\n  PASS  main/index.js maxTokens from answerLength for every provider\n  PASS  overlay Answer history wired into ResponsePanel\n  PASS  aiClient OpenRouter fast-chat + Nemotron /no_think + reasoning off\n  PASS  aiClient non-NVIDIA reasoning-off helpers present\n  PASS  ACTIVE PROMPT / modeTemplates no longer force STAR+120\n  PASS  defaultSystemPrompt gates detailed/markdown when interview contract active\n  PASS  OUTPUT RULES reminder includes custom when set\n  PASS  coding:false Medium stays 280 tokens\n\n49/49 passed\n✔ scripts\\test-general-answer-settings-wiring.cjs (82.8335ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 94.43\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 143,
+          "stdoutTail": "\n── General answer settings wiring ──\n\n  PASS  CAR + Conversational + Short → prompt suffix\n  PASS  Conversational uses InterviewMan spoken style (hmm/uh)\n  PASS  Short answer length → 140 max tokens — 140\n  PASS  Conversational format → detailed overlay layout\n  PASS  Answer length does NOT map to overlay font (IM)\n  PASS  Empty language → no prompt block\n  PASS  Hindi language → system prompt block\n  PASS  App.jsx applyAnswerStructure → save('answerStructure'\n  PASS  App.jsx applyResponseFormat → save('responseFormat'\n  PASS  App.jsx applyResponseFormat → apply-overlay-display\n  PASS  App.jsx applyAnswerLength → save('answerLength'\n  PASS  App.jsx applyAiResponseLanguage → save('aiResponseLanguage'\n  PASS  App.jsx applyInterviewCustomInstructions → save('interviewCustomInstructions'\n  PASS  App.jsx applyAnswerLength does not couple fontSizeFromAnswerLength (IM)\n  PASS  General tab wires answerStructureUi\n  PASS  General tab wires onAnswerStructureChange\n  PASS  General tab wires responseFormatUi\n  PASS  General tab wires onResponseFormatChange\n  PASS  General tab wires answerLengthUi\n  PASS  General tab wires onAnswerLengthChange\n  PASS  General tab wires aiResponseLanguageUi\n  PASS  General tab wires onAiResponseLanguageChange\n  PASS  General tab wires interviewCustomInstructionsUi\n  PASS  General tab wires onInterviewCustomInstructionsChange\n  PASS  main/index.js does not couple answerLength → overlayFontSize (IM)\n  PASS  main/index.js no longer has auto-scroll font toggle helper\n  PASS  overlay App.jsx does not resolve font from answer length on load (IM)\n  PASS  overlay App.jsx applies overlayFontSize from display updates\n  PASS  store.js defines answerStructure\n  PASS  store.js defines responseFormat\n  PASS  store.js defines answerLength\n  PASS  store.js defines aiResponseLanguage\n  PASS  store.js defines interviewCustomInstructions\n  PASS  DisplaySettingsPanel documents answer-length ≠ font size (IM)\n  PASS  structure star → prompt\n  PASS  structure car → prompt\n  PASS  structure soar → prompt\n  PASS  structure par → prompt\n  PASS  structure soara → prompt\n  PASS  custom instructions appended to interview suffix (Android parity)\n  PASS  getInterviewAnswerSuffixFromStore includes custom instructions\n  PASS  main/index.js maxTokens from answerLength for every provider\n  PASS  overlay Answer history wired into ResponsePanel\n  PASS  aiClient OpenRouter fast-chat + Nemotron /no_think + reasoning off\n  PASS  aiClient non-NVIDIA reasoning-off helpers present\n  PASS  ACTIVE PROMPT / modeTemplates no longer force STAR+120\n  PASS  defaultSystemPrompt gates detailed/markdown when interview contract active\n  PASS  OUTPUT RULES reminder includes custom when set\n  PASS  coding:false Medium stays 280 tokens\n\n49/49 passed\n✔ scripts\\test-general-answer-settings-wiring.cjs (73.719ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 83.8049\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 152,
+          "stdoutTail": "\n── General answer settings wiring ──\n\n  PASS  CAR + Conversational + Short → prompt suffix\n  PASS  Conversational uses InterviewMan spoken style (hmm/uh)\n  PASS  Short answer length → 140 max tokens — 140\n  PASS  Conversational format → detailed overlay layout\n  PASS  Answer length does NOT map to overlay font (IM)\n  PASS  Empty language → no prompt block\n  PASS  Hindi language → system prompt block\n  PASS  App.jsx applyAnswerStructure → save('answerStructure'\n  PASS  App.jsx applyResponseFormat → save('responseFormat'\n  PASS  App.jsx applyResponseFormat → apply-overlay-display\n  PASS  App.jsx applyAnswerLength → save('answerLength'\n  PASS  App.jsx applyAiResponseLanguage → save('aiResponseLanguage'\n  PASS  App.jsx applyInterviewCustomInstructions → save('interviewCustomInstructions'\n  PASS  App.jsx applyAnswerLength does not couple fontSizeFromAnswerLength (IM)\n  PASS  General tab wires answerStructureUi\n  PASS  General tab wires onAnswerStructureChange\n  PASS  General tab wires responseFormatUi\n  PASS  General tab wires onResponseFormatChange\n  PASS  General tab wires answerLengthUi\n  PASS  General tab wires onAnswerLengthChange\n  PASS  General tab wires aiResponseLanguageUi\n  PASS  General tab wires onAiResponseLanguageChange\n  PASS  General tab wires interviewCustomInstructionsUi\n  PASS  General tab wires onInterviewCustomInstructionsChange\n  PASS  main/index.js does not couple answerLength → overlayFontSize (IM)\n  PASS  main/index.js no longer has auto-scroll font toggle helper\n  PASS  overlay App.jsx does not resolve font from answer length on load (IM)\n  PASS  overlay App.jsx applies overlayFontSize from display updates\n  PASS  store.js defines answerStructure\n  PASS  store.js defines responseFormat\n  PASS  store.js defines answerLength\n  PASS  store.js defines aiResponseLanguage\n  PASS  store.js defines interviewCustomInstructions\n  PASS  DisplaySettingsPanel documents answer-length ≠ font size (IM)\n  PASS  structure star → prompt\n  PASS  structure car → prompt\n  PASS  structure soar → prompt\n  PASS  structure par → prompt\n  PASS  structure soara → prompt\n  PASS  custom instructions appended to interview suffix (Android parity)\n  PASS  getInterviewAnswerSuffixFromStore includes custom instructions\n  PASS  main/index.js maxTokens from answerLength for every provider\n  PASS  overlay Answer history wired into ResponsePanel\n  PASS  aiClient OpenRouter fast-chat + Nemotron /no_think + reasoning off\n  PASS  aiClient non-NVIDIA reasoning-off helpers present\n  PASS  ACTIVE PROMPT / modeTemplates no longer force STAR+120\n  PASS  defaultSystemPrompt gates detailed/markdown when interview contract active\n  PASS  OUTPUT RULES reminder includes custom when set\n  PASS  coding:false Medium stays 280 tokens\n\n49/49 passed\n✔ scripts\\test-general-answer-settings-wiring.cjs (78.0964ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 88.397\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 152,
+          "stdoutTail": "\n── General answer settings wiring ──\n\n  PASS  CAR + Conversational + Short → prompt suffix\n  PASS  Conversational uses InterviewMan spoken style (hmm/uh)\n  PASS  Short answer length → 140 max tokens — 140\n  PASS  Conversational format → detailed overlay layout\n  PASS  Answer length does NOT map to overlay font (IM)\n  PASS  Empty language → no prompt block\n  PASS  Hindi language → system prompt block\n  PASS  App.jsx applyAnswerStructure → save('answerStructure'\n  PASS  App.jsx applyResponseFormat → save('responseFormat'\n  PASS  App.jsx applyResponseFormat → apply-overlay-display\n  PASS  App.jsx applyAnswerLength → save('answerLength'\n  PASS  App.jsx applyAiResponseLanguage → save('aiResponseLanguage'\n  PASS  App.jsx applyInterviewCustomInstructions → save('interviewCustomInstructions'\n  PASS  App.jsx applyAnswerLength does not couple fontSizeFromAnswerLength (IM)\n  PASS  General tab wires answerStructureUi\n  PASS  General tab wires onAnswerStructureChange\n  PASS  General tab wires responseFormatUi\n  PASS  General tab wires onResponseFormatChange\n  PASS  General tab wires answerLengthUi\n  PASS  General tab wires onAnswerLengthChange\n  PASS  General tab wires aiResponseLanguageUi\n  PASS  General tab wires onAiResponseLanguageChange\n  PASS  General tab wires interviewCustomInstructionsUi\n  PASS  General tab wires onInterviewCustomInstructionsChange\n  PASS  main/index.js does not couple answerLength → overlayFontSize (IM)\n  PASS  main/index.js no longer has auto-scroll font toggle helper\n  PASS  overlay App.jsx does not resolve font from answer length on load (IM)\n  PASS  overlay App.jsx applies overlayFontSize from display updates\n  PASS  store.js defines answerStructure\n  PASS  store.js defines responseFormat\n  PASS  store.js defines answerLength\n  PASS  store.js defines aiResponseLanguage\n  PASS  store.js defines interviewCustomInstructions\n  PASS  DisplaySettingsPanel documents answer-length ≠ font size (IM)\n  PASS  structure star → prompt\n  PASS  structure car → prompt\n  PASS  structure soar → prompt\n  PASS  structure par → prompt\n  PASS  structure soara → prompt\n  PASS  custom instructions appended to interview suffix (Android parity)\n  PASS  getInterviewAnswerSuffixFromStore includes custom instructions\n  PASS  main/index.js maxTokens from answerLength for every provider\n  PASS  overlay Answer history wired into ResponsePanel\n  PASS  aiClient OpenRouter fast-chat + Nemotron /no_think + reasoning off\n  PASS  aiClient non-NVIDIA reasoning-off helpers present\n  PASS  ACTIVE PROMPT / modeTemplates no longer force STAR+120\n  PASS  defaultSystemPrompt gates detailed/markdown when interview contract active\n  PASS  OUTPUT RULES reminder includes custom when set\n  PASS  coding:false Medium stays 280 tokens\n\n49/49 passed\n✔ scripts\\test-general-answer-settings-wiring.cjs (82.5027ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 92.3279\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "desktop-interview-wiring",
+      "area": "answer_generation",
+      "script": "scripts/test-desktop-interview-wiring.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 153,
+          "stdoutTail": "\n── Desktop interview wiring ──\n\n  PASS  minCharsForDetection(low) — 24\n  PASS  minCharsForDetection(medium) — 14\n  PASS  minCharsForDetection(high) — 6\n  PASS  effectiveMinSpeechChars boost — 8\n  PASS  buildInterviewAnswerSuffix includes structure + format + medium length\n  PASS  bullets formatPrompt matches InterviewMan \"- \" list template\n  PASS  buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT\n  PASS  conversational suffix includes spoken override for fillers\n  PASS  example-driven suffix includes CAR + no-filler override\n  PASS  conversational formatPrompt fillers\n  PASS  getInterviewAnswerSuffixFromStore (manual mode)\n  PASS  language + structure/format in prompt tail (manual mode)\n  PASS  maxTokensForAnswerLength(short) — 140\n  PASS  maxTokensForAnswerLength(medium) — 280\n  PASS  maxTokensForAnswerLength(long) — 420\n  PASS  main/index.js wires interview suffix into Ask path\n  PASS  main/index.js appends OUTPUT RULES reminder to user turn\n  PASS  main/index.js passes answerContract into interview suffix (coding vs behavioral)\n  PASS  main/index.js strips resume on non-personal screen asks\n  PASS  main/index.js wires aiResponseLanguage into Ask path\n  PASS  main/index.js wires answerLength → maxTokens in Ask path\n  PASS  handleAskAI does not gate prompt on auto-answer or auto-scroll\n  PASS  main/index.js no longer uses legacy answerStyle suffix alone\n  PASS  overlay App.jsx: manual ask IPC; auto triggers rejected\n  PASS  DisplaySettingsPanel interview answer controls (General)\n  PASS  isLikelySelfReadback detects answer readback\n  PASS  stripSelfReadback keeps genuine follow-up tail\n  PASS  a new \"what is machine learning?\" is not treated as reading the deep-learning answer\n  PASS  stripSelfReadback keeps what is machine learning?\n  PASS  overlay App.jsx keeps self-readback helpers; auto-answer forced off\n  PASS  overlay App.jsx clears transcript after successful manual ask (2026.11.01.03.01-aligned)\n  PASS  overlay App.jsx hard-rejects auto-answer asks\n  PASS  DisplaySettingsPanel custom instructions field (General)\n  PASS  overlay App.jsx strips answered question before classifying post-answer speech\n  PASS  overlay App.jsx fires continuation follow-ups immediately, bypassing the readback hold\n  PASS  CAR + Conversational + Medium → HARD contract + spoken mode\n  PASS  OUTPUT RULES reminder includes Conversational + custom\n  PASS  mode templates + default interview defer to INTERVIEW OUTPUT CONTRACT\n  PASS  Medium non-coding maxTokens stays 280\n  PASS  Medium coding maxTokens stays 1800\n  PASS  Ask path gates coding token budget on coding_answer only\n\n41/41 passed\n✔ scripts\\test-desktop-interview-wiring.cjs (77.5077ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 88.4311\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 151,
+          "stdoutTail": "\n── Desktop interview wiring ──\n\n  PASS  minCharsForDetection(low) — 24\n  PASS  minCharsForDetection(medium) — 14\n  PASS  minCharsForDetection(high) — 6\n  PASS  effectiveMinSpeechChars boost — 8\n  PASS  buildInterviewAnswerSuffix includes structure + format + medium length\n  PASS  bullets formatPrompt matches InterviewMan \"- \" list template\n  PASS  buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT\n  PASS  conversational suffix includes spoken override for fillers\n  PASS  example-driven suffix includes CAR + no-filler override\n  PASS  conversational formatPrompt fillers\n  PASS  getInterviewAnswerSuffixFromStore (manual mode)\n  PASS  language + structure/format in prompt tail (manual mode)\n  PASS  maxTokensForAnswerLength(short) — 140\n  PASS  maxTokensForAnswerLength(medium) — 280\n  PASS  maxTokensForAnswerLength(long) — 420\n  PASS  main/index.js wires interview suffix into Ask path\n  PASS  main/index.js appends OUTPUT RULES reminder to user turn\n  PASS  main/index.js passes answerContract into interview suffix (coding vs behavioral)\n  PASS  main/index.js strips resume on non-personal screen asks\n  PASS  main/index.js wires aiResponseLanguage into Ask path\n  PASS  main/index.js wires answerLength → maxTokens in Ask path\n  PASS  handleAskAI does not gate prompt on auto-answer or auto-scroll\n  PASS  main/index.js no longer uses legacy answerStyle suffix alone\n  PASS  overlay App.jsx: manual ask IPC; auto triggers rejected\n  PASS  DisplaySettingsPanel interview answer controls (General)\n  PASS  isLikelySelfReadback detects answer readback\n  PASS  stripSelfReadback keeps genuine follow-up tail\n  PASS  a new \"what is machine learning?\" is not treated as reading the deep-learning answer\n  PASS  stripSelfReadback keeps what is machine learning?\n  PASS  overlay App.jsx keeps self-readback helpers; auto-answer forced off\n  PASS  overlay App.jsx clears transcript after successful manual ask (2026.11.01.03.01-aligned)\n  PASS  overlay App.jsx hard-rejects auto-answer asks\n  PASS  DisplaySettingsPanel custom instructions field (General)\n  PASS  overlay App.jsx strips answered question before classifying post-answer speech\n  PASS  overlay App.jsx fires continuation follow-ups immediately, bypassing the readback hold\n  PASS  CAR + Conversational + Medium → HARD contract + spoken mode\n  PASS  OUTPUT RULES reminder includes Conversational + custom\n  PASS  mode templates + default interview defer to INTERVIEW OUTPUT CONTRACT\n  PASS  Medium non-coding maxTokens stays 280\n  PASS  Medium coding maxTokens stays 1800\n  PASS  Ask path gates coding token budget on coding_answer only\n\n41/41 passed\n✔ scripts\\test-desktop-interview-wiring.cjs (74.5213ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 85.4131\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 158,
+          "stdoutTail": "\n── Desktop interview wiring ──\n\n  PASS  minCharsForDetection(low) — 24\n  PASS  minCharsForDetection(medium) — 14\n  PASS  minCharsForDetection(high) — 6\n  PASS  effectiveMinSpeechChars boost — 8\n  PASS  buildInterviewAnswerSuffix includes structure + format + medium length\n  PASS  bullets formatPrompt matches InterviewMan \"- \" list template\n  PASS  buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT\n  PASS  conversational suffix includes spoken override for fillers\n  PASS  example-driven suffix includes CAR + no-filler override\n  PASS  conversational formatPrompt fillers\n  PASS  getInterviewAnswerSuffixFromStore (manual mode)\n  PASS  language + structure/format in prompt tail (manual mode)\n  PASS  maxTokensForAnswerLength(short) — 140\n  PASS  maxTokensForAnswerLength(medium) — 280\n  PASS  maxTokensForAnswerLength(long) — 420\n  PASS  main/index.js wires interview suffix into Ask path\n  PASS  main/index.js appends OUTPUT RULES reminder to user turn\n  PASS  main/index.js passes answerContract into interview suffix (coding vs behavioral)\n  PASS  main/index.js strips resume on non-personal screen asks\n  PASS  main/index.js wires aiResponseLanguage into Ask path\n  PASS  main/index.js wires answerLength → maxTokens in Ask path\n  PASS  handleAskAI does not gate prompt on auto-answer or auto-scroll\n  PASS  main/index.js no longer uses legacy answerStyle suffix alone\n  PASS  overlay App.jsx: manual ask IPC; auto triggers rejected\n  PASS  DisplaySettingsPanel interview answer controls (General)\n  PASS  isLikelySelfReadback detects answer readback\n  PASS  stripSelfReadback keeps genuine follow-up tail\n  PASS  a new \"what is machine learning?\" is not treated as reading the deep-learning answer\n  PASS  stripSelfReadback keeps what is machine learning?\n  PASS  overlay App.jsx keeps self-readback helpers; auto-answer forced off\n  PASS  overlay App.jsx clears transcript after successful manual ask (2026.11.01.03.01-aligned)\n  PASS  overlay App.jsx hard-rejects auto-answer asks\n  PASS  DisplaySettingsPanel custom instructions field (General)\n  PASS  overlay App.jsx strips answered question before classifying post-answer speech\n  PASS  overlay App.jsx fires continuation follow-ups immediately, bypassing the readback hold\n  PASS  CAR + Conversational + Medium → HARD contract + spoken mode\n  PASS  OUTPUT RULES reminder includes Conversational + custom\n  PASS  mode templates + default interview defer to INTERVIEW OUTPUT CONTRACT\n  PASS  Medium non-coding maxTokens stays 280\n  PASS  Medium coding maxTokens stays 1800\n  PASS  Ask path gates coding token budget on coding_answer only\n\n41/41 passed\n✔ scripts\\test-desktop-interview-wiring.cjs (84.0922ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 94.3873\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 159,
+          "stdoutTail": "\n── Desktop interview wiring ──\n\n  PASS  minCharsForDetection(low) — 24\n  PASS  minCharsForDetection(medium) — 14\n  PASS  minCharsForDetection(high) — 6\n  PASS  effectiveMinSpeechChars boost — 8\n  PASS  buildInterviewAnswerSuffix includes structure + format + medium length\n  PASS  bullets formatPrompt matches InterviewMan \"- \" list template\n  PASS  buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT\n  PASS  conversational suffix includes spoken override for fillers\n  PASS  example-driven suffix includes CAR + no-filler override\n  PASS  conversational formatPrompt fillers\n  PASS  getInterviewAnswerSuffixFromStore (manual mode)\n  PASS  language + structure/format in prompt tail (manual mode)\n  PASS  maxTokensForAnswerLength(short) — 140\n  PASS  maxTokensForAnswerLength(medium) — 280\n  PASS  maxTokensForAnswerLength(long) — 420\n  PASS  main/index.js wires interview suffix into Ask path\n  PASS  main/index.js appends OUTPUT RULES reminder to user turn\n  PASS  main/index.js passes answerContract into interview suffix (coding vs behavioral)\n  PASS  main/index.js strips resume on non-personal screen asks\n  PASS  main/index.js wires aiResponseLanguage into Ask path\n  PASS  main/index.js wires answerLength → maxTokens in Ask path\n  PASS  handleAskAI does not gate prompt on auto-answer or auto-scroll\n  PASS  main/index.js no longer uses legacy answerStyle suffix alone\n  PASS  overlay App.jsx: manual ask IPC; auto triggers rejected\n  PASS  DisplaySettingsPanel interview answer controls (General)\n  PASS  isLikelySelfReadback detects answer readback\n  PASS  stripSelfReadback keeps genuine follow-up tail\n  PASS  a new \"what is machine learning?\" is not treated as reading the deep-learning answer\n  PASS  stripSelfReadback keeps what is machine learning?\n  PASS  overlay App.jsx keeps self-readback helpers; auto-answer forced off\n  PASS  overlay App.jsx clears transcript after successful manual ask (2026.11.01.03.01-aligned)\n  PASS  overlay App.jsx hard-rejects auto-answer asks\n  PASS  DisplaySettingsPanel custom instructions field (General)\n  PASS  overlay App.jsx strips answered question before classifying post-answer speech\n  PASS  overlay App.jsx fires continuation follow-ups immediately, bypassing the readback hold\n  PASS  CAR + Conversational + Medium → HARD contract + spoken mode\n  PASS  OUTPUT RULES reminder includes Conversational + custom\n  PASS  mode templates + default interview defer to INTERVIEW OUTPUT CONTRACT\n  PASS  Medium non-coding maxTokens stays 280\n  PASS  Medium coding maxTokens stays 1800\n  PASS  Ask path gates coding token budget on coding_answer only\n\n41/41 passed\n✔ scripts\\test-desktop-interview-wiring.cjs (82.6341ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 94.7309\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 155,
+          "stdoutTail": "\n── Desktop interview wiring ──\n\n  PASS  minCharsForDetection(low) — 24\n  PASS  minCharsForDetection(medium) — 14\n  PASS  minCharsForDetection(high) — 6\n  PASS  effectiveMinSpeechChars boost — 8\n  PASS  buildInterviewAnswerSuffix includes structure + format + medium length\n  PASS  bullets formatPrompt matches InterviewMan \"- \" list template\n  PASS  buildInterviewAnswerSuffix includes HARD OUTPUT CONTRACT\n  PASS  conversational suffix includes spoken override for fillers\n  PASS  example-driven suffix includes CAR + no-filler override\n  PASS  conversational formatPrompt fillers\n  PASS  getInterviewAnswerSuffixFromStore (manual mode)\n  PASS  language + structure/format in prompt tail (manual mode)\n  PASS  maxTokensForAnswerLength(short) — 140\n  PASS  maxTokensForAnswerLength(medium) — 280\n  PASS  maxTokensForAnswerLength(long) — 420\n  PASS  main/index.js wires interview suffix into Ask path\n  PASS  main/index.js appends OUTPUT RULES reminder to user turn\n  PASS  main/index.js passes answerContract into interview suffix (coding vs behavioral)\n  PASS  main/index.js strips resume on non-personal screen asks\n  PASS  main/index.js wires aiResponseLanguage into Ask path\n  PASS  main/index.js wires answerLength → maxTokens in Ask path\n  PASS  handleAskAI does not gate prompt on auto-answer or auto-scroll\n  PASS  main/index.js no longer uses legacy answerStyle suffix alone\n  PASS  overlay App.jsx: manual ask IPC; auto triggers rejected\n  PASS  DisplaySettingsPanel interview answer controls (General)\n  PASS  isLikelySelfReadback detects answer readback\n  PASS  stripSelfReadback keeps genuine follow-up tail\n  PASS  a new \"what is machine learning?\" is not treated as reading the deep-learning answer\n  PASS  stripSelfReadback keeps what is machine learning?\n  PASS  overlay App.jsx keeps self-readback helpers; auto-answer forced off\n  PASS  overlay App.jsx clears transcript after successful manual ask (2026.11.01.03.01-aligned)\n  PASS  overlay App.jsx hard-rejects auto-answer asks\n  PASS  DisplaySettingsPanel custom instructions field (General)\n  PASS  overlay App.jsx strips answered question before classifying post-answer speech\n  PASS  overlay App.jsx fires continuation follow-ups immediately, bypassing the readback hold\n  PASS  CAR + Conversational + Medium → HARD contract + spoken mode\n  PASS  OUTPUT RULES reminder includes Conversational + custom\n  PASS  mode templates + default interview defer to INTERVIEW OUTPUT CONTRACT\n  PASS  Medium non-coding maxTokens stays 280\n  PASS  Medium coding maxTokens stays 1800\n  PASS  Ask path gates coding token budget on coding_answer only\n\n41/41 passed\n✔ scripts\\test-desktop-interview-wiring.cjs (82.5919ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 92.9204\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    },
+    {
+      "id": "interview-mode-alignment",
+      "area": "conversation",
+      "script": "scripts/test-interview-mode-alignment.cjs",
+      "runs": [
+        {
+          "iteration": 1,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 1448,
+          "stdoutTail": "\n══ Interview / modes alignment ══\n\n→ Modes shipped + session rules … PASS\n→ Interview answer contract (CAR / format / length) … PASS\n→ General Answers settings → prompt wiring … PASS\n→ Conversation Memory window (IM titles + tail) … PASS\n→ Conversation follow-up memory helpers … PASS\n→ Ask context priority + Interview mode kind … PASS\n→ Resume / JD routing in Interview … PASS\n→ E2E answer context (Interview / Meeting / General) … PASS\n→ E2E profile attach rules by mode … PASS\n→ E2E profile memory + 3 modes UI … PASS\n→ Manual transcript flush after answer … PASS\n→ Auto-answer retired (manual-only path) … PASS\n\nALL 12 groups passed — Interview / Meeting / General + CAR/memory wiring look aligned.\n\n✔ scripts\\test-interview-mode-alignment.cjs (1372.3593ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1382.5797\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 2,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 1453,
+          "stdoutTail": "\n══ Interview / modes alignment ══\n\n→ Modes shipped + session rules … PASS\n→ Interview answer contract (CAR / format / length) … PASS\n→ General Answers settings → prompt wiring … PASS\n→ Conversation Memory window (IM titles + tail) … PASS\n→ Conversation follow-up memory helpers … PASS\n→ Ask context priority + Interview mode kind … PASS\n→ Resume / JD routing in Interview … PASS\n→ E2E answer context (Interview / Meeting / General) … PASS\n→ E2E profile attach rules by mode … PASS\n→ E2E profile memory + 3 modes UI … PASS\n→ Manual transcript flush after answer … PASS\n→ Auto-answer retired (manual-only path) … PASS\n\nALL 12 groups passed — Interview / Meeting / General + CAR/memory wiring look aligned.\n\n✔ scripts\\test-interview-mode-alignment.cjs (1373.446ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1384.6026\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 3,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 1360,
+          "stdoutTail": "\n══ Interview / modes alignment ══\n\n→ Modes shipped + session rules … PASS\n→ Interview answer contract (CAR / format / length) … PASS\n→ General Answers settings → prompt wiring … PASS\n→ Conversation Memory window (IM titles + tail) … PASS\n→ Conversation follow-up memory helpers … PASS\n→ Ask context priority + Interview mode kind … PASS\n→ Resume / JD routing in Interview … PASS\n→ E2E answer context (Interview / Meeting / General) … PASS\n→ E2E profile attach rules by mode … PASS\n→ E2E profile memory + 3 modes UI … PASS\n→ Manual transcript flush after answer … PASS\n→ Auto-answer retired (manual-only path) … PASS\n\nALL 12 groups passed — Interview / Meeting / General + CAR/memory wiring look aligned.\n\n✔ scripts\\test-interview-mode-alignment.cjs (1269.8763ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1283.3177\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 4,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 1140,
+          "stdoutTail": "\n══ Interview / modes alignment ══\n\n→ Modes shipped + session rules … PASS\n→ Interview answer contract (CAR / format / length) … PASS\n→ General Answers settings → prompt wiring … PASS\n→ Conversation Memory window (IM titles + tail) … PASS\n→ Conversation follow-up memory helpers … PASS\n→ Ask context priority + Interview mode kind … PASS\n→ Resume / JD routing in Interview … PASS\n→ E2E answer context (Interview / Meeting / General) … PASS\n→ E2E profile attach rules by mode … PASS\n→ E2E profile memory + 3 modes UI … PASS\n→ Manual transcript flush after answer … PASS\n→ Auto-answer retired (manual-only path) … PASS\n\nALL 12 groups passed — Interview / Meeting / General + CAR/memory wiring look aligned.\n\n✔ scripts\\test-interview-mode-alignment.cjs (1061.3667ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1071.1106\n",
+          "stderrTail": "",
+          "error": null
+        },
+        {
+          "iteration": 5,
+          "exitCode": 0,
+          "pass": true,
+          "elapsedMs": 1160,
+          "stdoutTail": "\n══ Interview / modes alignment ══\n\n→ Modes shipped + session rules … PASS\n→ Interview answer contract (CAR / format / length) … PASS\n→ General Answers settings → prompt wiring … PASS\n→ Conversation Memory window (IM titles + tail) … PASS\n→ Conversation follow-up memory helpers … PASS\n→ Ask context priority + Interview mode kind … PASS\n→ Resume / JD routing in Interview … PASS\n→ E2E answer context (Interview / Meeting / General) … PASS\n→ E2E profile attach rules by mode … PASS\n→ E2E profile memory + 3 modes UI … PASS\n→ Manual transcript flush after answer … PASS\n→ Auto-answer retired (manual-only path) … PASS\n\nALL 12 groups passed — Interview / Meeting / General + CAR/memory wiring look aligned.\n\n✔ scripts\\test-interview-mode-alignment.cjs (1088.8931ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1100.1637\n",
+          "stderrTail": "",
+          "error": null
+        }
+      ],
+      "passCount": 5,
+      "failCount": 0
+    }
+  ],
+  "finishedAt": "2026-11-19T13:01:07.616Z",
+  "summary": {
+    "scenarios": 12,
+    "totalRuns": 60,
+    "totalPass": 60,
+    "totalFail": 0,
+    "allGreen": true
+  }
+}

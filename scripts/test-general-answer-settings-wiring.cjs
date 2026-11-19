@@ -65,8 +65,8 @@ if (comboStyle === 'detailed') pass('Conversational format → detailed overlay 
 else fail('Conversational format → detailed overlay layout', comboStyle)
 
 const comboFont = catalog.fontSizeFromAnswerLength('short')
-if (comboFont === 'small') pass('Short answer length → small overlay font')
-else fail('Short answer length → small overlay font', comboFont)
+if (comboFont === null) pass('Answer length does NOT map to overlay font (IM)')
+else fail('Answer length does NOT map to overlay font (IM)', String(comboFont))
 
 // 2. Language block (default empty)
 if (!buildAiResponseLanguageBlock('')) pass('Empty language → no prompt block')
@@ -83,15 +83,24 @@ const handlerChecks = [
   ['applyResponseFormat', "save('responseFormat'"],
   ['applyResponseFormat', 'apply-overlay-display'],
   ['applyAnswerLength', "save('answerLength'"],
-  ['applyAnswerLength', 'fontSizeFromAnswerLength'],
   ['applyAiResponseLanguage', "save('aiResponseLanguage'"],
   ['applyInterviewCustomInstructions', "save('interviewCustomInstructions'"],
+  ['onInterviewCustomInstructionsChange', 'customInstructionsSaveTimerRef'],
 ]
 for (const [fn, needle] of handlerChecks) {
   const idx = settingsApp.indexOf(`const ${fn}`)
   const chunk = idx >= 0 ? settingsApp.slice(idx, idx + 600) : ''
   if (chunk.includes(needle)) pass(`App.jsx ${fn} → ${needle}`)
   else fail(`App.jsx ${fn} → ${needle}`)
+}
+{
+  const idx = settingsApp.indexOf('const applyAnswerLength')
+  const chunk = idx >= 0 ? settingsApp.slice(idx, idx + 800) : ''
+  if (chunk && !chunk.includes('fontSizeFromAnswerLength')) {
+    pass('App.jsx applyAnswerLength does not couple fontSizeFromAnswerLength (IM)')
+  } else {
+    fail('App.jsx applyAnswerLength does not couple fontSizeFromAnswerLength (IM)')
+  }
 }
 
 // 4. DisplaySettingsPanel props wired through SettingsTabContent
@@ -112,11 +121,11 @@ for (const prop of panelProps) {
   else fail(`General tab wires ${prop}`)
 }
 
-// 5. Main process: answer length always → overlay font (auto-scroll retired)
-if (mainSrc.includes('fontSizeFromAnswerLength') && mainSrc.includes('overlayFontPayloadForAnswerLength')) {
-  pass('main/index.js couples answerLength → overlayFontSize')
+// 5. Main process: Answer Length must NOT drive overlay font (InterviewMan font-size is separate)
+if (!mainSrc.includes('overlayFontPayloadForAnswerLength') && !/answerLength[^\n]{0,80}overlayFontSize/.test(mainSrc)) {
+  pass('main/index.js does not couple answerLength → overlayFontSize (IM)')
 } else {
-  fail('main/index.js couples answerLength → overlayFontSize')
+  fail('main/index.js does not couple answerLength → overlayFontSize (IM)')
 }
 if (!mainSrc.includes('overlayFontPayloadForAutoScrollToggle')) {
   pass('main/index.js no longer has auto-scroll font toggle helper')
@@ -124,11 +133,11 @@ if (!mainSrc.includes('overlayFontPayloadForAutoScrollToggle')) {
   fail('main/index.js no longer has auto-scroll font toggle helper')
 }
 
-// 6. Overlay resolves font from answer length on startup
-if (overlayApp.includes('fontSizeFromAnswerLength') && overlayApp.includes('setFontSize(fontSizeFromAnswerLength(length))')) {
-  pass('overlay App.jsx resolves font from answer length on load')
+// 6. Overlay font comes from overlayFontSize prefs — not answer length
+if (!overlayApp.includes('setFontSize(fontSizeFromAnswerLength(length))')) {
+  pass('overlay App.jsx does not resolve font from answer length on load (IM)')
 } else {
-  fail('overlay App.jsx resolves font from answer length on load')
+  fail('overlay App.jsx does not resolve font from answer length on load (IM)')
 }
 if (overlayApp.includes("p?.overlayFontSize")) {
   pass('overlay App.jsx applies overlayFontSize from display updates')
@@ -143,11 +152,15 @@ for (const key of storeKeys) {
   else fail(`store.js defines ${key}`)
 }
 
-// 8. Answers section copy matches behavior
-if (displayPanel.includes('Answers') && displayPanel.includes('Overlay font size follows this setting')) {
-  pass('DisplaySettingsPanel documents answer-length → font coupling')
+// 8. Answers section copy: Answer Length is independent of overlay font (IM)
+if (
+  displayPanel.includes('Answers') &&
+  displayPanel.includes('Does not change overlay font size') &&
+  !displayPanel.includes('Overlay font size follows this setting')
+) {
+  pass('DisplaySettingsPanel documents answer-length ≠ font size (IM)')
 } else {
-  fail('DisplaySettingsPanel documents answer-length → font coupling')
+  fail('DisplaySettingsPanel documents answer-length ≠ font size (IM)')
 }
 
 // 9. All structures normalize and reach prompt

@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* InterviewMan-aligned UI type: Poppins (IM google_fonts), not system Segoe. */
+html,
+body,
+#root {
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 /*
  * ============================================================================
  * CRYSTAL GLASS — Enhanced Electron Overlay Stylesheet
@@ -19,39 +28,57 @@
  */
 
 :root {
-  /* --- Core accent (blue) --- */
-  --accent-rgb: 59 130 246;
-  --accent-mid-rgb: 37 99 235;
-  --accent-light-rgb: 147 197 253;
-  --accent-deep-rgb: 29 78 216;
+  /*
+   * InterviewMan helper ChatColors — cAt() + helper_body_opacity default 0.7
+   * (veilassist2 / InterviewMan-2.7.7-194 main.dart.js):
+   *   primary B.cm #6FA0FF @ 0.7, onPrimary/onSurface B.aH #F4F4F4,
+   *   surface/surfaceContainer transparent, surfaceContainerHigh B.my #272729 @ 0.7.
+   * Question (isSentByMe): primary fill, 12px radius, padding 16×10.
+   * Answer (helper): transparent fill, same bodyMedium 14px.
+   * Generating Answer: primary@0.1 pill + 12px spinner + 11px/500 label.
+   */
+  --im-primary: #6fa0ff;
+  --im-primary-rgb: 111 160 255;
+  --im-on-primary: #f4f4f4;
+  --im-on-surface: #f4f4f4;
+  --im-surface-high: #272729;
+  --im-scheme-surface: #161618;
+  --im-dialog-surface: #1c1c1e;
+  --im-helper-opacity: 0.7;
+
+  /* --- Core accent (IM B.cm / styles.css loader) --- */
+  --accent-rgb: 111 160 255;
+  --accent-mid-rgb: 102 126 255;
+  --accent-light-rgb: 145 180 255;
+  --accent-deep-rgb: 90 110 230;
 
   /* --- Semantic accents (new — used for status/feedback states) --- */
   --success-rgb: 74 222 128;
   --warning-rgb: 250 204 21;
-  --danger-rgb: 239 68 68;
+  --danger-rgb: 220 38 38; /* Quit / Listen mid #dc2626 */
   --violet-rgb: 139 92 246;
 
-  /* --- Glass surface fills --- */
-  --glass-base: rgba(16, 17, 21, 0.94);
-  --glass-base-pill: rgba(18, 19, 24, 0.95);
-  --glass-base-panel: rgba(14, 15, 19, 0.94);
+  /* --- Glass surface fills (IM scheme surface + high container) --- */
+  --glass-base: rgba(22, 22, 24, 0.88);
+  --glass-base-pill: rgba(39, 39, 41, 0.7);
+  --glass-base-panel: rgba(22, 22, 24, 0.88);
 
   /* --- Borders / rim light --- */
-  --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-border-top: rgba(255, 255, 255, 0.34);
-  --glass-border-left: rgba(255, 255, 255, 0.18);
-  --glass-border-strong: rgba(255, 255, 255, 0.20);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-border-top: rgba(255, 255, 255, 0.12);
+  --glass-border-left: rgba(255, 255, 255, 0.08);
+  --glass-border-strong: rgba(255, 255, 255, 0.14);
 
   /* --- Text --- */
-  --glass-text: rgba(255, 255, 255, 0.98);
-  --glass-sub: rgba(255, 255, 255, 0.72);
-  --glass-muted: rgba(255, 255, 255, 0.55);
-  --glass-answer: rgba(255, 255, 255, 0.98);
+  --glass-text: var(--im-on-surface);
+  --glass-sub: rgba(244, 244, 244, 0.72);
+  --glass-muted: rgba(161, 161, 163, 0.85);
+  --glass-answer: var(--im-on-surface);
 
-  /* --- Question / transcript bubbles --- */
-  --glass-question-bg: rgba(50, 54, 65, 0.84);
-  --glass-question-border: rgba(148, 158, 178, 0.24);
-  --glass-question-text: rgba(190, 199, 215, 0.95);
+  /* --- Question bar (IM primary @ helper opacity — not dark grey) --- */
+  --glass-question-bg: rgba(var(--im-primary-rgb) / 0.7);
+  --glass-question-border: transparent;
+  --glass-question-text: var(--im-on-primary);
 
   /* --- Reusable gradient layers --- */
   --glass-cap: linear-gradient(
@@ -78,8 +105,8 @@
 }
 
 @keyframes answerIn {
-  from { opacity: 0; transform: translateY(6px) scale(0.994); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .animate-answer-in {
@@ -467,7 +494,7 @@ html, body {
 }
 
 .crystal-speaker-participant {
-  color: #f87171;
+  color: var(--danger-mid, #dc2626);
   font-weight: 800;
   letter-spacing: 0.02em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -518,20 +545,22 @@ html, body {
 
 .crystal-answer-text {
   color: var(--glass-answer);
-  line-height: 1.75;
-  letter-spacing: 0.003em;
+  line-height: 1.45;
+  letter-spacing: 0;
+  /* IM bodyMedium ≈ 500 — Poppins Regular looks thin next to their helper text */
+  font-weight: 500;
+  /* Size comes from Overlay look → Font size (parent em / Tailwind); do not hardcode px. */
+  text-shadow: none;
 }
 
+/* IM helper answer bubble — surfaceContainer transparent, onSurface text */
 .crystal-answer-shell {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, transparent 40%),
-    rgba(0, 0, 0, 0.40);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-top-color: rgba(255, 255, 255, 0.14);
-  border-radius: 14px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Committed answer history: isolate layout from live stream growth. */
@@ -554,14 +583,14 @@ html, body {
 .crystal-stream-text:not(:empty)::after {
   content: '';
   display: inline-block;
-  width: 7px;
-  height: 0.95em;
+  width: 6px;
+  height: 0.9em;
   margin-left: 3px;
   vertical-align: -2px;
   border-radius: 1.5px;
-  background: linear-gradient(180deg, rgba(200, 232, 255, 0.9), rgba(150, 200, 255, 0.5));
-  box-shadow: 0 0 8px rgba(147, 197, 253, 0.5);
-  animation: streamCaret 1s step-end infinite;
+  background: var(--im-primary);
+  box-shadow: none;
+  animation: streamCaret 1.05s step-end infinite;
 }
 
 @keyframes streamCaret {
@@ -689,16 +718,26 @@ html, body {
     0 0 0 2px rgba(255, 255, 255, 0.16);
 }
 
-/* On state — red (replaces former green), matches Quit attention color */
+/* On state — same 3D gloss language as Quit (track fill + rim), toggle only */
 .crystal-listen-switch[aria-checked='true'] {
-  border-color: rgb(var(--danger-rgb) / 0.50);
-  background:
-    linear-gradient(180deg, rgb(var(--danger-rgb) / 0.38) 0%, rgb(var(--danger-rgb) / 0.16) 100%),
-    rgba(42, 24, 24, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  border-top-color: rgba(255, 255, 255, 0.34);
+  background: var(--danger-fill, linear-gradient(180deg, #f87171 0%, #dc2626 55%, #b91c1c 100%));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 0 12px -3px rgb(var(--danger-rgb) / 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    0 1px 2px rgba(0, 0, 0, 0.38);
+}
+
+.crystal-listen-switch[aria-checked='true']:hover {
+  background: var(--danger-fill-hover, linear-gradient(180deg, #fb8787 0%, #ef4444 55%, #dc2626 100%));
+}
+
+.crystal-listen-switch[aria-checked='true']:focus,
+.crystal-listen-switch[aria-checked='true']:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    0 1px 2px rgba(0, 0, 0, 0.38),
+    0 0 0 2px rgba(255, 255, 255, 0.16);
 }
 
 .crystal-listen-switch-knob {
@@ -834,6 +873,10 @@ html, body {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-top-color: rgba(255, 255, 255, 0.22);
   color: var(--glass-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.10),
     inset 0 -1px 0 rgba(0, 0, 0, 0.25);
@@ -841,7 +884,10 @@ html, body {
 }
 
 .crystal-input::placeholder {
-  color: rgba(255, 255, 255, 0.28);
+  color: rgba(244, 244, 244, 0.38);
+  font-family: inherit;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .crystal-input:focus {
@@ -851,6 +897,16 @@ html, body {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.10),
     0 0 0 3px rgb(var(--accent-rgb) / 0.14);
+}
+
+/* An ask that was rejected (answer still streaming / too soon) keeps the typed text and nudges the box. */
+@keyframes crystal-input-nudge {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+.crystal-input-nudge {
+  animation: crystal-input-nudge 0.22s ease-in-out 1;
 }
 
 .crystal-resize-handle {
@@ -879,10 +935,9 @@ html, body {
 }
 
 .crystal-panel-inset {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-top-color: rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.28);
+  border: none;
+  border-radius: 12px;
+  background: rgba(var(--im-primary-rgb) / 0.06);
 }
 
 .crystal-takeaway {
@@ -894,22 +949,59 @@ html, body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+/* IM question / user bubble — primary fill @ 0.7, onPrimary text, 12px radius */
 .crystal-user-bubble,
 .crystal-question-bubble {
-  border: 1px solid var(--glass-question-border);
-  border-top-color: rgba(168, 178, 198, 0.30);
-  border-radius: var(--radius-md);
+  border: none;
+  border-radius: 12px;
   background: var(--glass-question-bg);
   color: var(--glass-question-text);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 3px 12px rgba(0, 0, 0, 0.22);
+  box-shadow: none;
   text-shadow: none;
 }
 
 .crystal-question-bubble .crystal-speaker-me,
 .crystal-question-bubble .crystal-speaker-participant {
-  color: var(--glass-question-text);
+  color: var(--im-on-primary);
+  opacity: 0.92;
+}
+
+/* IM axj status chip — primary@0.1 pill + spinner + 11px/500 label */
+.crystal-generating-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: rgba(var(--im-primary-rgb) / 0.1);
+  color: var(--im-primary);
+}
+
+.crystal-generating-spinner {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 2px solid rgba(var(--im-primary-rgb) / 0.28);
+  border-top-color: var(--im-primary);
+  animation: imGeneratingSpin 0.75s linear infinite;
+}
+
+@keyframes imGeneratingSpin {
+  to { transform: rotate(360deg); }
+}
+
+.crystal-generating-label {
+  color: var(--im-primary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crystal-generating-spinner { animation: none; border-top-color: var(--im-primary); }
 }
 
 /* ============================================================================
@@ -1048,24 +1140,39 @@ html, body {
 }
 
 .crystal-quit-btn {
-  background: linear-gradient(180deg, #f87171 0%, #dc2626 55%, #b91c1c 100%);
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  border-top-color: rgba(255, 255, 255, 0.34);
-  color: #fff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.30),
-    0 1px 2px rgba(0, 0, 0, 0.38);
+  background: var(--danger-fill);
+  border: var(--danger-rim, 1px solid rgba(255, 255, 255, 0.2));
+  border-top-color: var(--danger-rim-top, rgba(255, 255, 255, 0.34));
+  color: var(--danger-on, #fff);
+  box-shadow: var(--danger-shadow);
   transition: transform 0.12s var(--ease-snap), filter 0.15s var(--ease-glass);
 }
 
 .crystal-quit-btn:hover {
-  background: linear-gradient(180deg, #fb8787 0%, #ef4444 55%, #dc2626 100%);
+  background: var(--danger-fill-hover);
   transform: translateY(-1px);
 }
 
 .crystal-quit-btn:active {
   transform: translateY(0);
   filter: brightness(0.94);
+}
+
+/* Stop generating — same Quit 3D red fill */
+.crystal-stop-btn {
+  border: var(--danger-rim, 1px solid rgba(255, 255, 255, 0.2));
+  border-top-color: var(--danger-rim-top, rgba(255, 255, 255, 0.34));
+  background: var(--danger-fill);
+  color: var(--danger-on, #fff);
+  box-shadow: var(--danger-shadow);
+}
+
+.crystal-stop-btn:hover {
+  background: var(--danger-fill-hover);
+}
+
+.crystal-stop-btn:focus-visible {
+  outline-color: rgb(var(--danger-rgb) / 0.55);
 }
 
 .response-scroll {
@@ -1223,12 +1330,17 @@ html, body {
   text-transform: uppercase;
 }
 
-/* Focus-visible ring, consistent across all interactive overlay controls */
+/*
+ * Focus-visible ring, consistent across all interactive overlay controls.
+ * A solid accent outline (the old 20%-white box-shadow was close to invisible on the glass panel and also
+ * replaced each button's own shadow). tabindex="-1" containers are only focused from script, so they
+ * are excluded to avoid a ring flashing around the scroll area.
+ */
 button:focus-visible,
 [role='button']:focus-visible,
-[tabindex]:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.20);
+[tabindex]:not([tabindex='-1']):focus-visible {
+  outline: 2px solid rgb(var(--accent-light-rgb) / 0.85);
+  outline-offset: 1px;
 }
 
 /* ============================================================================
@@ -1379,32 +1491,48 @@ button:focus-visible,
 /* Shared "working" pulse dot — replaces two duplicated inline-style dots
  * (ComposingShell + StreamingAnswerPreview) with one themed, reusable class. */
 .crystal-status-dot {
-  height: 8px;
-  width: 8px;
+  height: 7px;
+  width: 7px;
   flex-shrink: 0;
   border-radius: var(--radius-pill);
-  background: rgb(var(--accent-light-rgb) / 0.75);
-  box-shadow: 0 0 9px rgb(var(--accent-rgb) / 0.5);
-  animation: crystalListeningPulse 1.6s ease-in-out infinite;
+  background: var(--im-primary);
+  box-shadow: 0 0 8px rgba(111, 160, 255, 0.45);
+  animation: crystalListeningPulse 1.55s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .crystal-status-dot { animation: none !important; }
 }
 
-/* Empty-state icon ring — gentle accent breathing instead of a static border. */
+/*
+ * Empty-state icon ring — gentle accent breathing. The glow is a pseudo-element whose OPACITY animates
+ * (compositor-only). Animating box-shadow itself repainted the ring every frame for as long as the empty
+ * panel was open on this always-on-top overlay.
+ */
 @keyframes crystalEmptyBreathe {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 18px -6px rgb(var(--accent-rgb) / 0.28); }
-  50%      { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 26px -4px rgb(var(--accent-rgb) / 0.48); }
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
 }
 
 .crystal-empty-icon-ring {
+  position: relative;
   border: 2px solid rgb(var(--accent-light-rgb) / 0.24);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 18px -6px rgb(var(--accent-rgb) / 0.28);
+}
+
+.crystal-empty-icon-ring::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 26px -4px rgb(var(--accent-rgb) / 0.48);
+  opacity: 0;
   animation: crystalEmptyBreathe 3.2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .crystal-empty-icon-ring { animation: none !important; }
+  .crystal-empty-icon-ring::after { animation: none !important; }
 }
 
 .crystal-duplicate-label {

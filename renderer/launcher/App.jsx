@@ -112,7 +112,7 @@ export default function LauncherApp() {
         * { box-sizing: border-box; }
         html, body, #root { margin: 0; height: 100%; }
         body {
-          font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+          font-family: var(--font-ui, "Poppins", "Segoe UI", system-ui, sans-serif);
           background: linear-gradient(165deg, #141416 0%, #0a0a0c 100%);
           color: #e4e4e7;
           -webkit-font-smoothing: antialiased;

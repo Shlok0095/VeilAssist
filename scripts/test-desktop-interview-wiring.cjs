@@ -49,10 +49,21 @@ const suffix = catalog.buildInterviewAnswerSuffix({
   responseFormat: 'conversational',
   answerLength: 'medium',
 })
-if (/STAR \(Situation, Task, Action, Result\)/i.test(suffix) && /hmm/i.test(suffix) && /paragraph-length/i.test(suffix)) {
+if (
+  /STAR \(Situation, Task, Action, Result\)/i.test(suffix)
+  && /hmm/i.test(suffix)
+  && /moderate amount of detail/i.test(suffix)
+) {
   pass('buildInterviewAnswerSuffix includes structure + format + medium length')
 } else {
   fail('buildInterviewAnswerSuffix includes structure + format + medium length', suffix.slice(0, 120))
+}
+
+const bulletPrompt = catalog.formatPrompt('bullets')
+if (/Start every point with/i.test(bulletPrompt) && /"- "/.test(bulletPrompt) && !/•\./.test(bulletPrompt)) {
+  pass('bullets formatPrompt matches InterviewMan "- " list template')
+} else {
+  fail('bullets formatPrompt matches InterviewMan "- " list template', bulletPrompt.slice(0, 160))
 }
 
 if (/INTERVIEW OUTPUT CONTRACT/i.test(suffix) && /The answer should be:/i.test(suffix)) {
@@ -140,15 +151,25 @@ for (const [len, expected] of tokenCases) {
 // 8. main/index.js uses interview suffix + language (static grep)
 const fs = require('fs')
 const mainSrc = fs.readFileSync(path.join(__dirname, '..', 'main', 'index.js'), 'utf8')
-if (mainSrc.includes('getInterviewAnswerSuffixFromStore(store)')) {
+if (/getInterviewAnswerSuffixFromStore\(store/.test(mainSrc)) {
   pass('main/index.js wires interview suffix into Ask path')
 } else {
   fail('main/index.js wires interview suffix into Ask path')
 }
-if (mainSrc.includes('getAnswerOutputRulesReminderFromStore(store)')) {
+if (/getAnswerOutputRulesReminderFromStore\(store/.test(mainSrc)) {
   pass('main/index.js appends OUTPUT RULES reminder to user turn')
 } else {
   fail('main/index.js appends OUTPUT RULES reminder to user turn')
+}
+if (/interviewSuffixOpts/.test(mainSrc) && /answerContract: routeDecision/.test(mainSrc)) {
+  pass('main/index.js passes answerContract into interview suffix (coding vs behavioral)')
+} else {
+  fail('main/index.js passes answerContract into interview suffix (coding vs behavioral)')
+}
+if (/personalScreenAsk/.test(mainSrc)) {
+  pass('main/index.js strips resume on non-personal screen asks')
+} else {
+  fail('main/index.js strips resume on non-personal screen asks')
 }
 if (mainSrc.includes("buildAiResponseLanguageBlock(store.get('aiResponseLanguage'))")) {
   pass('main/index.js wires aiResponseLanguage into Ask path')
@@ -222,15 +243,15 @@ if (overlayApp.includes('assistAutoTriggerRef.current = false') && overlayApp.in
 }
 
 if (
-  overlayApp.includes('suppressTranscriptUntilRef')
-  && overlayApp.includes('manualAskBusy')
-  && overlayApp.includes('if (isManualAsk)')
+  !overlayApp.includes('suppressTranscriptUntilRef')
+  && !overlayApp.includes('manualAskBusy')
+  && /askResult\?\.ok === true && isManualAsk/.test(overlayApp)
   && overlayApp.includes('clearRollingSpeech()')
   && /micTranscriptRef\.current = ''/.test(overlayApp)
 ) {
-  pass('overlay App.jsx clears transcript promptly on manual ask')
+  pass('overlay App.jsx clears transcript after successful manual ask (2026.11.01.03.01-aligned)')
 } else {
-  fail('overlay App.jsx clears transcript promptly on manual ask')
+  fail('overlay App.jsx clears transcript after successful manual ask (2026.11.01.03.01-aligned)')
 }
 
 if (overlayApp.includes("if (opts.auto === true) return")) {
@@ -277,7 +298,7 @@ const carConvMed = catalog.buildInterviewAnswerSuffix({
 if (
   /INTERVIEW OUTPUT CONTRACT/i.test(carConvMed)
   && /CAR/i.test(carConvMed)
-  && /paragraph-length/i.test(carConvMed)
+  && /moderate amount of detail/i.test(carConvMed)
   && /hmm/i.test(carConvMed)
   && /easy to read aloud/i.test(carConvMed)
 ) {

@@ -1,8 +1,10 @@
 // Copyright (c) 2026 VeilAssist. Interview resumes — upload, extract, select.
 
 import React, { useState } from 'react'
-import { Check, ChevronDown, Trash2, Upload } from 'lucide-react'
+import { Check, ChevronDown, GripVertical, Trash2, Upload } from 'lucide-react'
 import AppIcon from '../shared/AppIcon'
+import { ConfirmDialog } from './SettingsComponents'
+import { useDraftSetting } from './useDraftSetting'
 
 function resumeTitle(resume) {
   return String(resume?.name || '').trim() || String(resume?.sourceFileName || '').trim() || 'Resume'
@@ -14,6 +16,15 @@ function resumeSubtitle(resume) {
   const job = (resume?.experience || []).find((item) => item?.title)
   if (!job) return 'No role extracted'
   return [job.title, job.company].filter(Boolean).join(' at ')
+}
+
+function moveItem(list, from, to) {
+  if (!Array.isArray(list) || from === to) return list
+  if (from < 0 || to < 0 || from >= list.length || to >= list.length) return list
+  const next = list.slice()
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item)
+  return next
 }
 
 export default function InterviewResumesSection({
@@ -59,7 +70,7 @@ export default function InterviewResumesSection({
           {busy ? 'Extracting…' : 'Upload resume'}
         </button>
       </div>
-      {error ? <p className="text-[12px] text-red-300">{error}</p> : null}
+      {error ? <p className="text-[12px] text-danger">{error}</p> : null}
 
       {resumes.length ? (
         <div className="space-y-2">
@@ -112,6 +123,7 @@ export default function InterviewResumesSection({
 
 function ResumeEditor({ resume, onChange, onDelete }) {
   const [skillDraft, setSkillDraft] = useState('')
+  const [confirmRemove, setConfirmRemove] = useState(false)
 
   const setExperience = (id, partial) => {
     onChange({
@@ -149,13 +161,15 @@ function ResumeEditor({ resume, onChange, onDelete }) {
 
       <Section
         title="Work Experience"
-        hint="Role, company, dates, and the facts you want answers to use."
+        hint="Show your relevant experience. Use bullet points with numbers and facts — e.g., 'Increased sales by 30%' or 'Led a team of 5 engineers'."
       >
-        {(resume.experience || []).map((job) => (
+        {(resume.experience || []).map((job, index) => (
           <ItemCard
             key={job.id}
             title={[job.title, job.company].filter(Boolean).join(' at ') || 'Experience'}
             secondary={job.dateRange}
+            index={index}
+            onReorder={(from, to) => onChange({ experience: moveItem(resume.experience || [], from, to) })}
             onRemove={() => onChange({ experience: resume.experience.filter((item) => item.id !== job.id) })}
           >
             <Field label="Job title" value={job.title} onChange={(title) => setExperience(job.id, { title })} />
@@ -228,11 +242,13 @@ function ResumeEditor({ resume, onChange, onDelete }) {
       </Section>
 
       <Section title="Projects">
-        {(resume.projects || []).map((project) => (
+        {(resume.projects || []).map((project, index) => (
           <ItemCard
             key={project.id}
             title={project.name || 'Project'}
             secondary={project.tech}
+            index={index}
+            onReorder={(from, to) => onChange({ projects: moveItem(resume.projects || [], from, to) })}
             onRemove={() => onChange({ projects: resume.projects.filter((item) => item.id !== project.id) })}
           >
             <Field label="Project" value={project.name} onChange={(name) => setProject(project.id, { name })} />
@@ -259,10 +275,12 @@ function ResumeEditor({ resume, onChange, onDelete }) {
       </Section>
 
       <Section title="Education">
-        {(resume.education || []).map((school) => (
+        {(resume.education || []).map((school, index) => (
           <ItemCard
             key={school.id}
             title={[school.degree, school.details].filter(Boolean).join(' / ') || 'Education'}
+            index={index}
+            onReorder={(from, to) => onChange({ education: moveItem(resume.education || [], from, to) })}
             onRemove={() => onChange({ education: resume.education.filter((item) => item.id !== school.id) })}
           >
             <Field label="Degree" value={school.degree} onChange={(degree) => setEducation(school.id, { degree })} />
@@ -289,10 +307,26 @@ function ResumeEditor({ resume, onChange, onDelete }) {
         />
       </Section>
 
-      <button type="button" className="btn-ghost inline-flex items-center gap-2 px-3 py-2 text-xs" onClick={onDelete}>
+      <button
+        type="button"
+        className="btn-ghost inline-flex items-center gap-2 px-3 py-2 text-xs"
+        onClick={() => setConfirmRemove(true)}
+      >
         <AppIcon icon={Trash2} size={14} />
         Remove this resume
       </button>
+
+      <ConfirmDialog
+        open={confirmRemove}
+        title="Remove this resume?"
+        description={`"${resumeTitle(resume)}" and everything extracted from it will be deleted from this device. This cannot be undone.`}
+        confirmLabel="Remove resume"
+        onCancel={() => setConfirmRemove(false)}
+        onConfirm={() => {
+          setConfirmRemove(false)
+          onDelete()
+        }}
+      />
     </div>
   )
 }
@@ -309,42 +343,74 @@ function Section({ title, hint, children }) {
   )
 }
 
+/**
+ * Resume editor field. Keeps a local draft and commits (one store write of the resume library) when you
+ * pause typing, press Enter in a single-line field, or leave the field. It used to write per keystroke.
+ */
 function Field({ label, value, onChange, multiline = false, placeholder = '' }) {
   const className = 'input-shadow mt-1 w-full px-3 py-2 text-[13px]'
+  const draft = useDraftSetting(value || '', onChange, { delay: 500 })
   return (
     <label className="block text-[11px] text-zinc-500">
       {label}
       {multiline ? (
-        <textarea
-          value={value || ''}
-          placeholder={placeholder}
-          rows={4}
-          onChange={(event) => onChange(event.target.value)}
-          className={className}
-        />
+        <textarea placeholder={placeholder} rows={4} className={className} {...draft.inputProps} />
       ) : (
-        <input
-          value={value || ''}
-          placeholder={placeholder}
-          onChange={(event) => onChange(event.target.value)}
-          className={className}
-        />
+        <input placeholder={placeholder} className={className} {...draft.inputProps} />
       )}
     </label>
   )
 }
 
-function ItemCard({ title, secondary, onRemove, children }) {
+function ItemCard({ title, secondary, index, onReorder, onRemove, children }) {
   const [open, setOpen] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const [over, setOver] = useState(false)
+
   return (
-    <div className="rounded-lg border border-white/10">
-      <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left" onClick={() => setOpen((value) => !value)}>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12px] text-zinc-100">{title}</span>
-          {secondary ? <span className="block truncate text-[11px] text-zinc-500">{secondary}</span> : null}
-        </span>
-        <AppIcon icon={ChevronDown} size={14} className={open ? 'rotate-180 text-zinc-400' : 'text-zinc-500'} />
-      </button>
+    <div
+      className={`rounded-lg border border-white/10 ${over ? 'border-zinc-400/40 bg-white/[0.03]' : ''} ${dragging ? 'opacity-50' : ''}`}
+      onDragOver={(event) => {
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'move'
+        setOver(true)
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(event) => {
+        event.preventDefault()
+        setOver(false)
+        const from = Number(event.dataTransfer.getData('text/plain'))
+        if (!Number.isFinite(from) || from === index) return
+        onReorder?.(from, index)
+      }}
+    >
+      <div className="flex w-full items-center gap-1 px-1 py-1.5">
+        <button
+          type="button"
+          className="cursor-grab px-1.5 py-1 text-zinc-500 active:cursor-grabbing"
+          aria-label="Drag to reorder"
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData('text/plain', String(index))
+            event.dataTransfer.effectAllowed = 'move'
+            setDragging(true)
+          }}
+          onDragEnd={() => {
+            setDragging(false)
+            setOver(false)
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <AppIcon icon={GripVertical} size={14} />
+        </button>
+        <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-1 py-1 text-left" onClick={() => setOpen((value) => !value)}>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[12px] text-zinc-100">{title}</span>
+            {secondary ? <span className="block truncate text-[11px] text-zinc-500">{secondary}</span> : null}
+          </span>
+          <AppIcon icon={ChevronDown} size={14} className={open ? 'rotate-180 text-zinc-400' : 'text-zinc-500'} />
+        </button>
+      </div>
       {open ? (
         <div className="space-y-2 border-t border-white/10 px-3 py-2">
           {children}

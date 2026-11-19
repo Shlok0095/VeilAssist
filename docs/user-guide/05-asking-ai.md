@@ -88,7 +88,7 @@ VeilAssist injects the skill instructions plus your optional question. Starter t
 
 ## Response style and language
 
-**Settings → AI Providers:**
+**Settings → AI Provider:**
 
 | Setting | Options |
 |---------|---------|

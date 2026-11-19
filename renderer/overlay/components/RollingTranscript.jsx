@@ -6,8 +6,15 @@ import React, { useEffect, useRef } from 'react'
  * Natively-style rolling transcript bar — horizontal scroll of the active channel text.
  * Always pins to the trailing end so newly spoken words stay visible.
  */
+/**
+ * Only the trailing words are ever visible (the bar is pinned to its end and is a few hundred px wide), but the
+ * rolling buffer can hold up to ~8 KB. Rendering and measuring all of it forces a layout read on every caption
+ * update, so display just the tail.
+ */
+const CAPTION_TAIL_CHARS = 400
+
 export default function RollingTranscript({
-  text = '',
+  text: fullText = '',
   label = '',
   speaker = 'other',
   isActive = true,
@@ -15,6 +22,8 @@ export default function RollingTranscript({
   micCaptureActive = false,
 }) {
   const containerRef = useRef(null)
+  const text =
+    typeof fullText === 'string' && fullText.length > CAPTION_TAIL_CHARS ? fullText.slice(-CAPTION_TAIL_CHARS) : fullText
 
   useEffect(() => {
     const el = containerRef.current

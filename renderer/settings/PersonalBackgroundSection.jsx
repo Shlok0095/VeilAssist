@@ -80,7 +80,7 @@ export default function PersonalBackgroundSection({
               <button
                 type="button"
                 onClick={() => void onClearResume?.()}
-                className="inline-flex items-center gap-1 rounded-lg border border-red-500/20 px-3 py-1.5 text-[12px] text-red-300/90 hover:bg-red-500/10"
+                className="btn-danger inline-flex items-center gap-1 px-3 py-1.5 text-[12px]"
               >
                 <AppIcon icon={X} size={13} />
                 Clear
@@ -119,7 +119,7 @@ export default function PersonalBackgroundSection({
               <button
                 type="button"
                 onClick={() => void onClearJd?.()}
-                className="inline-flex items-center gap-1 rounded-lg border border-red-500/20 px-3 py-1.5 text-[12px] text-red-300/90 hover:bg-red-500/10"
+                className="btn-danger inline-flex items-center gap-1 px-3 py-1.5 text-[12px]"
               >
                 <AppIcon icon={X} size={13} />
                 Clear

@@ -4,7 +4,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, memo, useState } from 'react'
 import { SpeakerTranscriptBlock } from '../../shared/SpeakerTranscriptText'
 import { createIpcShim } from '../../shared/ipcShim'
-import { stripMarkdownForStreamDisplay } from '../streamAnswerDisplay.js'
 import { useStreamPreview } from '../streamPreviewStore.js'
 
 const ipc = createIpcShim()
@@ -109,8 +108,23 @@ function looksLikeCodeBlock(content) {
  * ol with indented sub-items, horizontal rules (---), blockquotes (>), paragraphs.
  * Unclosed ``` at EOF still yields a code block (for streaming).
  */
+/**
+ * InterviewMan cZb-ish prep before markdown paint:
+ * - turn • glyphs into "- " list markers our parser understands
+ * - drop Takeaway labels models sometimes still emit
+ */
+function normalizeInterviewAnswerMarkdown(text) {
+  let t = String(text || '')
+  if (!t) return ''
+  t = t.replace(/^\*\*Takeaway:\*\*\s*/gim, '')
+  t = t.replace(/^Takeaway:\s*/gim, '')
+  t = t.replace(/^([ \t]*)•[ \t]+/gm, '$1- ')
+  t = t.replace(/^([ \t]*)•/gm, '$1- ')
+  return t
+}
+
 function parseMarkdown(text) {
-  const lines = text.split('\n')
+  const lines = normalizeInterviewAnswerMarkdown(text).split('\n')
   const out = []
   let i = 0
 
@@ -246,12 +260,15 @@ function takeawayFromText(text) {
 }
 
 /** Split parsed nodes: takeaway + prose + always-visible code + collapsible lists only. */
-function partitionForBrief(nodes) {
+function partitionForBrief(nodes, { listFirst = false } = {}) {
   let takeaway = ''
   const prose = []
   const code = []
   const details = []
   let afterDetailsMarker = false
+  // InterviewMan Bullet Points answers are "- " lists — keep them as the main panel body.
+  // Do not invent a Takeaway card that steals the first line of a list-led answer.
+  const startsWithList = listFirst || (nodes[0] && (nodes[0].type === 'ul' || nodes[0].type === 'ol'))
 
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i]
@@ -279,7 +296,7 @@ function partitionForBrief(nodes) {
       else prose.push(n)
       continue
     }
-    if (!takeaway && n.type === 'p') {
+    if (!takeaway && n.type === 'p' && !startsWithList) {
       const stripped = String(n.content || '')
         .trim()
         .replace(/^\*\*Takeaway:\*\*\s*/i, '')
@@ -293,7 +310,7 @@ function partitionForBrief(nodes) {
     }
   }
 
-  if (!takeaway && prose.length) {
+  if (!takeaway && !startsWithList && prose.length) {
     const first = prose[0]
     if (first?.type === 'p') {
       takeaway = takeawayFromText(first.content)
@@ -401,95 +418,131 @@ function CodeBlock({ lang, content, suppressHighlight }) {
   )
 }
 
+/**
+ * Structural equality for parsed markdown nodes. parseMarkdown() returns fresh objects on every call, so
+ * reference equality never matches; comparing the few string fields is far cheaper than re-running
+ * renderInline() (escape + three regex passes) and re-creating the element tree for every block.
+ */
+function sameMarkdownNode(a, b) {
+  if (a === b) return true
+  if (!a || !b || a.type !== b.type) return false
+  if (a.content !== b.content || a.lang !== b.lang) return false
+  const ai = a.items
+  const bi = b.items
+  if (ai === bi) return true
+  if (!ai || !bi || ai.length !== bi.length) return false
+  for (let i = 0; i < ai.length; i++) {
+    const x = ai[i]
+    const y = bi[i]
+    if (x === y) continue
+    if (typeof x === 'string' || typeof y === 'string') return false
+    if (!x || !y || x.text !== y.text) return false
+    const xs = x.subs
+    const ys = y.subs
+    if (xs === ys) continue
+    if (!xs || !ys || xs.length !== ys.length) return false
+    for (let k = 0; k < xs.length; k++) if (xs[k] !== ys[k]) return false
+  }
+  return true
+}
+
+/**
+ * One rendered markdown block. Memoized on node *content*, so while an answer streams only the block
+ * that is still growing re-renders — earlier paragraphs, lists and code blocks are skipped entirely.
+ */
+const MarkdownNode = memo(
+  function MarkdownNode({ n, suppressHighlight }) {
+    if (n.type === 'code') return <CodeBlock lang={n.lang} content={n.content} suppressHighlight={suppressHighlight} />
+    if (n.type === 'hr') return <hr className="crystal-divider my-3 border-t" />
+    if (n.type === 'h1')
+      return (
+        <h1
+          className="mb-1.5 mt-3 crystal-divider border-b pb-1 text-base font-bold first:mt-0"
+          style={{ color: 'rgba(225, 240, 250, 0.95)' }}
+          dangerouslySetInnerHTML={{ __html: renderInline(n.content) }}
+        />
+      )
+    if (n.type === 'h2')
+      return (
+        <h2
+          className="mb-1 mt-2 text-sm font-bold first:mt-0"
+          style={{ color: 'rgba(215, 232, 245, 0.92)' }}
+          dangerouslySetInnerHTML={{ __html: renderInline(n.content) }}
+        />
+      )
+    if (n.type === 'h3')
+      return (
+        <h3
+          className="mb-0.5 mt-2 text-[13px] font-semibold first:mt-0"
+          style={{ color: 'rgba(200, 230, 248, 0.88)' }}
+          dangerouslySetInnerHTML={{ __html: renderInline(n.content) }}
+        />
+      )
+    if (n.type === 'blockquote')
+      return (
+        <blockquote className="my-1.5 border-l-2 pl-3 text-[13px] italic crystal-muted" style={{ borderColor: 'rgba(180,225,255,0.35)' }}>
+          {n.items.map((x, j) => (
+            <p key={j} dangerouslySetInnerHTML={{ __html: renderInline(x) }} />
+          ))}
+        </blockquote>
+      )
+    if (n.type === 'ul')
+      return (
+        <ul className="my-1.5 space-y-1 pl-4">
+          {n.items.map((item, j) => (
+            <li key={j} className="flex flex-col gap-0.5">
+              <span className="flex gap-1.5">
+                <span className="mt-[0.4em] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'rgba(180,225,255,0.45)' }} />
+                <span className="min-w-0" dangerouslySetInnerHTML={{ __html: renderInline(item.text) }} />
+              </span>
+              {item.subs?.length > 0 && (
+                <ul className="mt-0.5 space-y-0.5 pl-5">
+                  {item.subs.map((s, k) => (
+                    <li key={k} className="flex gap-1.5 text-[12px] crystal-muted">
+                      <span className="mt-[0.45em] h-1 w-1 shrink-0 rounded-full" style={{ background: 'rgba(180,225,255,0.25)' }} />
+                      <span className="min-w-0" dangerouslySetInnerHTML={{ __html: renderInline(s) }} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      )
+    if (n.type === 'ol')
+      return (
+        <ol className="my-1.5 space-y-1 pl-4">
+          {n.items.map((item, j) => (
+            <li key={j} className="flex flex-col gap-0.5">
+              <span className="flex gap-1.5">
+                <span className="min-w-[1.1rem] shrink-0 text-right text-[11px] font-semibold crystal-muted">{j + 1}.</span>
+                <span className="min-w-0" dangerouslySetInnerHTML={{ __html: renderInline(item.text) }} />
+              </span>
+              {item.subs?.length > 0 && (
+                <ul className="mt-0.5 space-y-0.5 pl-7">
+                  {item.subs.map((s, k) => (
+                    <li key={k} className="flex gap-1.5 text-[12px] crystal-muted">
+                      <span className="mt-[0.45em] h-1 w-1 shrink-0 rounded-full" style={{ background: 'rgba(180,225,255,0.25)' }} />
+                      <span className="min-w-0" dangerouslySetInnerHTML={{ __html: renderInline(s) }} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ol>
+      )
+    return <p className="text-[1em] leading-[1.65] crystal-answer-text" dangerouslySetInnerHTML={{ __html: renderInline(n.content) }} />
+  },
+  (prev, next) => prev.suppressHighlight === next.suppressHighlight && sameMarkdownNode(prev.n, next.n),
+)
+
 function MarkdownNodes({ nodes, proseClass = '', suppressHighlight = false }) {
   return (
-    <div className={`space-y-1.5 text-left crystal-answer-text [&_p]:leading-[1.65] [&_li]:leading-relaxed ${proseClass}`}>
-      {nodes.map((n, i) => {
-                if (n.type === 'code') return <CodeBlock key={i} lang={n.lang} content={n.content} suppressHighlight={suppressHighlight} />
-                if (n.type === 'hr') return <hr key={i} className="crystal-divider my-3 border-t" />
-                if (n.type === 'h1')
-                  return (
-                    <h1
-                      key={i}
-                      className="mb-1.5 mt-3 crystal-divider border-b pb-1 text-base font-bold first:mt-0"
-                      style={{ color: 'rgba(225, 240, 250, 0.95)' }}
-                      dangerouslySetInnerHTML={{ __html: renderInline(n.content) }}
-                    />
-                  )
-                if (n.type === 'h2')
-                  return (
-                    <h2
-                      key={i}
-                      className="mb-1 mt-2 text-sm font-bold first:mt-0"
-                      style={{ color: 'rgba(215, 232, 245, 0.92)' }}
-                      dangerouslySetInnerHTML={{ __html: renderInline(n.content) }}
-                    />
-                  )
-                if (n.type === 'h3')
-                  return (
-                    <h3
-                      key={i}
-                      className="mb-0.5 mt-2 text-[13px] font-semibold first:mt-0"
-                      style={{ color: 'rgba(200, 230, 248, 0.88)' }}
-                      dangerouslySetInnerHTML={{ __html: renderInline(n.content) }}
-                    />
-                  )
-                if (n.type === 'blockquote')
-                  return (
-                    <blockquote key={i} className="my-1.5 border-l-2 pl-3 text-[13px] italic crystal-muted" style={{ borderColor: 'rgba(180,225,255,0.35)' }}>
-                      {n.items.map((x, j) => (
-                        <p key={j} dangerouslySetInnerHTML={{ __html: renderInline(x) }} />
-                      ))}
-                    </blockquote>
-                  )
-                if (n.type === 'ul')
-                  return (
-                    <ul key={i} className="my-1.5 space-y-1 pl-4">
-                      {n.items.map((item, j) => (
-                        <li key={j} className="flex flex-col gap-0.5">
-                          <span className="flex gap-1.5">
-                            <span className="mt-[0.4em] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'rgba(180,225,255,0.45)' }} />
-                            <span dangerouslySetInnerHTML={{ __html: renderInline(item.text) }} />
-                          </span>
-                          {item.subs?.length > 0 && (
-                            <ul className="mt-0.5 space-y-0.5 pl-5">
-                              {item.subs.map((s, k) => (
-                                <li key={k} className="flex gap-1.5 text-[12px] crystal-muted">
-                                  <span className="mt-[0.45em] h-1 w-1 shrink-0 rounded-full" style={{ background: 'rgba(180,225,255,0.25)' }} />
-                                  <span dangerouslySetInnerHTML={{ __html: renderInline(s) }} />
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                if (n.type === 'ol')
-                  return (
-                    <ol key={i} className="my-1.5 space-y-1 pl-4">
-                      {n.items.map((item, j) => (
-                        <li key={j} className="flex flex-col gap-0.5">
-                          <span className="flex gap-1.5">
-                            <span className="min-w-[1.1rem] shrink-0 text-right text-[11px] font-semibold crystal-muted">{j + 1}.</span>
-                            <span dangerouslySetInnerHTML={{ __html: renderInline(item.text) }} />
-                          </span>
-                          {item.subs?.length > 0 && (
-                            <ul className="mt-0.5 space-y-0.5 pl-7">
-                              {item.subs.map((s, k) => (
-                                <li key={k} className="flex gap-1.5 text-[12px] crystal-muted">
-                                  <span className="mt-[0.45em] h-1 w-1 shrink-0 rounded-full" style={{ background: 'rgba(180,225,255,0.25)' }} />
-                                  <span dangerouslySetInnerHTML={{ __html: renderInline(s) }} />
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </li>
-                      ))}
-                    </ol>
-                  )
-        return <p key={i} className="text-[1em] leading-[1.65] crystal-answer-text" dangerouslySetInnerHTML={{ __html: renderInline(n.content) }} />
-      })}
+    <div className={`space-y-1.5 text-left crystal-answer-text [overflow-wrap:anywhere] [&_p]:leading-[1.65] [&_li]:leading-relaxed ${proseClass}`}>
+      {nodes.map((n, i) => (
+        <MarkdownNode key={i} n={n} suppressHighlight={suppressHighlight} />
+      ))}
     </div>
   )
 }
@@ -508,6 +561,7 @@ const BriefAnswer = memo(function BriefAnswer({
   allowCode = false,
   streaming = false,
   fontSize = 'medium',
+  listFirst = false,
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [copied, setCopied] = useState('')
@@ -516,12 +570,16 @@ const BriefAnswer = memo(function BriefAnswer({
     [messageId, text],
   )
   const { takeaway, prose, code, details } = useMemo(() => {
-    const p = partitionForBrief(nodes)
+    const rawListFirst =
+      listFirst ||
+      /^\s*[-*]\s+/m.test(String(text || '')) ||
+      nodes.some((n) => n.type === 'ul' || n.type === 'ol')
+    const p = partitionForBrief(nodes, { listFirst: rawListFirst })
     if (!allowCode && p.code.length > 0) {
       return { ...p, code: [] }
     }
     return p
-  }, [nodes, allowCode])
+  }, [nodes, allowCode, listFirst, text])
   const fallback = nodes.length === 0 ? text : null
   const codeText = useMemo(() => code.map((c) => c.content).join('\n\n'), [code])
   const tp = teleprompter
@@ -532,9 +590,7 @@ const BriefAnswer = memo(function BriefAnswer({
     window.setTimeout(() => setCopied(''), 2000)
   }
 
-  const baseClass = teleprompter
-    ? (fontSize === 'large' ? 'text-[18px] leading-[1.9]' : fontSize === 'small' ? 'text-[16px] leading-[1.8]' : 'text-[17px] leading-[1.85]')
-    : (fontSize === 'large' ? 'text-[16px] leading-[1.85]' : fontSize === 'small' ? 'text-[14px] leading-[1.7]' : 'text-[15px] leading-[1.8]')
+  const baseClass = streamFontClass(teleprompter, fontSize)
 
   if (fallback) {
     return (
@@ -629,7 +685,7 @@ const MessageBubble = memo(function MessageBubble({
   messageId,
   role,
   text,
-  answerStyle = 'brief',
+  answerStyle = 'detailed',
   teleprompter = false,
   allowCode = false,
   fontSize = 'medium',
@@ -644,6 +700,7 @@ const MessageBubble = memo(function MessageBubble({
     [role, messageId, text],
   )
   const fallback = role === 'ai' && nodes.length === 0 ? text : null
+  // InterviewMan: panel is markdown. Legacy brief/Takeaway path kept only if forced.
   const isBriefAi = role === 'ai' && answerStyle === 'brief'
 
   return (
@@ -651,12 +708,12 @@ const MessageBubble = memo(function MessageBubble({
       <div
         className={
           isUser
-            ? 'crystal-user-bubble max-w-[88%] rounded-[0.9rem] px-3 py-1.5 text-left text-[13px] font-medium'
+            ? `crystal-user-bubble max-w-[88%] rounded-[12px] px-4 py-2.5 text-left font-normal ${streamFontClass(teleprompter, fontSize)}`
             : isError
               ? 'w-full text-left'
               : isBriefAi
-                ? `w-full text-left crystal-answer-shell px-3.5 py-3 ${animateIn ? 'animate-answer-in' : ''}`
-                : `crystal-answer-text w-full text-left text-[1em] crystal-answer-shell px-3.5 py-3 ${animateIn ? 'animate-answer-in' : ''}`
+                ? `w-full text-left crystal-answer-shell px-4 py-2.5 ${streamFontClass(teleprompter, fontSize)} ${animateIn ? 'animate-answer-in' : ''}`
+                : `crystal-answer-text w-full text-left crystal-answer-shell px-4 py-2.5 ${streamFontClass(teleprompter, fontSize)} ${animateIn ? 'animate-answer-in' : ''}`
         }
       >
         {role === 'error' ? (
@@ -675,6 +732,7 @@ const MessageBubble = memo(function MessageBubble({
                 teleprompter={teleprompter}
                 allowCode={allowCode}
                 fontSize={fontSize}
+                listFirst
               />
             ) : fallback ? (
               <p className="leading-[1.65]" dangerouslySetInnerHTML={{ __html: renderInline(text) }} />
@@ -683,34 +741,47 @@ const MessageBubble = memo(function MessageBubble({
             )}
           </>
         ) : (
-          <span className="whitespace-pre-wrap text-[13px] leading-relaxed">{text}</span>
+          <span className="whitespace-pre-wrap text-[1em] leading-[1.45]">{text}</span>
         )}
       </div>
     </div>
   )
 })
 
+/** IM Ho/aau sent-by-me bubble: primary fill, padding LTRB 16/10, radius 12, bodyMedium. */
 function HeardQuestionBubble({ text }) {
   const value = String(text || '').trim()
   if (!value) return null
   return (
     <div className="flex w-full justify-end">
-      <div className="crystal-question-bubble max-w-[88%] rounded-[0.9rem] px-3 py-1.5 text-left text-[13px] font-medium leading-snug">
+      <div className="crystal-question-bubble max-w-[88%] rounded-[12px] px-4 py-2.5 text-left font-normal text-[1em] leading-[1.45]">
         <SpeakerTranscriptBlock text={value} lineClassName="block" />
       </div>
     </div>
   )
 }
 
-function streamFontClass(teleprompter, fontSize) {
-  if (teleprompter) {
-    if (fontSize === 'large') return 'text-[18px] leading-[1.9]'
-    if (fontSize === 'small') return 'text-[16px] leading-[1.8]'
-    return 'text-[17px] leading-[1.85]'
-  }
-  if (fontSize === 'large') return 'text-[16px] leading-[1.85]'
-  if (fontSize === 'small') return 'text-[14px] leading-[1.7]'
-  return 'text-[15px] leading-[1.8]'
+/** IM axj — primary@0.1 pill, 12px spinner, "Generating Answer" 11px/500. */
+function GeneratingAnswerChip({ label = 'Generating Answer' }) {
+  return (
+    <div className="crystal-generating-chip" role="status" aria-live="polite">
+      <span className="crystal-generating-spinner" aria-hidden />
+      <span className="crystal-generating-label">{label}</span>
+    </div>
+  )
+}
+
+/**
+ * IM bodyMedium 14 × font_size_option (0.85 / 1.0 / 1.15).
+ * Use em classes so the scroll-container fontSize px actually applies.
+ */
+function overlayAnswerFontPx(fontSize, teleprompter = false) {
+  const base = fontSize === 'large' ? 16 : fontSize === 'small' ? 12 : 14
+  return teleprompter ? base + 1 : base
+}
+
+function streamFontClass(_teleprompter, _fontSize) {
+  return 'text-[1em] leading-[1.45]'
 }
 
 /** Natively teleprompter: calm shell before first token. */
@@ -725,42 +796,34 @@ function ComposingShell({ onAbort, teleprompter = false, heardText = '' }) {
 
   return (
     <div
-      className={`crystal-panel-inset mx-auto w-full min-h-[7rem] rounded-2xl px-4 py-5 ${
+      className={`mx-auto w-full min-h-[4.5rem] px-1 py-2 ${
         teleprompter ? 'max-w-[46rem]' : 'max-w-[44rem]'
       }`}
     >
       {heard && !teleprompter ? (
-        <div className="mb-4">
+        <div className="mb-3">
           <HeardQuestionBubble text={heard} />
         </div>
       ) : null}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2" style={{ color: 'rgba(200,235,255,0.88)' }}>
-          <span className="crystal-status-dot" />
-          <span className={`crystal-answer-text font-medium ${teleprompter ? 'text-[15px]' : 'text-[13px]'}`}>
-            {slow ? 'Still composing…' : 'Composing answer…'}
-          </span>
-        </div>
+        <GeneratingAnswerChip label={slow ? 'Still composing…' : 'Generating Answer'} />
         {onAbort ? (
           <button
             type="button"
             onClick={onAbort}
-            className="crystal-panel-inset rounded-lg px-2.5 py-1 text-[10px] font-medium crystal-muted hover:text-white/90"
+            className="rounded-lg px-2.5 py-1 text-[10px] font-medium crystal-muted hover:text-white/90"
           >
             Stop
           </button>
         ) : null}
       </div>
-      <p className="crystal-muted mt-3 text-[12px] leading-relaxed">
-        Answer will stream here as it generates.
-      </p>
     </div>
   )
 }
 
 /**
- * Natively-style stream panel — plain readable text while tokens arrive (no raw markdown).
- * Full BriefAnswer / markdown layout is applied on commit only.
+ * InterviewMan paints gpt_markdown into the helper bubble on every stream event (A.mz).
+ * Mirror that: live markdown nodes while tokens arrive — not stripped plain text / Takeaway split.
  */
 function StreamingAnswerPreview({
   streamPreview = '',
@@ -771,10 +834,14 @@ function StreamingAnswerPreview({
 }) {
   const heard = String(heardText || '').trim()
   const raw = String(streamPreview || '').trim()
-  const plain = useMemo(() => stripMarkdownForStreamDisplay(raw), [raw])
+  const normalized = useMemo(() => normalizeInterviewAnswerMarkdown(raw), [raw])
+  const nodes = useMemo(
+    () => getCachedParsedMarkdown(`stream:${normalized.slice(0, 48)}`, normalized),
+    [normalized],
+  )
   const baseClass = streamFontClass(teleprompter, fontSize)
 
-  if (!plain) {
+  if (!normalized) {
     return <ComposingShell onAbort={onAbort} teleprompter={teleprompter} heardText={heardText} />
   }
 
@@ -786,22 +853,23 @@ function StreamingAnswerPreview({
         </div>
       ) : null}
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2" style={{ color: 'rgba(200,235,255,0.88)' }}>
-          <span className="crystal-status-dot" />
-          <span className="crystal-sublabel text-[10px] normal-case">Generating</span>
-        </div>
+        <GeneratingAnswerChip />
         {onAbort ? (
           <button
             type="button"
             onClick={onAbort}
-            className="crystal-panel-inset rounded-lg px-2 py-0.5 text-[10px] crystal-muted hover:text-white/90"
+            className="rounded-lg px-2 py-0.5 text-[10px] crystal-muted hover:text-white/90"
           >
             Stop
           </button>
         ) : null}
       </div>
-      <div className="crystal-answer-shell crystal-stream-shell space-y-3 px-3.5 py-3.5">
-        <p className={`crystal-answer-text crystal-stream-text whitespace-pre-wrap ${baseClass}`}>{plain}</p>
+      <div className={`crystal-answer-shell crystal-stream-shell space-y-2 px-4 py-2.5 ${baseClass}`}>
+        {nodes.length === 0 ? (
+          <p className="crystal-answer-text crystal-stream-text whitespace-pre-wrap leading-[1.45]">{normalized}</p>
+        ) : (
+          <MarkdownNodes nodes={nodes} suppressHighlight />
+        )}
       </div>
     </div>
   )
@@ -913,7 +981,7 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
     messages,
     isThinking,
     fontSize,
-    answerStyle = 'brief',
+    answerStyle = 'detailed',
     overlayTeleprompter = false,
     overlayAnswerPinToTop = true,
     overlayAnswerAutoScroll = false,
@@ -992,19 +1060,10 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
         ref={mergedScrollRef}
+        aria-busy={isThinking ? 'true' : 'false'}
         className="response-scroll z-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         style={{
-          fontSize: overlayTeleprompter
-            ? fontSize === 'large'
-              ? 18
-              : fontSize === 'small'
-                ? 16
-                : 17
-            : fontSize === 'large'
-              ? 16
-              : fontSize === 'small'
-                ? 14
-                : 15,
+          fontSize: overlayAnswerFontPx(fontSize, overlayTeleprompter),
         }}
       >
       <div className="w-full px-3 pb-2 pt-3">
@@ -1034,10 +1093,19 @@ const ResponsePanelInner = React.forwardRef(function ResponsePanel(
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
               </svg>
             </div>
+            <p className="mt-3 text-[12px] font-medium">Ready when you are</p>
+            <p className="mt-1 max-w-[16rem] text-[11px] leading-snug opacity-70">
+              Answers appear here. Type a question below, or use your Ask shortcut to read the screen.
+            </p>
           </div>
         )}
 
+        {/* Committed answers are announced once, when they are added (not while streaming). */}
         <div
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label="Conversation"
           className={`response-turns-list mx-auto w-full max-w-full${
             hasActiveReply && isThinking && visibleTurns.length > 0 ? ' crystal-divider mt-6 border-t pt-6' : ''
           }`}

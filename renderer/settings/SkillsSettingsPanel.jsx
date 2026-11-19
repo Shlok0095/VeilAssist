@@ -224,7 +224,7 @@ export default function SkillsSettingsPanel({ embedded = false }) {
                   type="button"
                   disabled={busy}
                   onClick={() => setConfirmDelete(true)}
-                  className="btn-ghost flex items-center gap-1 px-3 py-2 text-xs text-rose-300"
+                  className="btn-danger flex items-center gap-1 px-3 py-2 text-xs"
                 >
                   <AppIcon icon={Trash2} size={14} />
                   Delete

@@ -15,7 +15,7 @@ function TitleBarButton({ onClick, title, children, danger }) {
       onClick={onClick}
       style={noDrag}
       className={`flex h-9 w-11 shrink-0 items-center justify-center text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100 ${
-        danger ? 'hover:bg-red-600 hover:text-white' : ''
+        danger ? 'hover:bg-[var(--danger-mid,#dc2626)] hover:text-white' : ''
       }`}
     >
       {children}
@@ -23,7 +23,7 @@ function TitleBarButton({ onClick, title, children, danger }) {
   )
 }
 
-/** Frameless window: violet border, compact title strip (VeilAssist + window controls). */
+/** Frameless window: neutral chrome, compact title strip (VeilAssist + window controls). */
 export default function AppWindowFrame({ children }) {
   const api = typeof window !== 'undefined' ? window.shadowAPI : null
   const { name } = useBrand()
@@ -43,7 +43,7 @@ export default function AppWindowFrame({ children }) {
   }, [api])
 
   return (
-    <div className="app-window-frame flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[10px] border border-[#7c3aed] bg-[#09090b] shadow-[0_0_32px_-10px_rgba(124,58,237,0.55),inset_0_0_0_1px_rgba(124,58,237,0.12)]">
+    <div className="app-window-frame flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[10px] border border-zinc-800/90 bg-[#09090b] shadow-[0_16px_48px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]">
       <header
         className="flex h-9 shrink-0 items-center border-b border-zinc-800/80 bg-[#1c1c21]"
         style={drag}

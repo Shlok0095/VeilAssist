@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Check, ChevronDown, Trash2, Upload } from 'lucide-react'
 import AppIcon from '../shared/AppIcon'
+import { ConfirmDialog } from './SettingsComponents'
 
 function SelectRow({ title, subtitle, selected, expanded, onSelect, onToggle, detailsLabel, children }) {
   return (
@@ -103,7 +104,9 @@ function AdditionalDocumentsBlock({
   onDelete,
 }) {
   const [openId, setOpenId] = useState('')
+  const [confirmDocId, setConfirmDocId] = useState('')
   const selected = documents.find((doc) => doc.id === activeDocumentId) || null
+  const confirmDoc = documents.find((doc) => doc.id === confirmDocId) || null
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -125,7 +128,7 @@ function AdditionalDocumentsBlock({
           {busy ? 'Structuring…' : 'Upload document'}
         </button>
       </div>
-      {error ? <p className="text-[12px] text-red-300">{error}</p> : null}
+      {error ? <p className="text-[12px] text-danger">{error}</p> : null}
       {documents.map((doc) => {
         const expanded = doc.id === openId
         return (
@@ -140,13 +143,25 @@ function AdditionalDocumentsBlock({
             onToggle={() => setOpenId(expanded ? '' : doc.id)}
           >
             <DocumentEditor document={doc} onChange={(next) => onChange?.(documents.map((item) => (item.id === doc.id ? next : item)))} />
-            <button type="button" className="btn-ghost inline-flex items-center gap-2 px-3 py-2 text-xs" onClick={() => onDelete?.(doc.id)}>
+            <button type="button" className="btn-ghost inline-flex items-center gap-2 px-3 py-2 text-xs" onClick={() => setConfirmDocId(doc.id)}>
               <AppIcon icon={Trash2} size={14} />
               Remove document
             </button>
           </SelectRow>
         )
       })}
+      <ConfirmDialog
+        open={!!confirmDoc}
+        title="Remove this document?"
+        description={`"${confirmDoc?.title || confirmDoc?.sourceFileName || 'This document'}" will be deleted from this device. This cannot be undone.`}
+        confirmLabel="Remove document"
+        onCancel={() => setConfirmDocId('')}
+        onConfirm={() => {
+          const id = confirmDocId
+          setConfirmDocId('')
+          if (id) onDelete?.(id)
+        }}
+      />
     </div>
   )
 }
@@ -198,9 +213,11 @@ export function GeneralPurposeSection({
   onDelete,
 }) {
   const [openId, setOpenId] = useState('')
+  const [confirmPurposeId, setConfirmPurposeId] = useState('')
   const [name, setName] = useState('')
   const [prompt, setPrompt] = useState('')
   const selected = purposes.find((item) => item.id === activePurposeId) || null
+  const confirmPurpose = purposes.find((item) => item.id === confirmPurposeId) || null
   return (
     <div className="space-y-3">
       <div>
@@ -234,7 +251,7 @@ export function GeneralPurposeSection({
           Save purpose
         </button>
       </form>
-      {error ? <p className="text-[12px] text-red-300">{error}</p> : null}
+      {error ? <p className="text-[12px] text-danger">{error}</p> : null}
       {purposes.map((purpose) => {
         const expanded = purpose.id === openId
         return (
@@ -250,13 +267,25 @@ export function GeneralPurposeSection({
           >
             <Field label="Purpose name" value={purpose.name} onChange={(next) => onChange?.({ ...purpose, name: next })} />
             <Field label="Purpose prompt" value={purpose.prompt} onChange={(next) => onChange?.({ ...purpose, prompt: next })} multiline />
-            <button type="button" className="btn-ghost inline-flex items-center gap-2 px-3 py-2 text-xs" onClick={() => onDelete?.(purpose.id)}>
+            <button type="button" className="btn-ghost inline-flex items-center gap-2 px-3 py-2 text-xs" onClick={() => setConfirmPurposeId(purpose.id)}>
               <AppIcon icon={Trash2} size={14} />
               Remove purpose
             </button>
           </SelectRow>
         )
       })}
+      <ConfirmDialog
+        open={!!confirmPurpose}
+        title="Remove this purpose?"
+        description={`"${confirmPurpose?.name || 'This purpose'}" and its documents will be deleted from this device. This cannot be undone.`}
+        confirmLabel="Remove purpose"
+        onCancel={() => setConfirmPurposeId('')}
+        onConfirm={() => {
+          const id = confirmPurposeId
+          setConfirmPurposeId('')
+          if (id) onDelete?.(id)
+        }}
+      />
       <AdditionalDocumentsBlock
         documents={selected?.documents || (selected?.document ? [selected.document] : [])}
         activeDocumentId={selected?.activeDocumentId || selected?.document?.id || ''}

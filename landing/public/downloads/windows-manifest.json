@@ -1,11 +1,11 @@
 {
-  "version": "2026.11.03.02.01",
-  "compactVersion": "2026.1103.201",
-  "releaseTag": "interview-v2026.1103.201",
-  "installerDownloadUrl": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v2026.1103.201/VeilAssistSetup2026.11.03.02.01.exe",
-  "portableDownloadUrl": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v2026.1103.201/VeilAssist2026.11.03.02.01.exe",
-  "builtAt": "2026-11-02T20:42:27.215Z",
-  "installerSize": 179308224,
-  "portableSize": 179037041,
-  "installerSha256": "7d8ee256be189c5ce151e1dc3cfc34f357c679e22b80b554005c9f1484cc1b4e"
+  "version": "1.0.0",
+  "compactVersion": "1.0.0",
+  "releaseTag": "interview-v1.0.0",
+  "installerDownloadUrl": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/VeilAssistSetup1.0.0.exe",
+  "portableDownloadUrl": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/VeilAssist1.0.0.exe",
+  "builtAt": "2026-11-19T21:23:25.810Z",
+  "installerSize": 180955145,
+  "portableSize": 180683955,
+  "installerSha256": "7e3d9c6359f555dc43bf823be36c928224429626c1538b86acf61554897ed9b9"
 }

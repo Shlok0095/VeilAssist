@@ -1,8 +1,8 @@
-version: 2026.1103.201
+version: 1.0.0
 files:
-  - url: VeilAssistSetup2026.1103.201.exe
-    sha512: LxCcVXcYSqOZOJ8Th1VPmbBLrUlJW9viCtsTmTZ3LBMIiC0cEwEQELc+oWBbN0H7WcSBb9vxFH0IPgP/kahKLQ==
-    size: 179308224
-path: VeilAssistSetup2026.1103.201.exe
-sha512: LxCcVXcYSqOZOJ8Th1VPmbBLrUlJW9viCtsTmTZ3LBMIiC0cEwEQELc+oWBbN0H7WcSBb9vxFH0IPgP/kahKLQ==
-releaseDate: '2026-11-02T20:42:27.215Z'
+  - url: VeilAssistSetup1.0.0.exe
+    sha512: KB5LLIV1VJexJHkSIzFU0ttm99VdSEgOmI20b8x53qobz1NLp/vw7CnmcnAefXNV7CDZfjOr5u+nNQSNb1SroA==
+    size: 180955145
+path: VeilAssistSetup1.0.0.exe
+sha512: KB5LLIV1VJexJHkSIzFU0ttm99VdSEgOmI20b8x53qobz1NLp/vw7CnmcnAefXNV7CDZfjOr5u+nNQSNb1SroA==
+releaseDate: '2026-11-19T21:23:25.810Z'

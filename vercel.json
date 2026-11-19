@@ -52,17 +52,17 @@
     },
     {
       "source": "/download/beta",
-      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v2026.1103.201/VeilAssistSetup2026.11.03.02.01.exe",
+      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/VeilAssistSetup1.0.0.exe",
       "permanent": false
     },
     {
       "source": "/download/portable",
-      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v2026.1103.201/VeilAssist2026.11.03.02.01.exe",
+      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/VeilAssist1.0.0.exe",
       "permanent": false
     },
     {
       "source": "/download/checksums",
-      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/latest/SHA256SUMS.txt",
+      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/SHA256SUMS.txt",
       "permanent": false
     },
     {

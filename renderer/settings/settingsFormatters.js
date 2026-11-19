@@ -50,3 +50,25 @@ export function friendlyCalendarError(message) {
   }
   return raw
 }
+
+/** "onnx-community/moonshine-base-ONNX" -> "Moonshine Base". Falls back to the raw id. */
+export function humanizeModelName(modelId) {
+  const base = String(modelId || '')
+    .split('/')
+    .pop()
+    .replace(/[-_]onnx$/i, '')
+  const words = base.split(/[-_]+/).filter(Boolean)
+  if (!words.length) return String(modelId || '')
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
+/** One plain sentence describing the local speech model state (no raw ids or "idle"). */
+export function describeLocalModelStatus(info) {
+  const spec = info?.spec
+  if (!spec?.modelId) return ''
+  const name = humanizeModelName(spec.modelId)
+  const status = info?.status || {}
+  if (status.listening?.mic || status.listening?.sys) return `${name} is transcribing now.`
+  if (status.ready) return `${name} is loaded and ready.`
+  return `${name} will load the first time you start Listen.`
+}

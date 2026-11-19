@@ -96,8 +96,6 @@ const {
   normalizeQuestionDetection,
   normalizeMeetingLanguage,
   micFromMeetingLanguage,
-  overlayDisplayStyleFromFormat,
-  fontSizeFromAnswerLength,
   maxTokensForAnswerLength,
 } = require('../lib/interviewSettingsCatalog.cjs')
 const {
@@ -135,6 +133,7 @@ const {
   formatAnswerContractBlock,
   formatSpeakerIdentityBlock,
   formatDomainRoutingBlock,
+  looksPersonalQuestion,
 } = require('../lib/contextRouter')
 const { modeTemplateFromPrompt } = require('../lib/answerPlanner')
 const {
@@ -168,6 +167,7 @@ const {
   activeResume,
   topicFromResume,
   newResumeId,
+  profileHasContent,
 } = require('../lib/resumeProfile.cjs')
 const {
   usesNvidiaDocumentParse,
@@ -208,12 +208,9 @@ if (store.get('brandName')) {
   store.set('brandName', '')
 }
 
-function overlayFontPayloadForAnswerLength(store, answerLength) {
-  const payload = { answerLength }
-  const fs = fontSizeFromAnswerLength(answerLength)
-  store.set('overlayFontSize', fs)
-  payload.overlayFontSize = fs
-  return payload
+/** Answer Length only affects prompt tokens — Font Size is a separate Overlay setting (InterviewMan). */
+function overlayPayloadForAnswerLength(answerLength) {
+  return { answerLength }
 }
 
 /** Short-lived cache for profile/context blocks on repeated asks in the same session. */
@@ -472,13 +469,16 @@ function applyRuntimeBranding() {
     } catch (_) {}
   }
   // Refresh taskbar / window icons on every open window (Windows + Linux).
+  // Decoding the logo is the expensive part, so skip it when there is no window to apply it to
+  // (the first startup call runs before any window exists).
   try {
-    const iconPath = getWindowIcon()
+    const openWindows = BrowserWindow.getAllWindows().filter((w) => w && !w.isDestroyed())
+    const iconPath = openWindows.length ? getWindowIcon() : null
     if (iconPath) {
       const iconImg = nativeImage.createFromPath(iconPath)
       if (!iconImg.isEmpty()) {
-        for (const w of BrowserWindow.getAllWindows()) {
-          if (!w || w.isDestroyed()) continue
+        for (const w of openWindows) {
+          if (w.isDestroyed()) continue
           try {
             w.setIcon(iconImg)
           } catch (_) {}
@@ -530,7 +530,7 @@ let overlayCaptureSuspended = false
 let overlayCaptureResumeTimer = null
 /** User is dragging a resize handle — skip per-frame hit-region sync and will-resize churn. */
 let overlayLiveResizing = false
-let savedOpacity = 0.92
+let savedOpacity = 0.7
 /** Last protection value pushed to the overlay HWND — Natively dedupes to avoid DWM churn/blinks. */
 let overlayContentProtectionApplied = null
 /** Pending win32 stealth fade-in after protection arms (Natively Opacity Shield). */
@@ -765,7 +765,7 @@ function createOverlayWindow() {
   let y = typeof savedBounds.y === 'number' ? savedBounds.y : display.y + Math.floor((display.height - h) / 2)
   if (x < display.x || x > maxX) x = maxX
   if (y < display.y || y > maxY) y = maxY
-  savedOpacity = store.get('overlayOpacity') ?? 0.92
+  savedOpacity = store.get('overlayOpacity') ?? 0.7
 
   const owner = getBackgroundOwnerParent()
   const winOpts = {
@@ -886,7 +886,8 @@ function isStealthModeEnabled() {
  * Overlay content protection follows stealth toggle:
  * - Visible mode (stealth OFF): protection OFF — you see the overlay; it can appear in screen shares.
  * - Stealth mode (stealth ON): protection ON — hidden from screen capture, shares, and recordings.
- * Ctrl+Enter capture uses hide()+opacity shield (see withOverlayExcludedFromScreenCapture).
+ * Ctrl+Enter capture: both modes exclude the overlay via content protection (no hide/show blink).
+ * Visible mode only arms protection for the snap, then restores OFF so shares still see it after.
  */
 function clearOverlayOpacityShield() {
   if (overlayOpacityShieldTimer != null) {
@@ -1005,9 +1006,14 @@ function syncOverlayVisibilityToRenderer() {
 
 /** Windows that must follow Stealth (content protection). Never include meeting toast or future summary window. */
 function getStealthManagedWindows() {
-  return [overlayWindow, settingsWindow, consentWindow, onboardingWindow, globalChatWindow].filter(
-    (w) => w && !w.isDestroyed(),
-  )
+  return [
+    overlayWindow,
+    settingsWindow,
+    consentWindow,
+    onboardingWindow,
+    globalChatWindow,
+    quitConfirmWindow,
+  ].filter((w) => w && !w.isDestroyed())
 }
 
 /**
@@ -1367,31 +1373,43 @@ function startCalendarReminderPoll() {
 const CAPTURE_COMPOSITOR_MS = process.platform === 'darwin' ? 80 : 40
 
 /**
- * Natively-style capture wrapper: opacity 0 → hide() → compositor wait → snap → restore.
- * Stealth mode keeps content protection ON — hidden window is enough; lifting protection
- * caused millisecond leaks into screen share (Natively never disables it for capture).
+ * Capture wrapper: exclude overlay from the snap without blink in either mode.
+ * - Stealth ON: content protection already excludes the overlay — snap in place.
+ * - Visible (stealth OFF): temporarily arm setContentProtection(true) for the snap
+ *   (WDA_EXCLUDEFROMCAPTURE on Windows), then restore OFF. Never hide()/opacity-0 —
+ *   that was the visible-mode blink.
+ * Never permanently leave Visible mode protected (share visibility must return after Ask).
  */
 async function withOverlayExcludedFromScreenCapture(fn) {
   if (!overlayWindow || overlayWindow.isDestroyed()) return fn()
 
-  const restoreAfterCapture = overlayVisible
+  const stealthOn = isStealthModeEnabled()
+  if (stealthOn) {
+    applyOverlayContentProtection(true)
+    return fn()
+  }
 
+  // Visible mode: arm protection for capture only — stay on screen, no hide flash.
+  let armedTempProtection = false
   try {
-    hideOverlayForCapture()
+    try {
+      overlayWindow.setContentProtection(true)
+      overlayContentProtectionApplied = true
+      armedTempProtection = true
+    } catch (_) {}
     await new Promise((resolve) => setTimeout(resolve, CAPTURE_COMPOSITOR_MS))
     return await fn()
   } finally {
-    if (!overlayWindow.isDestroyed()) {
-      if (restoreAfterCapture) {
-        presentOverlayWindow({ inactive: true })
-        syncOverlayVisibilityToRenderer()
-      } else {
-        overlayWindow.setOpacity(0)
+    if (!overlayWindow || overlayWindow.isDestroyed()) return
+    if (armedTempProtection || !isStealthModeEnabled()) {
+      try {
+        const want = isStealthModeEnabled()
+        overlayWindow.setContentProtection(want)
+        overlayContentProtectionApplied = want
+      } catch (_) {
+        overlayContentProtectionApplied = null
+        applyOverlayContentProtection(true)
       }
-      setImmediate(() => {
-        if (!overlayWindow || overlayWindow.isDestroyed()) return
-        applyTaskbarVisibility()
-      })
     }
   }
 }
@@ -1806,7 +1824,13 @@ function syncTaskManagerGrouping() {
  * independent of it. One entry (overlay only). Visible mode: show when the
  * overlay or settings is open. Invisible: always hidden.
  */
+function isFirstRunSetupActive() {
+  return !hasValidConsent() || !hasCompletedOnboardingFlag()
+}
+
 function shouldShowAppInTaskbar() {
+  // First-run consent/onboarding must stay findable (taskbar + minimize).
+  if (isFirstRunSetupActive()) return true
   if (isStealthModeEnabled()) return false
   if (store.get('hideFromTaskbarEnabled') === true) return false
   return overlayVisible || isSettingsWindowActive()
@@ -1836,24 +1860,26 @@ function applyTaskbarVisibility() {
       overlayWindow.setSkipTaskbar(!show)
     } catch (_) {}
   }
-  // Every other window never gets its own taskbar/dock entry. This list must
-  // stay in sync with the windows created in create*Window() — a window
-  // created without `skipTaskbar: true` in its options shows a taskbar
-  // button on its FIRST show on Windows (ITaskbarList only removes buttons
-  // from already-visible windows), so constructor flags + this loop + the
-  // show/restore re-asserts below are all required.
+  // First-run consent/onboarding keep a taskbar button so minimize doesn't lose them.
+  // After setup, every non-overlay window stays off the taskbar (stealth shell).
+  const firstRun = isFirstRunSetupActive()
   for (const w of [
     settingsWindow,
     globalChatWindow,
     launcherWindow,
-    consentWindow,
-    onboardingWindow,
     meetingToastWindow,
     quitConfirmWindow,
   ]) {
     if (w && !w.isDestroyed()) {
       try {
         w.setSkipTaskbar(true)
+      } catch (_) {}
+    }
+  }
+  for (const w of [consentWindow, onboardingWindow]) {
+    if (w && !w.isDestroyed()) {
+      try {
+        w.setSkipTaskbar(!firstRun)
       } catch (_) {}
     }
   }
@@ -1931,9 +1957,12 @@ let appQuitting = false
 
 let updateCheckInterval = null
 let updateCheckKickoffTimer = null
+let updaterSetupTimer = null
 function stopUpdateChecks() {
+  if (updaterSetupTimer) clearTimeout(updaterSetupTimer)
   if (updateCheckInterval) clearInterval(updateCheckInterval)
   if (updateCheckKickoffTimer) clearTimeout(updateCheckKickoffTimer)
+  updaterSetupTimer = null
   updateCheckInterval = null
   updateCheckKickoffTimer = null
 }
@@ -2101,6 +2130,7 @@ function showQuitConfirmDialog() {
   if (quitConfirmPending) {
     if (quitConfirmWindow && !quitConfirmWindow.isDestroyed()) {
       try {
+        quitConfirmWindow.setContentProtection(isStealthModeEnabled())
         quitConfirmWindow.show()
         quitConfirmWindow.focus()
       } catch (_) {}
@@ -2118,10 +2148,14 @@ function showQuitConfirmDialog() {
       quitConfirmWindow = null
     }
 
+    const stealth = isStealthModeEnabled()
+    // Modal + background-owner reparent fights on win32 stealth ("Can not be called for modal window").
+    // Invisible mode: non-modal, owned by the hidden background parent, content-protected like the overlay.
     const parent =
-      (settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible() && settingsWindow) ||
-      (globalChatWindow && !globalChatWindow.isDestroyed() && globalChatWindow.isVisible() && globalChatWindow) ||
-      null
+      !stealth &&
+      ((settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible() && settingsWindow) ||
+        (globalChatWindow && !globalChatWindow.isDestroyed() && globalChatWindow.isVisible() && globalChatWindow) ||
+        null)
 
     const quitOwner = getBackgroundOwnerParent()
     quitConfirmWindow = new BrowserWindow({
@@ -2153,6 +2187,9 @@ function showQuitConfirmDialog() {
     quitConfirmWindow.setMenuBarVisibility(false)
     hardenWindow(quitConfirmWindow)
     applyBackgroundWindowStyles(quitConfirmWindow)
+    try {
+      quitConfirmWindow.setContentProtection(stealth)
+    } catch (_) {}
 
     const finishFalseIfStillPending = () => {
       if (quitConfirmSettle) settleQuitConfirm(false)
@@ -2160,7 +2197,13 @@ function showQuitConfirmDialog() {
     }
 
     quitConfirmWindow.on('closed', finishFalseIfStillPending)
-    quitConfirmWindow.on('show', () => setImmediate(applyTaskbarVisibility))
+    quitConfirmWindow.on('show', () => {
+      try {
+        quitConfirmWindow.setContentProtection(isStealthModeEnabled())
+      } catch (_) {}
+      setImmediate(applyTaskbarVisibility)
+      if (isStealthModeEnabled()) reassertStealthCaptureExclusionAfterWin32()
+    })
 
     quitConfirmWindow.webContents.once('did-finish-load', () => {
       sendQuitConfirmPayload()
@@ -2169,10 +2212,12 @@ function showQuitConfirmDialog() {
     quitConfirmWindow.once('ready-to-show', () => {
       if (!quitConfirmWindow || quitConfirmWindow.isDestroyed()) return
       try {
+        quitConfirmWindow.setContentProtection(isStealthModeEnabled())
         quitConfirmWindow.show()
         quitConfirmWindow.focus()
       } catch (_) {}
       setImmediate(applyTaskbarVisibility)
+      if (isStealthModeEnabled()) reassertStealthCaptureExclusionAfterWin32()
     })
 
     quitConfirmWindow.loadFile(getQuitConfirmHtmlPath(), { search: `?theme=${resolveUiColorScheme()}` }).catch((err) => {
@@ -2232,7 +2277,8 @@ function createConsentWindow() {
     transparent: true,
     backgroundColor: '#00000000',
     roundedCorners: true,
-    skipTaskbar: true,
+    // First-run: show in taskbar so minimize doesn't lose the window.
+    skipTaskbar: false,
     show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
     webPreferences: {
@@ -2266,20 +2312,22 @@ function createOnboardingWindow() {
     return
   }
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
-  const w = Math.min(480, Math.max(400, Math.floor(sw * 0.46)))
+  // Match settings density so nat-row + pill toggles render like General settings.
+  const w = Math.min(560, Math.max(480, Math.floor(sw * 0.48)))
   const h = Math.min(860, Math.max(620, Math.floor(sh * 0.88)))
   const onboardingOwner = getBackgroundOwnerParent()
   onboardingWindow = new BrowserWindow({
     width: w,
     height: h,
     center: true,
-    minWidth: 380,
+    minWidth: 460,
     minHeight: 560,
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
     roundedCorners: true,
-    skipTaskbar: true,
+    // First-run: show in taskbar so minimize doesn't lose the window.
+    skipTaskbar: false,
     show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
     webPreferences: {
@@ -2733,6 +2781,10 @@ async function buildProfileContextBlock({
       modeId,
       question: String(query || ''),
       requiresPersonalInfo: routeDecision?.requiresPersonalInfo,
+      useResume: routeDecision?.useResume === true,
+      useJd: routeDecision?.useJd === true,
+      jdText: routeDecision?.jdText || store.get('jdContext') || '',
+      interviewTopic: store.get('interviewTopic') || '',
       resumeLibrary: store.get('resumeLibrary'),
       activeResumeId: store.get('activeResumeId'),
       meetingPrompt: store.get('meetingPrompt'),
@@ -2747,6 +2799,8 @@ async function buildProfileContextBlock({
       JSON.stringify({
         modeId: activePrompt?.id || '',
         personalInfo: appendix.includes('My personal information is:'),
+        useResume: routeDecision?.useResume === true,
+        useJd: routeDecision?.useJd === true,
         outChars: out.length,
       }),
     )
@@ -2763,8 +2817,14 @@ function resolveContextRouteDecision({ userQuery, audioTranscript, _askMeta, has
     const prompts = normalizePromptsList(store.get('contextPrompts') || [])
     const activePrompt = getActivePrompt(prompts, store.get('activeContextPromptId') || null)
     const mode = modeTemplateFromPrompt(activePrompt)
-    const resume = String(store.get('resumeContext') || '').trim()
-    const jd = String(store.get('jdContext') || '').trim()
+    // InterviewMan: active resume tree (gqG), not only legacy resumeContext paste.
+    const selectedResume = activeResume(store.get('resumeLibrary'), store.get('activeResumeId'))
+    const resumeText = String(store.get('resumeContext') || '').trim()
+    const profileAvailable =
+      !!(selectedResume && (profileHasContent(selectedResume) || selectedResume.extraContext)) ||
+      !!resumeText
+    const jdFromResume = String(selectedResume?.extraContext || '').trim()
+    const jd = String(store.get('jdContext') || '').trim() || jdFromResume
     const refs = activePrompt?.referenceFiles
     const referenceFilesAvailable = Array.isArray(refs) && refs.some((f) => String(f?.text || '').trim())
 
@@ -2775,7 +2835,7 @@ function resolveContextRouteDecision({ userQuery, audioTranscript, _askMeta, has
     let decision = routeContext({
       userQuery: String(userQuery || '').trim(),
       mode,
-      profileAvailable: !!resume,
+      profileAvailable,
       jdAvailable: !!jd,
       referenceFilesAvailable,
       hasLiveTranscript: !!hasLiveTranscript,
@@ -2785,11 +2845,12 @@ function resolveContextRouteDecision({ userQuery, audioTranscript, _askMeta, has
     // about the user. It corrects the regex planner in both directions (see applyPersonalInfoSignal).
     if (typeof _askMeta?.detectedRequiresPersonalInfo === 'boolean') {
       decision = applyPersonalInfoSignal(decision, _askMeta.detectedRequiresPersonalInfo, {
-        resumeAvailable: !!resume,
+        resumeAvailable: profileAvailable,
         question: String(_askMeta.detectedQuestion || userQuery || ''),
       })
       decision.requiresPersonalInfo = _askMeta.detectedRequiresPersonalInfo
     }
+    decision.jdText = jd
     console.log('[context-router]', decision.reason)
     return decision
   } catch (e) {
@@ -3005,12 +3066,32 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
   const currentQuestion = normalizeFollowUpQuestion(userQ || structuredActiveQuestion || detectedQuestion || audioCombined)
   const routingQuery = currentQuestion || retrievalQuery
 
-  const routeDecision = resolveContextRouteDecision({
+  let routeDecision = resolveContextRouteDecision({
     userQuery: routingQuery,
     audioTranscript: audioCombined,
     _askMeta,
     hasLiveTranscript: !!String(audioCombined).trim(),
   })
+  // Screen-led asks: unless the spoken/typed ask is clearly personal, never attach resume / STAR path.
+  // Empty routing text on Ctrl+Enter used to fall into behavioral_interview_answer + personalInfo.
+  if (isScreenMode && routeDecision) {
+    const personalScreenAsk =
+      looksPersonalQuestion(routingQuery) || routeDecision.requiresPersonalInfo === true
+    if (!personalScreenAsk) {
+      routeDecision = {
+        ...routeDecision,
+        useResume: false,
+        stripEmbeddedProfile: true,
+        answerContract:
+          routeDecision.answerContract === 'coding_answer' ||
+          routeDecision.answerContract === 'technical_explanation'
+            ? routeDecision.answerContract
+            : routeDecision.plan?.answerType === 'coding_question_answer'
+              ? 'coding_answer'
+              : 'general_assistant',
+      }
+    }
+  }
 
   const profileQuery = currentQuestion || retrievalQuery
   const skipAsyncReferenceRetrieval = isScreenMode && !String(profileQuery).trim()
@@ -3018,7 +3099,13 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
   // noScreen: true = audio/text only — skip all screenshot capture.
   // InterviewMan auto-answer is transcript-only. Ctrl+Enter still captures unless the overlay asked not to.
   const noScreen = !!_askMeta?.noScreen || isAutoSpeechAsk
-  const wantVision = !noScreen && providers.supportsVision(provider)
+  const getStore = (k) => store.get(k)
+  const model = providers.getModelForProvider(provider, getStore)
+  // Provider registry + per-model multimodal gate (NIM Nemotron VL, Groq vision, etc.).
+  const wantVision =
+    !noScreen &&
+    providers.supportsVision(provider) &&
+    isMultimodalChatModel(provider, model)
   let visionB64 = null
 
   const capturePromise = (async () => {
@@ -3122,10 +3209,11 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     fullSystem += `\n\n---\n${TRANSCRIPT_ERROR_NOTE}`
   }
 
-  const getStore = (k) => store.get(k)
-  const model = providers.getModelForProvider(provider, getStore)
-
-  fullSystem = `${fullSystem}\n\n---\n${getInterviewAnswerSuffixFromStore(store)}`
+  const interviewSuffixOpts = {
+    answerContract: routeDecision?.answerContract,
+    forceCodingContract: routeDecision?.answerContract === 'coding_answer',
+  }
+  fullSystem = `${fullSystem}\n\n---\n${getInterviewAnswerSuffixFromStore(store, interviewSuffixOpts)}`
 
   const transcript = String(audioCombined).trim()
   const hasActionableText = /[a-z0-9]/i.test(
@@ -3185,7 +3273,7 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
   }
   // Last-user reminder — helps OpenRouter/OpenAI/Anthropic/etc. honor General answer settings
   // the same way NVIDIA Nemotron tends to (shared for every chat provider).
-  userTurnText = `${userTurnText}\n\n${getAnswerOutputRulesReminderFromStore(store)}`
+  userTurnText = `${userTurnText}\n\n${getAnswerOutputRulesReminderFromStore(store, interviewSuffixOpts)}`
 
   const content = [{ type: 'text', text: userTurnText }]
   if (visionB64) {
@@ -3342,13 +3430,13 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     if (!abortController.signal.aborted) {
       askCompleted = true
       lastResponse = fullText
-      if (_askMeta?.auto === true && _askMeta?.preserveTranscript === true) {
-        // Auto-answer (retired) kept rolling speech for follow-ups.
-      } else if (_askMeta?.auto === true && Number.isFinite(Number(_askMeta?.transcriptWatermarkAt))) {
+      // Align with 2026.11.01.03.01: watermarked turns drop only speech through the Ask
+      // snapshot; screen-only / preserveTranscript turns keep later speech for the next Ask.
+      if (_askMeta?.preserveTranscript === true) {
+        // This turn did not include transcript context (e.g. screen-only), so later speech stays.
+      } else if (Number.isFinite(Number(_askMeta?.transcriptWatermarkAt))) {
         sessionMemory.clearTranscriptThrough(Number(_askMeta.transcriptWatermarkAt))
       } else {
-        // Manual Ask: always drop session speech so the next turn cannot mix
-        // leftover STT from this answer into the prompt.
         sessionMemory.clearTranscript()
       }
       screenshotQueue.clearQueue().catch(() => {})
@@ -3388,9 +3476,10 @@ function sendToAiEventTarget(channel, ...args) {
 
 /**
  * Coalesce LLM tokens before IPC — first token flushes immediately so time-to-first-paint
- * stays fast; subsequent tokens batch up to 16ms or 256 chars to cut main↔renderer churn.
+ * stays fast; subsequent tokens batch ~2 frames / 384 chars to cut main↔renderer churn
+ * without making the stream feel laggy.
  */
-function createAiTokenBatcher(sendToken, { maxDelayMs = 16, maxChars = 256 } = {}) {
+function createAiTokenBatcher(sendToken, { maxDelayMs = 32, maxChars = 384 } = {}) {
   let buf = ''
   let timer = null
   let firstToken = true
@@ -3431,12 +3520,13 @@ function createAiTokenBatcher(sendToken, { maxDelayMs = 16, maxChars = 256 } = {
   }
 }
 
-const UI_ACCENT_THEME_IDS = new Set([
-  'neon', 'mint', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'fuchsia', 'pink', 'rose', 'red',
-  'orange', 'amber', 'lime', 'copper', 'bronze', 'mocha', 'walnut', 'chocolate', 'espresso',
-])
+/** InterviewMan helper blue only — multi-accent picker removed. */
+const UI_ACCENT_THEME_IDS = new Set(['im', 'blue'])
 function isValidUiAccentThemeId(id) {
   return typeof id === 'string' && UI_ACCENT_THEME_IDS.has(id)
+}
+function normalizeStoredUiAccentTheme(_id) {
+  return 'im'
 }
 
 function sendToSettingsWindow(channel, ...args) {
@@ -3762,6 +3852,57 @@ function setupIPC() {
   ipcMain.handle('vector-memory:clear', () => ({ ok: true, skipped: true, removed: 0 }))
   ipcMain.handle('vector-memory:stats', () => ({ skipped: true, chunks: 0 }))
   ipcMain.handle('memory:search-past-meetings', async () => ({ hits: [] }))
+  const profileParseModelMemo = createUnavailableModelMemo()
+
+  /** Resume / mode-doc structuring — same 410/404 safety net as Ask + question detect. */
+  async function completeProfileParseChat(messages, { maxTokens = 4096 } = {}) {
+    const getStore = (key) => store.get(key)
+    const provider = store.get('provider') || 'nvidia'
+    const apiKey = store.get(providers.getApiKeyField(provider))
+    if (!apiKey) throw new Error('Add an API key in Advance, then upload again.')
+    const model = providers.getModelForProvider(provider, getStore)
+    const nvidiaChain =
+      provider === 'nvidia'
+        ? nvidiaFastFallbackModelsFor(model)
+            .filter((id) => id !== model)
+            .map((id) => ({ provider: 'nvidia', apiKey, model: id }))
+        : []
+    const groqKey = String(store.get(providers.getApiKeyField('groq')) || '').trim()
+    const userFallback = buildFallbackAttempt({
+      primaryProvider: provider,
+      fallbackProvider: store.get('chatFallbackProvider'),
+      getStore,
+    })
+    const attempts = profileParseModelMemo.filter(
+      dedupeAttempts([
+        { provider, apiKey, model },
+        ...nvidiaChain,
+        ...(provider === 'nvidia' && groqKey
+          ? [{ provider: 'groq', apiKey: groqKey, model: DEFAULT_GROQ_CHAT_MODEL }]
+          : []),
+        ...(userFallback ? [userFallback] : []),
+      ]),
+    )
+    return completeWithFallback({
+      attempts,
+      firstAttemptTimeoutMs: 45_000,
+      complete: (attempt, { signal }) =>
+        getAiClient()
+          .completeChat(
+            attempt.provider,
+            attempt.apiKey,
+            { messages, model: attempt.model, maxTokens, signal },
+            getStore,
+          )
+          .catch((err) => {
+            if (profileParseModelMemo.mark(attempt, err)) {
+              console.warn('[profile-parse] model unavailable, skipping for a while:', attempt.provider, attempt.model)
+            }
+            throw err
+          }),
+    })
+  }
+
   ipcMain.handle('resume-profile:parse', async (_, payload) => {
     let text = String(payload?.text || '').trim().slice(0, 50000)
     let pdfBase64 = ''
@@ -3777,8 +3918,9 @@ function setupIPC() {
         if (!buf.length) {
           return { ok: false, error: 'No data could be extracted from the CV. Please ensure the file is readable.' }
         }
-        if (buf.length > 12 * 1024 * 1024) {
-          return { ok: false, error: 'Unable to process this CV. The file may be corrupted or in an unsupported format. Please try a different file.' }
+        // InterviewMan: "PDF only, max 10MB" for CV upload.
+        if (buf.length > 10 * 1024 * 1024) {
+          return { ok: false, error: 'PDF only, max 10MB. Please try a smaller PDF.' }
         }
         pdfBase64 = buf.toString('base64')
       }
@@ -3825,7 +3967,8 @@ function setupIPC() {
           console.warn('[resume-profile] page parse rejected:', e?.message || e)
         }
       }
-      if (!profile && text) {
+      // OpenAI-style /v1/responses text parse only — NVIDIA has no responses API (410/404).
+      if (!profile && text && cvFileUploadSupported(baseURL)) {
         try {
           profile = await requestParsedCv({
             baseURL,
@@ -3839,17 +3982,12 @@ function setupIPC() {
         }
       }
       if (!profile && text) {
-        const raw = await getAiClient().completeChat(
-          provider,
-          apiKey,
-          { messages: buildResumeParseMessages(text), model, maxTokens: 4096 },
-          (key) => store.get(key),
-        )
+        const raw = await completeProfileParseChat(buildResumeParseMessages(text), { maxTokens: 4096 })
         profile = parseResumeProfileResponse(raw)
       }
     } catch (e) {
       console.warn('[resume-profile] parse failed:', e?.message || e)
-      return { ok: false, error: e?.message || 'Failed to parse CV. Please try again.' }
+      return { ok: false, error: formatUserFacingChatError(e) || 'Failed to parse CV. Please try again.' }
     }
     if (!profile) return { ok: false, error: 'Could not extract any information from the CV' }
     const now = Date.now()
@@ -3888,7 +4026,7 @@ function setupIPC() {
       if (path.extname(abs).toLowerCase() === '.pdf') {
         try {
           const buf = fs.readFileSync(abs)
-          if (buf.length && buf.length <= 12 * 1024 * 1024) pdfBase64 = buf.toString('base64')
+          if (buf.length && buf.length <= 10 * 1024 * 1024) pdfBase64 = buf.toString('base64')
         } catch {
           pdfBase64 = ''
         }
@@ -3904,7 +4042,6 @@ function setupIPC() {
     const provider = store.get('provider') || 'nvidia'
     const apiKey = store.get(providers.getApiKeyField(provider))
     if (!apiKey) return { ok: false, error: 'Add an API key in Advance, then upload the document again.' }
-    const model = providers.getModelForProvider(provider, (key) => store.get(key))
     const baseURL = providers.resolveBaseURL(provider, (key) => store.get(key))
     if ((!text || text.length < 40) && pdfBase64 && usesNvidiaDocumentParse(baseURL)) {
       try {
@@ -3920,16 +4057,11 @@ function setupIPC() {
     if (!text) return { ok: false, error: 'That file had no readable text.' }
     let document = null
     try {
-      const raw = await getAiClient().completeChat(
-        provider,
-        apiKey,
-        { messages: buildDocumentParseMessages(text), model, maxTokens: 4096 },
-        (key) => store.get(key),
-      )
+      const raw = await completeProfileParseChat(buildDocumentParseMessages(text), { maxTokens: 4096 })
       document = parseDocumentResponse(raw)
     } catch (e) {
       console.warn('[mode-document] parse failed:', e?.message || e)
-      return { ok: false, error: e?.message || 'Could not structure that document.' }
+      return { ok: false, error: formatUserFacingChatError(e) || 'Could not structure that document.' }
     }
     if (!document) return { ok: false, error: 'Could not structure that document.' }
     const now = Date.now()
@@ -4124,15 +4256,22 @@ function setupIPC() {
     if (key === 'responseFormat') {
       const v = normalizeResponseFormat(value)
       store.set('responseFormat', v)
-      const displayStyle = overlayDisplayStyleFromFormat(v)
-      store.set('answerStyle', displayStyle)
-      sendToOverlay('overlay-display-update', { responseFormat: v, answerStyle: displayStyle })
+      // Response Format changes the Ask prompt only — panel always renders markdown (IM).
+      sendToOverlay('overlay-display-update', { responseFormat: v })
       return true
     }
     if (key === 'answerLength') {
       const v = normalizeAnswerLength(value)
       store.set('answerLength', v)
-      sendToOverlay('overlay-display-update', overlayFontPayloadForAnswerLength(store, v))
+      sendToOverlay('overlay-display-update', overlayPayloadForAnswerLength(v))
+      return true
+    }
+    if (key === 'interviewCustomInstructions') {
+      store.set('interviewCustomInstructions', String(value || '').trim().slice(0, 2000))
+      return true
+    }
+    if (key === 'aiResponseLanguage') {
+      store.set('aiResponseLanguage', String(value || '').trim().slice(0, 16))
       return true
     }
     if (key === 'questionDetection') {
@@ -4262,7 +4401,11 @@ function setupIPC() {
       return true
     }
     if (key === 'uiAccentTheme') {
-      stored = isValidUiAccentThemeId(value) ? value : store.schema.uiAccentTheme.default
+      stored = normalizeStoredUiAccentTheme(value)
+      store.set('uiAccentTheme', stored)
+      sendToOverlay('ui-accent-update', stored)
+      sendToSettingsWindow('ui-accent-update', stored)
+      return true
     }
     if (key === 'knowledgeBase' || key === 'contextProfile') {
       stored = String(value || '').slice(0, KNOWLEDGE_BASE_MAX)
@@ -4674,7 +4817,9 @@ function setupIPC() {
   /** Returns true when the current provider+model supports direct image (vision) input. */
   ipcMain.handle('provider:has-vision', () => {
     const prov = store.get('provider') || 'nvidia'
-    return providers.supportsVision(prov)
+    if (!providers.supportsVision(prov)) return false
+    const model = providers.getModelForProvider(prov, (k) => store.get(k))
+    return isMultimodalChatModel(prov, model)
   })
   // ΓöÇΓöÇ Screenshot queue IPC (Natively-style on-demand capture) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   ipcMain.handle('screenshot:take', async () => {
@@ -4727,6 +4872,20 @@ function setupIPC() {
       }
     }
     return res
+  })
+  /** Bookmark a drag-dropped file so parse handlers accept it (same 5 min window as the picker). */
+  ipcMain.handle('register-user-file', async (_, filePath) => {
+    const abs = path.resolve(String(filePath || ''))
+    if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+      return { ok: false, error: 'File not found.' }
+    }
+    const ext = path.extname(abs).toLowerCase()
+    if (!['.pdf', '.txt', '.md', '.markdown'].includes(ext)) {
+      return { ok: false, error: 'Use a PDF, TXT, or Markdown file.' }
+    }
+    dialogPickedPaths.add(abs)
+    dialogPickTimestamps.set(abs, Date.now())
+    return { ok: true, filePath: abs, sourceName: path.basename(abs) }
   })
   ipcMain.handle('parse-playbook', async (_, filePath) => {
     try {
@@ -4798,7 +4957,7 @@ function setupIPC() {
   ipcMain.on('open-settings', (_, navOpts) => createSettingsWindow(navOpts))
   ipcMain.on('ui-toggle-session', () => (sessionActive ? stopSession() : requestSessionStart()))
   ipcMain.on('overlay-opacity-change', (_, o) => {
-    const clamped = Math.min(1, Math.max(0.35, Number(o) || 0.92))
+    const clamped = Math.min(1, Math.max(0.35, Number(o) || 0.7))
     savedOpacity = clamped
     store.set('overlayOpacity', clamped)
     if (overlayWindow && overlayVisible && !overlayWindow.isDestroyed()) overlayWindow.setOpacity(clamped)
@@ -4879,14 +5038,12 @@ function setupIPC() {
       if (opts.responseFormat) {
         const v = normalizeResponseFormat(opts.responseFormat)
         store.set('responseFormat', v)
-        const displayStyle = overlayDisplayStyleFromFormat(v)
-        store.set('answerStyle', displayStyle)
-        sendToOverlay('overlay-display-update', { responseFormat: v, answerStyle: displayStyle })
+        sendToOverlay('overlay-display-update', { responseFormat: v })
       }
       if (opts.answerLength) {
         const v = normalizeAnswerLength(opts.answerLength)
         store.set('answerLength', v)
-        sendToOverlay('overlay-display-update', overlayFontPayloadForAnswerLength(store, v))
+        sendToOverlay('overlay-display-update', overlayPayloadForAnswerLength(v))
       }
       if (opts.meetingListenLanguage) {
         const v = normalizeMeetingLanguage(opts.meetingListenLanguage)
@@ -4915,9 +5072,7 @@ function setupIPC() {
         sendToOverlay('overlay-display-update', { width: w, height: h })
       }
       if (opts.uiAccentTheme !== undefined) {
-        const v = isValidUiAccentThemeId(opts.uiAccentTheme)
-          ? opts.uiAccentTheme
-          : (store.get('uiAccentTheme') || store.schema.uiAccentTheme.default)
+        const v = normalizeStoredUiAccentTheme(opts.uiAccentTheme)
         store.set('uiAccentTheme', v)
         sendToOverlay('ui-accent-update', v)
         sendToSettingsWindow('ui-accent-update', v)
@@ -4994,6 +5149,16 @@ async function initApp() {
     startCalendarReminderPoll()
   }, 3000)
 
+  // Pre-load the AI SDK modules (~150 ms of synchronous require work) while the app is idle, so the first
+  // Ask does not pay for them on its time-to-first-token. Staggered after the other deferred startup work.
+  setTimeout(() => {
+    try {
+      getAiClient()
+    } catch (e) {
+      console.warn('[startup] AI client prewarm failed:', e?.message || e)
+    }
+  }, 7000)
+
   // Display topology changes: keep the overlay on-screen when monitors are
   // unplugged, rescaled, or reordered (multi-monitor support).
   screen.on('display-removed', () => {
@@ -5035,7 +5200,15 @@ async function initApp() {
     console.warn('[meeting-toast] test hotkey register error:', e?.message || e)
   }
 
-  setupAutoUpdater()
+  // electron-updater is ~270 ms of synchronous require work. The first update check only runs ~10 s after
+  // launch, so load and wire it a few seconds in instead of blocking the main thread (and the renderer's
+  // startup IPC) right after the overlay is created. The first check still lands ~10 s after launch.
+  if (app.isPackaged) {
+    updaterSetupTimer = setTimeout(() => {
+      updaterSetupTimer = null
+      if (!appQuitting) setupAutoUpdater()
+    }, 4000)
+  }
 }
 
 function readUpdateReleaseChannel() {
@@ -5068,7 +5241,8 @@ function setupAutoUpdater() {
   }
 
   updateCheckInterval = setInterval(check, 4 * 60 * 60 * 1000)
-  updateCheckKickoffTimer = setTimeout(check, 10000)
+  // setupAutoUpdater() itself now starts ~4 s after launch, so 6 s keeps the first check at ~10 s.
+  updateCheckKickoffTimer = setTimeout(check, 6000)
 
   autoUpdater.on('update-available', (info) => {
     try {

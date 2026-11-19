@@ -13,16 +13,14 @@ export function effectiveMinSpeechChars(questionDetection, micSensitivity) {
   return base
 }
 
-export function fontSizeFromAnswerLength(length) {
-  const l = String(length || 'medium').toLowerCase()
-  if (l === 'short') return 'small'
-  if (l === 'long') return 'large'
-  return 'medium'
+/** @deprecated Answer Length must not change Font Size (InterviewMan). */
+export function fontSizeFromAnswerLength(_length) {
+  return null
 }
 
-export function overlayDisplayStyleFromFormat(format) {
-  const v = String(format || 'bullets').toLowerCase()
-  return v === 'bullets' ? 'brief' : 'detailed'
+/** InterviewMan: Response Format does not switch panel layout. */
+export function overlayDisplayStyleFromFormat(_format) {
+  return 'detailed'
 }
 
 export const ANSWER_STRUCTURES = [

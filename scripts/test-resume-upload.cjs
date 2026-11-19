@@ -303,13 +303,29 @@ check('upload sends the picked file and does not save an empty extract', () => {
   assert.match(handler, /pdfBase64/)
   assert.match(handler, /RESPONSES_UNSUPPORTED/)
   assert.match(handler, /buildResumeParseMessages\(text\)/)
+  // NVIDIA has no /v1/responses — skip text responses parse; chat uses fallback chain for 410.
+  assert.match(handler, /text && cvFileUploadSupported\(baseURL\)/)
+  assert.match(handler, /completeProfileParseChat/)
+  assert.match(handler, /formatUserFacingChatError/)
+  assert.match(main, /async function completeProfileParseChat/)
+  assert.match(main, /completeWithFallback\(\{[\s\S]*?attempts/)
   const failAt = handler.indexOf("Could not extract any information from the CV")
   const saveAt = handler.indexOf("store.set('resumeLibrary'")
   assert.ok(failAt > 0 && saveAt > failAt)
   const settings = read('renderer', 'settings', 'App.jsx')
-  const upload = settings.slice(settings.indexOf('const uploadInterviewResume'), settings.indexOf('const uploadModeDocument'))
-  assert.match(upload, /filePath: filePaths\[0\]/)
+  const upload = settings.slice(
+    settings.indexOf('const parseInterviewResumePath'),
+    settings.indexOf('const uploadModeDocument'),
+  )
+  assert.match(upload, /filePath/)
+  assert.match(upload, /parseInterviewResumePath\(filePaths\[0\]/)
   assert.doesNotMatch(upload, /parse-playbook/)
+  assert.doesNotMatch(upload, /dropInterviewResume/)
+  const resumesUi = read('renderer', 'settings', 'InterviewResumesSection.jsx')
+  assert.match(resumesUi, /GripVertical/)
+  assert.match(resumesUi, /Drag to reorder/)
+  assert.match(resumesUi, /onReorder/)
+  assert.doesNotMatch(resumesUi, /FileDropZone/)
 })
 
 async function main() {
