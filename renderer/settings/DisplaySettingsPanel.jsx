@@ -3,12 +3,10 @@
 // in the Overlay tab, privacy toggles in Privacy.
 
 import React, { useMemo } from 'react'
-import { Terminal } from 'lucide-react'
 import { DEFAULT_HOTKEYS_MAP, SETTINGS_DEFAULTS } from './settingsConstants'
 import {
   CheckmarkSelect,
   SegmentedControl,
-  SettingsCollapsible,
   SettingsFieldHint,
   SettingsFieldLabel,
   SettingsPage,
@@ -62,9 +60,6 @@ export default function DisplaySettingsPanel({
   onOpenAtLoginChange,
   uiColorSchemeUi = 'system',
   onUiColorSchemeChange,
-  verboseDebugLogging,
-  onVerboseDebugLoggingChange,
-  onOpenLogFile,
   hotkeysMap,
 }) {
   const { name } = useBrand()
@@ -77,12 +72,10 @@ export default function DisplaySettingsPanel({
   const shotKeys = inlineAccelerator(keys.captureScreenshot || DEFAULT_HOTKEYS_MAP.captureScreenshot)
   const customText = interviewCustomInstructionsUi || ''
 
-  const resetApp = async () => {
+  // The page's single "Reset to default": app settings first, then the answer-writing ones.
+  const resetAll = async () => {
     await onUiColorSchemeChange?.(SETTINGS_DEFAULTS.uiColorScheme)
     await onOpenAtLoginChange?.(SETTINGS_DEFAULTS.openAtLogin)
-  }
-
-  const resetAnswers = async () => {
     await onTranscriptDurationChange?.(SETTINGS_DEFAULTS.transcriptDurationSeconds)
     onInterviewCustomInstructionsChange?.(SETTINGS_DEFAULTS.interviewCustomInstructions)
     await onAnswerStructureChange?.(SETTINGS_DEFAULTS.answerStructure)
@@ -95,8 +88,9 @@ export default function DisplaySettingsPanel({
     <SettingsPage
       title="General"
       description="Theme, startup and how answers are written."
+      onReset={resetAll}
     >
-      <SettingsSection title="App" onReset={resetApp}>
+      <SettingsSection title="App">
         <SettingsRow label="Theme" hint="Match Windows, or force light or dark." anchor="theme">
           <SegmentedControl
             value={['system', 'light', 'dark'].includes(uiColorSchemeUi) ? uiColorSchemeUi : 'system'}
@@ -117,7 +111,6 @@ export default function DisplaySettingsPanel({
         title="Answers"
         description="How Ask AI writes what you say next."
         anchor="answers"
-        onReset={resetAnswers}
       >
         <SettingsRow
           label="Conversation Memory"
@@ -206,29 +199,6 @@ export default function DisplaySettingsPanel({
           <strong className="font-semibold text-zinc-400">{shotKeys}</strong> queues extra screenshots.
         </p>
       </SettingsSection>
-
-      <SettingsCollapsible
-        title="Diagnostics"
-        description="Troubleshooting logs."
-        icon={Terminal}
-        anchor="diagnostics"
-      >
-        <div className="space-y-0">
-          <SettingsRow
-            label="Verbose debug logging"
-            hint="Writes detailed main-process and window messages to the log file. Turn on only when troubleshooting."
-            anchor="verbose-logging"
-          >
-            <ToggleSwitch checked={verboseDebugLogging} onChange={onVerboseDebugLoggingChange} />
-          </SettingsRow>
-
-          <div className="py-3">
-            <button type="button" onClick={onOpenLogFile} className="nat-btn-secondary px-4 py-2 text-[12px]">
-              Open log file
-            </button>
-          </div>
-        </div>
-      </SettingsCollapsible>
     </SettingsPage>
   )
 }

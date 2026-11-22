@@ -162,7 +162,15 @@ export default function App() {
         </button>
       </header>
 
-      <div ref={listRef} className="gc-list">
+      <main className="gc-main">
+      <div
+        ref={listRef}
+        className="gc-list"
+        role="log"
+        aria-live="polite"
+        aria-label="Conversation"
+        tabIndex={0}
+      >
         {!messages.length ? (
           <p className="gc-empty">Ask anything — answers use your profile, memory, and AI provider settings.</p>
         ) : (
@@ -176,6 +184,7 @@ export default function App() {
                       if (m.streaming) streamTextRef.current = node
                     }}
                     className="gc-msg-text whitespace-pre-wrap"
+                    aria-hidden="true"
                   >
                     …
                   </p>
@@ -189,7 +198,7 @@ export default function App() {
           ))
         )}
         {thinking && !messages.some((m) => m.streaming) ? (
-          <p className="gc-thinking">Thinking…</p>
+          <p className="gc-thinking" role="status">Thinking…</p>
         ) : null}
       </div>
 
@@ -198,6 +207,7 @@ export default function App() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a question…"
+          aria-label="Your question"
           rows={2}
           className="gc-input"
           onKeyDown={(e) => {
@@ -211,19 +221,54 @@ export default function App() {
           Send
         </button>
       </form>
+      </main>
 
       <style>{`
+        /* Dark is the default; main passes ?theme= and main.jsx sets data-color-scheme before anything is shown. */
         :root {
-          --accent-rgb: 59 130 246;
+          --accent-rgb: 111 160 255;
+          --gc-bg: #0a0a0b;
+          --gc-text: #fafafa;
+          --gc-text-2: #a1a1aa;
+          --gc-text-3: #8a8a93;
+          --gc-border: rgba(255,255,255,0.08);
+          --gc-border-strong: rgba(255,255,255,0.12);
+          --gc-control-border: #646468;
+          --gc-surface: rgba(255,255,255,0.04);
+          --gc-surface-border: rgba(255,255,255,0.06);
+          --gc-input-bg: rgba(0,0,0,0.35);
+          --gc-clear-text: #e4e4e7;
+          --gc-focus: #f4f4f5;
+          --gc-danger-border: rgba(248,113,113,0.5);
+          /* Markdown (SimpleMarkdown) reads these two. */
+          --text-primary: var(--gc-text);
+          --text-secondary: var(--gc-text-2);
           color-scheme: dark;
+        }
+        :root[data-color-scheme='light'] {
+          --gc-bg: #fafafa;
+          --gc-text: #18181b;
+          --gc-text-2: #52525b;
+          --gc-text-3: #62626a;
+          --gc-border: rgba(0,0,0,0.1);
+          --gc-border-strong: rgba(0,0,0,0.14);
+          --gc-control-border: #8c8c93;
+          --gc-surface: #ffffff;
+          --gc-surface-border: rgba(0,0,0,0.1);
+          --gc-input-bg: #ffffff;
+          --gc-clear-text: #27272a;
+          --gc-focus: #18181b;
+          --gc-danger-border: rgba(185,28,28,0.55);
+          color-scheme: light;
         }
         * { box-sizing: border-box; }
         body {
           margin: 0;
           font-family: var(--font-ui, "Poppins", "Segoe UI", system-ui, sans-serif);
-          background: #0a0a0b;
-          color: #fafafa;
+          background: var(--gc-bg);
+          color: var(--gc-text);
         }
+        button, textarea { font-family: inherit; }
         .gc-shell {
           display: flex;
           flex-direction: column;
@@ -236,7 +281,7 @@ export default function App() {
           align-items: flex-start;
           justify-content: space-between;
           gap: 12px;
-          border-bottom: 1px solid rgba(255,255,255,0.08);
+          border-bottom: 1px solid var(--gc-border);
           padding-bottom: 12px;
         }
         .gc-head-title {
@@ -252,18 +297,32 @@ export default function App() {
           flex-shrink: 0;
         }
         .gc-title { margin: 0; font-size: 18px; font-weight: 600; }
-        .gc-sub { margin: 4px 0 0; font-size: 12px; color: #a1a1aa; }
+        .gc-sub { margin: 4px 0 0; font-size: 12px; color: var(--gc-text-2); }
         .gc-clear {
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.04);
-          color: #e4e4e7;
+          border: 1px solid var(--gc-control-border);
+          background: var(--gc-surface);
+          color: var(--gc-clear-text);
           border-radius: 8px;
           padding: 6px 12px;
           font-size: 12px;
+          font-weight: 600;
           cursor: pointer;
+        }
+        .gc-clear:hover { border-color: var(--gc-text-2); }
+        button:focus-visible, textarea:focus-visible, .gc-list:focus-visible {
+          outline: 2px solid var(--gc-focus);
+          outline-offset: 2px;
+        }
+        .gc-main {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
         }
         .gc-list {
           flex: 1;
+          min-height: 0;
           overflow: auto;
           display: flex;
           flex-direction: column;
@@ -273,25 +332,25 @@ export default function App() {
         .gc-empty, .gc-thinking {
           margin: 0;
           font-size: 13px;
-          color: #71717a;
+          color: var(--gc-text-3);
           line-height: 1.5;
         }
         .gc-msg {
           border-radius: 12px;
           padding: 10px 12px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: var(--gc-surface);
+          border: 1px solid var(--gc-surface-border);
         }
         .gc-msg-user {
-          border-color: rgba(var(--accent-rgb), 0.25);
-          background: rgba(var(--accent-rgb), 0.08);
+          border-color: rgba(var(--accent-rgb) / 0.4);
+          background: rgba(var(--accent-rgb) / 0.12);
         }
-        .gc-msg-error { border-color: rgba(248,113,113,0.35); }
+        .gc-msg-error { border-color: var(--gc-danger-border); }
         .gc-msg-label {
-          font-size: 10px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.12em;
-          color: #71717a;
+          color: var(--gc-text-3);
           margin-bottom: 6px;
         }
         .gc-msg-text { margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
@@ -299,30 +358,36 @@ export default function App() {
           display: flex;
           gap: 8px;
           align-items: flex-end;
-          border-top: 1px solid rgba(255,255,255,0.08);
+          border-top: 1px solid var(--gc-border);
           padding-top: 12px;
         }
         .gc-input {
           flex: 1;
           resize: none;
           border-radius: 10px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(0,0,0,0.35);
-          color: #fafafa;
+          border: 1px solid var(--gc-control-border);
+          background: var(--gc-input-bg);
+          color: var(--gc-text);
           padding: 10px 12px;
           font-size: 14px;
           font-family: inherit;
         }
+        .gc-input::placeholder { color: var(--gc-text-3); opacity: 1; }
         .gc-send {
           border: none;
           border-radius: 10px;
+          /* The IM accent blue is light: dark text keeps this readable (7:1) where white was about 2.5:1. */
           background: rgb(var(--accent-rgb));
-          color: #fff;
+          color: #0a0a0b;
           font-weight: 600;
           padding: 10px 16px;
           cursor: pointer;
         }
         .gc-send:disabled { opacity: 0.5; cursor: not-allowed; }
+        @media (forced-colors: active) {
+          .gc-send, .gc-clear, .gc-input, .gc-msg { border: 1px solid ButtonText; }
+          .gc-send { background: ButtonFace; color: ButtonText; }
+        }
       `}</style>
     </div>
   )

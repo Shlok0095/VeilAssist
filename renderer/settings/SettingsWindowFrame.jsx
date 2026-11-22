@@ -13,6 +13,10 @@ function TitleBarButton({ onClick, title, children, danger }) {
     <button
       type="button"
       title={title}
+      aria-label={title}
+      // Window chrome is not part of the page: keep it out of the Tab order (Alt+F4 / Win+Down still work) so the
+      // first stops are the skip link and the settings themselves, not Minimize / Maximize / Close.
+      tabIndex={-1}
       onClick={onClick}
       className={`flex h-9 w-11 shrink-0 items-center justify-center transition-colors hover:bg-[var(--bg-subtle-hover)] ${
         danger ? 'hover:bg-[var(--danger-mid,#dc2626)] hover:text-white' : ''

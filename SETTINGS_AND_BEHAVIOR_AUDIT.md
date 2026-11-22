@@ -153,14 +153,20 @@ Skills are **independent** of Intelligence flags and modes (unless skill text co
 
 ---
 
-### 5. General → Diagnostics
+### 5. Diagnostics (removed from the UI)
 
-| Control | Store key | Consumer | Status |
-|---------|-----------|----------|--------|
-| Verbose debug logging | `verboseDebugLogging` | `lib/debugLog.js` | **WIRED** |
-| Open log file | — | `debug-log:open-file` IPC | **WIRED** |
+The end-user Diagnostics section (General) and the log buttons (Help → Troubleshooting) were removed: the log can
+contain transcript snippets and release builds are not developer builds.
 
-**PARTIAL:** Settings toast for verbose mode broken (payload handling) per panel audit.
+| Item | Store key / channel | Consumer | Status |
+|------|---------------------|----------|--------|
+| Verbose debug logging | `verboseDebugLogging` / `VEILASSIST_DEBUG_LOG=1` | `lib/debugLog.js` | **DEV ONLY** — `setVerboseDebugLogging` is a no-op in packaged builds; a stale stored `true` is cleared at startup |
+| Open log file / folder | `debug-log:open-file`, `logs:open-folder` IPC | `main/index.js` | **DEV ONLY** — return `{ ok: false }` in packaged builds |
+
+### Reset to default
+
+Each of General, Overlay, Audio, Phone, Meetings and Shortcuts has exactly one **Reset to default** button, in the page
+header (`SettingsPage` `onReset` → `ResetToDefaultButton`). Sections and rows no longer carry their own reset.
 
 ---
 

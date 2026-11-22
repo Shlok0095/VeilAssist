@@ -15,6 +15,7 @@ import { normalizeSttProvider } from './sttRegistry'
 const LEGACY_NVIDIA_DEFAULTS = new Set([
   'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
   'nvidia/nemotron-nano-12b-v2-vl',
+  'meta/llama-3.2-11b-vision-instruct', // also HTTP 410 since 2026-11
 ])
 
 const STORAGE_PROFILE = 'veilassist.mobile.profile.v1'

@@ -61,7 +61,7 @@ export const SETTINGS_DEFAULTS = {
   responseFormat: 'bullets',
   answerLength: 'medium',
   aiResponseLanguage: '',
-  overlayOpacity: 0.7,
+  overlayOpacity: 0.5,
   overlayFontSize: 'medium',
   overlayLiveTranscriptEnabled: true,
   overlayMousePassthroughEnabled: false,
@@ -89,5 +89,9 @@ export const SETTINGS_DEFAULTS = {
   doNotSaveMeetingsEnabled: false,
 }
 
+/** Real overlay opacity range; keep in step with lib/overlayOpacity.cjs. */
+export const OVERLAY_OPACITY_RANGE = { min: 0.3, max: 1 }
+
 /** Bounds shared by the overlay size inputs and the clamp in App.applyOverlaySize. */
-export const OVERLAY_SIZE_LIMITS = { minW: 280, maxW: 860, minH: 180, maxH: 940 }
+/** minH is the shortest expanded panel the overlay will actually show (notch + gap + 220 + 8 = 280px; taller while Listening). */
+export const OVERLAY_SIZE_LIMITS = { minW: 280, maxW: 860, minH: 280, maxH: 940 }

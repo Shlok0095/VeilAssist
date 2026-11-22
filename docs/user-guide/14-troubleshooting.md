@@ -80,9 +80,9 @@ Loopback uses Windows display-media capture:
 2. If provider fails, a text fallback recap is still generated from captured session data.
 3. Check **Do not save meetings** is off in General settings.
 
-## Log file for support
+## Contacting support
 
-Enable **Settings → General → Verbose debug logging**, reproduce the issue, then **Open log file**. Share relevant redacted sections — avoid sending API keys.
+Note your app version (**Settings → Help → Support**) and the steps that led to the problem. Never send API keys.
 
 ## Reset everything
 

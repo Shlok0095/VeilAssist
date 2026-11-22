@@ -5,7 +5,7 @@
 const EVENT = 'settings:toast'
 
 /**
- * @param {{ message: string, detail?: string, tone?: 'info'|'success'|'error', action?: string, durationMs?: number }} payload
+ * @param {{ message: string, detail?: string, tone?: 'info'|'success'|'error', durationMs?: number }} payload
  */
 export function emitSettingsToast(payload) {
   if (typeof window === 'undefined' || !payload || typeof payload !== 'object') return

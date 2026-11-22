@@ -57,7 +57,7 @@ export function DocsHome() {
                 transition={{ delay: 0.04 * (gi * 4 + i) }}
               >
                 <Link to={`/docs/${c.slug}`} className="docs-card glass-panel">
-                  <h2>{c.title}</h2>
+                  <h3>{c.title}</h3>
                   <p>{c.lede}</p>
                   <span className="docs-card__go">Open →</span>
                 </Link>
@@ -73,7 +73,7 @@ export function DocsHome() {
                   transition={{ delay: 0.04 * (gi * 4 + i + 1) }}
                 >
                   <Link to={c.to} className="docs-card glass-panel">
-                    <h2>{c.title}</h2>
+                    <h3>{c.title}</h3>
                     <p>{c.desc}</p>
                     <span className="docs-card__go">Open →</span>
                   </Link>
@@ -96,7 +96,7 @@ export function DocsHome() {
                 transition={{ delay: 0.05 * i }}
               >
                 <Link to={c.to} className="docs-card glass-panel">
-                  <h2>{c.title}</h2>
+                  <h3>{c.title}</h3>
                   <p>{c.desc}</p>
                   <span className="docs-card__go">Open →</span>
                 </Link>

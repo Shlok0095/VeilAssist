@@ -169,13 +169,12 @@ export function MarketingHome() {
             The easiest way to get concise, local session recaps after Listen.
           </p>
 
-          <div className="lm-device-tabs reveal" role="tablist" aria-label="Device preview">
+          <div className="lm-device-tabs reveal" role="group" aria-label="Device preview">
             {(['mobile', 'tablet', 'desktop'] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
-                role="tab"
-                aria-selected={deviceTab === tab}
+                aria-pressed={deviceTab === tab}
                 className={`lm-device-tab${deviceTab === tab ? ' active' : ''}`}
                 onClick={() => setDeviceTab(tab)}
               >

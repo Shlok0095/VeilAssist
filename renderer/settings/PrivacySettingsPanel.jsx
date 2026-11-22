@@ -59,44 +59,49 @@ export default function PrivacySettingsPanel({
 
       <SettingsSection title="What stays on this device">
         <ul className="space-y-3 text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          <li className="flex gap-2">
-            <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-            <span>Profile notes, preferences, and encrypted API keys (Windows DPAPI).</span>
-          </li>
-          <li className="flex gap-2">
-            <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-            <span>Session recaps (when you Stop Listen) are saved locally. Live transcript buffers are cleared.</span>
-          </li>
-          <li className="flex gap-2">
-            <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-            <span>Audio is never stored. Only text sent to your chosen AI provider when you ask.</span>
-          </li>
+          {[
+            'Profile notes, preferences, and encrypted API keys (Windows DPAPI).',
+            'Session recaps (when you Stop Listen) are saved locally. Live transcript buffers are cleared.',
+            'Audio is never stored. Only text sent to your chosen AI provider when you ask.',
+          ].map((line) => (
+            <li key={line} className="flex items-start gap-3">
+              {/* A real 5px marker, vertically centred on the first line (the old "·" glyph was barely visible) */}
+              <span
+                aria-hidden
+                className="mt-[9px] h-[5px] w-[5px] shrink-0 rounded-full"
+                style={{ background: 'var(--text-tertiary)' }}
+              />
+              <span>{line}</span>
+            </li>
+          ))}
         </ul>
       </SettingsSection>
 
       <SettingsSection title="Your data" anchor="your-data">
-        <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          Export includes profile text, consent record, and preferences. API keys and audio are not included.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
+        <SettingsRow
+          label="Export my data"
+          hint="Profile text, consent record and preferences. API keys and audio are not included."
+          anchor="export-data"
+        >
           <button
             type="button"
             onClick={() => void exportData()}
             disabled={exporting}
-            data-settings-anchor="export-data"
-            className="nat-btn-primary px-5 py-2.5 text-[13px] disabled:opacity-60"
+            className="nat-btn-secondary px-4 py-2 text-[13px] disabled:opacity-60"
           >
-            {exporting ? 'Exporting…' : 'Export my data'}
+            {exporting ? 'Exporting…' : 'Export'}
           </button>
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            data-settings-anchor="delete-data"
-            className="btn-danger px-5 py-2.5 text-[13px]"
-          >
-            Delete all my data
+        </SettingsRow>
+        {/* Destructive action: its own last row, apart from the safe one, and it still asks first. */}
+        <SettingsRow
+          label="Delete all my data"
+          hint="Permanently erases everything stored on this device and restarts the app."
+          anchor="delete-data"
+        >
+          <button type="button" onClick={() => setConfirmDelete(true)} className="btn-danger px-4 py-2 text-[13px]">
+            Delete…
           </button>
-        </div>
+        </SettingsRow>
       </SettingsSection>
 
       <ConfirmDialog

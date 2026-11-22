@@ -1,8 +1,6 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
 
 import React from 'react'
-import { Check } from 'lucide-react'
-import AppIcon from '../shared/AppIcon'
 
 const MODES = [
   {
@@ -22,29 +20,34 @@ const MODES = [
   },
 ]
 
+/**
+ * Pick the active mode. One choice among three, so it is a radio group: a native radio per card (one Tab stop,
+ * arrow keys move it) shown as the same dot the resume list uses, instead of a tick. The card is a label, so the
+ * whole card picks. Colours come from theme tokens: the old white-tinted border/fill disappeared in light mode.
+ */
 export default function ProfileModesPanel({ activeContextPromptId, onSelectPrompt }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
+    <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Mode">
       {MODES.map((mode) => {
         const active = activeContextPromptId === mode.id
         return (
-          <button
-            key={mode.id}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onSelectPrompt?.(mode.id)}
-            className={`rounded-xl border px-3 py-3 text-left transition ${
-              active
-                ? 'border-white/30 bg-white/10'
-                : 'border-white/10 bg-transparent hover:bg-white/5'
-            }`}
-          >
-            <span className="flex items-center justify-between gap-2">
-              <span className="text-[13px] font-medium text-zinc-100">{mode.name}</span>
-              {active ? <AppIcon icon={Check} size={14} className="text-zinc-200" /> : null}
+          <label key={mode.id} className={`mode-card ${active ? 'mode-card-active' : ''}`}>
+            <span className="mode-card-head">
+              <span className="mode-card-name">{mode.name}</span>
+              <input
+                type="radio"
+                name="profile-mode"
+                className="select-row-radio"
+                checked={active}
+                aria-label={`${mode.name} mode`}
+                aria-describedby={`${mode.id}-detail`}
+                onChange={() => onSelectPrompt?.(mode.id)}
+              />
             </span>
-            <span className="mt-1 block text-[11px] leading-snug text-zinc-500">{mode.detail}</span>
-          </button>
+            <span id={`${mode.id}-detail`} className="mode-card-detail">
+              {mode.detail}
+            </span>
+          </label>
         )
       })}
     </div>

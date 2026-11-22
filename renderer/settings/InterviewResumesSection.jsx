@@ -1,9 +1,10 @@
 // Copyright (c) 2026 VeilAssist. Interview resumes — upload, extract, select.
 
 import React, { useState } from 'react'
-import { Check, ChevronDown, GripVertical, Trash2, Upload } from 'lucide-react'
+import { ChevronDown, GripVertical, Trash2, Upload } from 'lucide-react'
 import AppIcon from '../shared/AppIcon'
 import { ConfirmDialog } from './SettingsComponents'
+import SelectRow from './SelectRow'
 import { useDraftSetting } from './useDraftSetting'
 
 function resumeTitle(resume) {
@@ -73,46 +74,33 @@ export default function InterviewResumesSection({
       {error ? <p className="text-[12px] text-danger">{error}</p> : null}
 
       {resumes.length ? (
-        <div className="space-y-2">
+        <div className="space-y-2" role="radiogroup" aria-label="Resumes">
           {resumes.map((resume) => {
             const selectedRow = resume.id === (selected?.id || '')
             const expanded = resume.id === openId
             return (
-              <div key={resume.id} className="rounded-xl border border-white/10">
-                <div className="flex items-stretch">
-                  <button
-                    type="button"
-                    className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
-                    aria-pressed={selectedRow}
-                    onClick={() => onSelect?.(resume.id)}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-zinc-100">{resumeTitle(resume)}</span>
-                      <span className="block truncate text-[11px] text-zinc-500">{resumeSubtitle(resume)}</span>
-                    </span>
-                    {selectedRow ? <AppIcon icon={Check} size={14} className="text-zinc-200" /> : null}
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3 text-zinc-400"
-                    aria-expanded={expanded}
-                    aria-label={expanded ? 'Hide resume details' : 'View resume'}
-                    onClick={() => setOpenId(expanded ? '' : resume.id)}
-                  >
-                    <AppIcon icon={ChevronDown} size={14} className={expanded ? 'rotate-180' : ''} />
-                  </button>
-                </div>
-                {expanded ? (
-                  <ResumeEditor
-                    resume={resume}
-                    onChange={patchOpen}
-                    onDelete={() => {
-                      setOpenId('')
-                      onDelete?.(resume.id)
-                    }}
-                  />
-                ) : null}
-              </div>
+              // The radio dot picks the resume interview answers use; the whole bar opens its details.
+              <SelectRow
+                key={resume.id}
+                group="interview-resume"
+                title={resumeTitle(resume)}
+                subtitle={resumeSubtitle(resume)}
+                pickLabel={`Use ${resumeTitle(resume)} for interview answers`}
+                selected={selectedRow}
+                expanded={expanded}
+                onSelect={() => onSelect?.(resume.id)}
+                onToggle={() => setOpenId(expanded ? '' : resume.id)}
+                bareBody
+              >
+                <ResumeEditor
+                  resume={resume}
+                  onChange={patchOpen}
+                  onDelete={() => {
+                    setOpenId('')
+                    onDelete?.(resume.id)
+                  }}
+                />
+              </SelectRow>
             )
           })}
         </div>
@@ -208,7 +196,7 @@ function ResumeEditor({ resume, onChange, onDelete }) {
               {skill}
               <button
                 type="button"
-                className="text-zinc-500"
+                className="-my-1 -mr-1.5 inline-flex min-h-[24px] min-w-[24px] items-center justify-center text-zinc-500"
                 aria-label={`Remove ${skill}`}
                 onClick={() => onChange({ skills: resume.skills.filter((item) => item !== skill) })}
               >
@@ -387,7 +375,7 @@ function ItemCard({ title, secondary, index, onReorder, onRemove, children }) {
       <div className="flex w-full items-center gap-1 px-1 py-1.5">
         <button
           type="button"
-          className="cursor-grab px-1.5 py-1 text-zinc-500 active:cursor-grabbing"
+          className="inline-flex min-h-[24px] min-w-[24px] cursor-grab items-center justify-center px-1.5 py-1 text-zinc-500 active:cursor-grabbing"
           aria-label="Drag to reorder"
           draggable
           onDragStart={(event) => {

@@ -300,9 +300,14 @@ export default function PhoneLinkSettingsPanel({
   }
 
   return (
-    <SettingsPanelShell embedded={embedded} title="Phone" description="Pair a phone for audio, or mirror an Android screen.">
-      <SettingsSection title="Phone Link" description="Pair over the same Wi-Fi with a QR code." anchor="phone-link" onReset={resetPhone}>
-        <SettingsRow label="Phone Link" hint="Let a phone on the same Wi-Fi connect to this PC." anchor="phone-link-toggle">
+    <SettingsPanelShell
+      embedded={embedded}
+      title="Phone"
+      description="Pair a phone for audio, or mirror an Android screen."
+      onReset={resetPhone}
+    >
+      <SettingsSection title="Phone Link" description="Pair over the same Wi-Fi with a QR code." anchor="phone-link">
+        <SettingsRow label="Allow phone connections" hint="Let a phone on the same Wi-Fi connect to this PC." anchor="phone-link-toggle">
           <ToggleSwitch checked={phoneLinkEnabled} onChange={onPhoneLinkEnabledChange} />
         </SettingsRow>
 

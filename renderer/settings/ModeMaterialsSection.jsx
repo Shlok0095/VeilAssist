@@ -1,40 +1,10 @@
 // Copyright (c) 2026 VeilAssist. Meeting prompt/documents and General purposes.
 
 import React, { useState } from 'react'
-import { Check, ChevronDown, Trash2, Upload } from 'lucide-react'
+import { Trash2, Upload } from 'lucide-react'
 import AppIcon from '../shared/AppIcon'
 import { ConfirmDialog } from './SettingsComponents'
-
-function SelectRow({ title, subtitle, selected, expanded, onSelect, onToggle, detailsLabel, children }) {
-  return (
-    <div className="rounded-xl border border-white/10">
-      <div className="flex items-stretch">
-        <button
-          type="button"
-          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
-          aria-pressed={selected}
-          onClick={onSelect}
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-medium text-zinc-100">{title}</span>
-            {subtitle ? <span className="block truncate text-[11px] text-zinc-500">{subtitle}</span> : null}
-          </span>
-          {selected ? <AppIcon icon={Check} size={14} className="text-zinc-200" /> : null}
-        </button>
-        <button
-          type="button"
-          className="px-3 text-zinc-400"
-          aria-expanded={expanded}
-          aria-label={detailsLabel}
-          onClick={onToggle}
-        >
-          <AppIcon icon={ChevronDown} size={14} className={expanded ? 'rotate-180' : ''} />
-        </button>
-      </div>
-      {expanded ? <div className="space-y-3 border-t border-white/10 px-3 py-3">{children}</div> : null}
-    </div>
-  )
-}
+import SelectRow from './SelectRow'
 
 function Field({ label, value, onChange, multiline = false, placeholder = '' }) {
   const className = 'input-shadow mt-1 w-full px-3 py-2 text-[13px]'
@@ -129,16 +99,18 @@ function AdditionalDocumentsBlock({
         </button>
       </div>
       {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+      <div className="space-y-2" role="radiogroup" aria-label="Additional documents" hidden={!documents.length}>
       {documents.map((doc) => {
         const expanded = doc.id === openId
         return (
           <SelectRow
             key={doc.id}
+            group="mode-document"
             title={doc.title || doc.sourceFileName || 'Document'}
             subtitle={doc.summary}
+            pickLabel={`Use ${doc.title || doc.sourceFileName || 'this document'} for answers`}
             selected={doc.id === activeDocumentId}
             expanded={expanded}
-            detailsLabel={expanded ? 'Hide document' : 'View document'}
             onSelect={() => onSelect?.(doc.id)}
             onToggle={() => setOpenId(expanded ? '' : doc.id)}
           >
@@ -150,6 +122,7 @@ function AdditionalDocumentsBlock({
           </SelectRow>
         )
       })}
+      </div>
       <ConfirmDialog
         open={!!confirmDoc}
         title="Remove this document?"
@@ -252,16 +225,18 @@ export function GeneralPurposeSection({
         </button>
       </form>
       {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+      <div className="space-y-2" role="radiogroup" aria-label="Purposes" hidden={!purposes.length}>
       {purposes.map((purpose) => {
         const expanded = purpose.id === openId
         return (
           <SelectRow
             key={purpose.id}
+            group="general-purpose"
             title={purpose.name || 'Purpose'}
             subtitle={purpose.document?.title || purpose.documents?.[0]?.title || purpose.prompt}
+            pickLabel={`Use ${purpose.name || 'this purpose'} for answers`}
             selected={purpose.id === activePurposeId}
             expanded={expanded}
-            detailsLabel={expanded ? 'Hide purpose' : 'View purpose'}
             onSelect={() => onSelect?.(purpose.id)}
             onToggle={() => setOpenId(expanded ? '' : purpose.id)}
           >
@@ -274,6 +249,7 @@ export function GeneralPurposeSection({
           </SelectRow>
         )
       })}
+      </div>
       <ConfirmDialog
         open={!!confirmPurpose}
         title="Remove this purpose?"

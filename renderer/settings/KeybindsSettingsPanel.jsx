@@ -2,9 +2,9 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { DEFAULT_HOTKEYS_MAP, HOTKEY_DEFS } from './settingsConstants'
-import { ConfirmDialog, SettingsCollapsible, SettingsPage, SettingsRow, SettingsSection } from './SettingsComponents'
+import { SettingsCollapsible, SettingsPage, SettingsRow, SettingsSection } from './SettingsComponents'
 import { createIpcShim } from '../shared/ipcShim'
-import { describeAccelerator, displayKeyLabel, normalizeAccelerator, validateAccelerator } from './hotkeyUtils'
+import { describeAccelerator, displayKeyLabel, validateAccelerator } from './hotkeyUtils'
 
 const ipc = createIpcShim()
 
@@ -210,11 +210,10 @@ function HotkeyCombo({ value, label, onCommit, onEditingChange }) {
   )
 }
 
-function HotkeyRow({ action, label, hotkeysMap, onHotkeyCommit, onResetOne, failure }) {
+function HotkeyRow({ action, label, hotkeysMap, onHotkeyCommit, failure }) {
   const value = hotkeysMap[action] ?? DEFAULT_HOTKEYS_MAP[action] ?? ''
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
-  const isDefault = normalizeAccelerator(value) === normalizeAccelerator(DEFAULT_HOTKEYS_MAP[action])
 
   const commit = useCallback(
     async (next) => {
@@ -234,12 +233,6 @@ function HotkeyRow({ action, label, hotkeysMap, onHotkeyCommit, onResetOne, fail
     [action, hotkeysMap, onHotkeyCommit],
   )
 
-  const reset = async () => {
-    setError('')
-    const result = await onResetOne?.(action)
-    if (result && result.ok === false) setError(result.error || 'Could not restore the default shortcut.')
-  }
-
   const onEditingChange = useCallback((next) => {
     setEditing(next)
     if (next) setError('')
@@ -252,17 +245,7 @@ function HotkeyRow({ action, label, hotkeysMap, onHotkeyCommit, onResetOne, fail
       error={error || (failure ? 'Not active: Windows or another app may already be using this shortcut.' : '')}
       anchor={`hotkey-${action}`}
     >
-      <div className="flex items-center justify-end gap-3">
-        {!isDefault ? (
-          <button
-            type="button"
-            className="settings-reset-link"
-            onClick={() => void reset()}
-            aria-label={`Reset ${label} to ${describeAccelerator(DEFAULT_HOTKEYS_MAP[action])}`}
-          >
-            Reset
-          </button>
-        ) : null}
+      <div className="flex items-center justify-end">
         <HotkeyCombo value={value} label={label} onCommit={commit} onEditingChange={onEditingChange} />
       </div>
     </SettingsRow>
@@ -273,10 +256,8 @@ export default function KeybindsSettingsPanel({
   hotkeysMap,
   hotkeyFailures,
   onHotkeyCommit,
-  onResetOneHotkey,
   onResetAllHotkeys,
 }) {
-  const [confirmResetAll, setConfirmResetAll] = useState(false)
   const primaryDefs = HOTKEY_DEFS.filter((d) => !MORE_SHORTCUT_ACTIONS.has(d.action))
   const moreDefs = HOTKEY_DEFS.filter((d) => MORE_SHORTCUT_ACTIONS.has(d.action))
 
@@ -294,17 +275,13 @@ export default function KeybindsSettingsPanel({
   }, [])
 
   return (
-    <SettingsPage title="Shortcuts" description="Select a shortcut, then press the new keys. Include Ctrl, Alt or Shift.">
+    <SettingsPage
+      title="Shortcuts"
+      description="Select a shortcut, then press the new keys. Include Ctrl, Alt or Shift."
+      onReset={onResetAllHotkeys}
+      resetDescription="This puts every keyboard shortcut back to its default combination."
+    >
       <SettingsSection title="Global shortcuts" description="Work from any app while the overlay is running." anchor="shortcuts">
-        <div className="mb-1 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setConfirmResetAll(true)}
-            className="btn-ghost shrink-0 px-3 py-1.5 text-[11px]"
-          >
-            Restore defaults
-          </button>
-        </div>
         <div>
           {primaryDefs.map(({ action, label }) => (
             <HotkeyRow
@@ -313,7 +290,6 @@ export default function KeybindsSettingsPanel({
               label={label}
               hotkeysMap={hotkeysMap}
               onHotkeyCommit={onHotkeyCommit}
-              onResetOne={onResetOneHotkey}
               failure={hotkeyFailures?.[action]}
             />
           ))}
@@ -329,24 +305,11 @@ export default function KeybindsSettingsPanel({
               label={label}
               hotkeysMap={hotkeysMap}
               onHotkeyCommit={onHotkeyCommit}
-              onResetOne={onResetOneHotkey}
               failure={hotkeyFailures?.[action]}
             />
           ))}
         </div>
       </SettingsCollapsible>
-
-      <ConfirmDialog
-        open={confirmResetAll}
-        title="Restore default shortcuts?"
-        description="This resets every keyboard shortcut back to its default combination."
-        confirmLabel="Restore defaults"
-        onCancel={() => setConfirmResetAll(false)}
-        onConfirm={() => {
-          setConfirmResetAll(false)
-          void onResetAllHotkeys?.()
-        }}
-      />
     </SettingsPage>
   )
 }

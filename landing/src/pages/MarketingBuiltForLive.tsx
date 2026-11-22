@@ -27,17 +27,17 @@ const bullets = [
 ] as const
 
 const ghostBtnClass =
-  'inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-medium text-zinc-200 no-underline transition-colors hover:border-cyan-500/20 hover:text-white'
+  'inline-flex items-center justify-center rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800 no-underline transition-colors hover:border-cyan-600 hover:text-zinc-950'
 
 export function MarketingBuiltForLive() {
   return (
-    <div className="relative min-w-0 font-sans text-white antialiased">
+    <div className="relative min-w-0 font-sans text-zinc-900 antialiased">
       <section className="relative overflow-hidden px-4 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 md:px-10 lg:px-14 xl:px-16">
         <div className="relative z-[1] mx-auto w-full max-w-3xl">
           <ScrollReveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-cyan-400/70">Product</p>
+            <p className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-cyan-700">Product</p>
             <h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">Built for live work</h1>
-            <p className="mt-3 font-mono text-sm leading-relaxed tracking-wide text-zinc-500">
+            <p className="mt-3 font-mono text-sm leading-relaxed tracking-wide text-zinc-600">
               VeilAssist is a Windows-native co-pilot layer: synchronous meetings, live document reviews, and any session
               where latency and situational awareness beat batch chat.
             </p>
@@ -47,19 +47,19 @@ export function MarketingBuiltForLive() {
             {bullets.map((b, i) => (
               <ScrollReveal key={b.title} delay={i * 0.05}>
                 <li className="futura-card list-none p-6 sm:p-7">
-                  <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-white">{b.title}</h2>
-                  <p className="mt-2 text-sm leading-relaxed tracking-wide text-zinc-500">{b.body}</p>
+                  <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-zinc-900">{b.title}</h2>
+                  <p className="mt-2 text-sm leading-relaxed tracking-wide text-zinc-600">{b.body}</p>
                 </li>
               </ScrollReveal>
             ))}
           </ul>
 
           <ScrollReveal delay={0.15}>
-            <p className="mt-10 font-mono text-sm tracking-wide text-zinc-600">
+            <p className="mt-10 font-mono text-sm tracking-wide text-zinc-700">
               Provider matrix, env vars, and security notes live in{' '}
               <Link
                 to="/docs/getting-started"
-                className="text-zinc-400 no-underline transition-colors hover:text-cyan-300/90"
+                className="text-zinc-900 underline underline-offset-2 transition-colors hover:text-cyan-700"
               >
                 Getting started
               </Link>

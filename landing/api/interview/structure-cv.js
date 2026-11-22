@@ -5,7 +5,8 @@ import { handleCorsPreflight } from './_cors.js'
 const PROVIDERS = {
   nvidia: {
     base: 'https://integrate.api.nvidia.com/v1',
-    defaultModel: 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
+    // The 8B VL default returns HTTP 410 (retired, live probe 2026-11-22). Omni is the app's own NVIDIA primary.
+    defaultModel: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
   },
   groq: {
     base: 'https://api.groq.com/openai/v1',

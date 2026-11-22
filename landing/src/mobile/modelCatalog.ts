@@ -3,9 +3,7 @@ export const CHAT_MODEL_CATALOG: Record<string, string[]> = {
   groq: ['qwen/qwen3.6-27b', 'llama-3.3-70b-versatile'],
   nvidia: [
     'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
-    'meta/llama-3.2-11b-vision-instruct',
-    'nvidia/nemotron-nano-12b-v2-vl',
-    'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
+    'nvidia/nemotron-3.5-super-vl-120b-a12b',
   ],
   openrouter: [
     'nvidia/nemotron-nano-12b-v2-vl:free',

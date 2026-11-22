@@ -11,7 +11,7 @@ import { Link } from 'react-router-dom'
 import { SITE_WINDOWS_BUILD_MANIFEST } from '@/config/windowsManifest.generated'
 
 const ghostBtnClass =
-  'inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-medium text-zinc-200 no-underline transition-colors hover:border-cyan-500/20 hover:text-white'
+  'inline-flex items-center justify-center rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800 no-underline transition-colors hover:border-cyan-600 hover:text-zinc-950'
 
 function AppleIcon() {
   return (
@@ -56,7 +56,7 @@ function DownloadCard({ item, recommended }: { item: LatestDownload; recommended
   return (
     <div
       className={`relative rounded-2xl border p-6 text-left transition-colors ${
-        recommended ? 'border-cyan-400/40 bg-cyan-400/[0.06]' : 'border-white/[0.07] bg-white/[0.03]'
+        recommended ? 'border-cyan-600/40 bg-cyan-400/[0.06]' : 'border-zinc-200 bg-white'
       }`}
     >
       {recommended ? (
@@ -64,32 +64,32 @@ function DownloadCard({ item, recommended }: { item: LatestDownload; recommended
           Recommended
         </span>
       ) : null}
-      <div className="flex items-center gap-2.5 text-white">
-        <span className="text-cyan-300/90">
+      <div className="flex items-center gap-2.5 text-zinc-900">
+        <span className="text-cyan-700">
           <PlatformIcon platform={item.platform} />
         </span>
         <span className="font-display text-lg font-semibold tracking-[-0.01em]">{item.title}</span>
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-400">{item.description}</p>
-      <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-[11px] text-zinc-500">
+      <p className="mt-2 text-sm leading-relaxed text-zinc-600">{item.description}</p>
+      <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-[11px] text-zinc-600">
         <dt className="text-zinc-600">Version</dt>
-        <dd className="text-right text-zinc-400">{item.version}</dd>
+        <dd className="text-right text-zinc-700">{item.version}</dd>
         {item.size ? (
           <>
             <dt className="text-zinc-600">Size</dt>
-            <dd className="text-right text-zinc-400">{formatBytes(item.size)}</dd>
+            <dd className="text-right text-zinc-700">{formatBytes(item.size)}</dd>
           </>
         ) : null}
         {item.builtAt ? (
           <>
             <dt className="text-zinc-600">Built</dt>
-            <dd className="text-right text-zinc-400">{formatDateTime(item.builtAt)}</dd>
+            <dd className="text-right text-zinc-700">{formatDateTime(item.builtAt)}</dd>
           </>
         ) : null}
         {item.platform === 'windows' && SITE_WINDOWS_BUILD_MANIFEST.installerSha256 ? (
           <>
             <dt className="text-zinc-600">SHA-256</dt>
-            <dd className="break-all text-right text-[10px] text-zinc-500">
+            <dd className="break-all text-right text-[10px] text-zinc-600">
               {SITE_WINDOWS_BUILD_MANIFEST.installerSha256}
             </dd>
           </>
@@ -110,23 +110,23 @@ export function DownloadsPage() {
   const recommended = detectLatestPlatform()
 
   return (
-    <div className="relative min-w-0 font-sans text-white antialiased">
+    <div className="relative min-w-0 font-sans text-zinc-900 antialiased">
       <section className="relative overflow-hidden px-4 pb-8 pt-12 sm:px-8 sm:pt-16 md:px-10 lg:px-14 xl:px-16">
         <div className="relative z-[1] mx-auto w-full max-w-5xl">
           <ScrollReveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-cyan-400/70">
+            <p className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-cyan-700">
               Download
             </p>
             <h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">
               Get VeilAssist for your device
             </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed tracking-wide text-zinc-500">
+            <p className="mt-4 max-w-2xl text-sm leading-relaxed tracking-wide text-zinc-600">
               One latest build per platform — Windows desktop, macOS, Linux, and Android interview app.
               Bring your own API key. No bot joins your meeting.
             </p>
-            <p className="mt-3 font-mono text-xs text-zinc-500">
+            <p className="mt-3 font-mono text-xs text-zinc-600">
               Windows release{' '}
-              <strong className="text-zinc-300">{SITE_WINDOWS_BUILD_MANIFEST.version}</strong> ·{' '}
+              <strong className="text-zinc-900">{SITE_WINDOWS_BUILD_MANIFEST.version}</strong> ·{' '}
               {SITE_WINDOWS_BUILD_MANIFEST.releaseTag} ·{' '}
               {SITE_WINDOWS_BUILD_MANIFEST.installerSize.toLocaleString()} bytes
             </p>
@@ -142,9 +142,9 @@ export function DownloadsPage() {
         </div>
 
         <ScrollReveal className="mt-10">
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 text-center sm:p-8">
-            <p className="text-sm text-zinc-400">
-              Android: tap <strong className="text-zinc-200">Download Android</strong> on your phone, open the APK,
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-center sm:p-8">
+            <p className="text-sm text-zinc-600">
+              Android: tap <strong className="text-zinc-900">Download Android</strong> on your phone, open the APK,
               and allow install from this source if prompted.
             </p>
             <Link to="/docs/getting-started" className={`${ghostBtnClass} mt-5 inline-flex`}>

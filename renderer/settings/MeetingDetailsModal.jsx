@@ -203,7 +203,7 @@ export default function MeetingDetailsModal({ sessionId, onClose, followUpDraftE
               {actionItems.length > 0 ? (
                 <section>
                   <h3 className="text-[11.5px] font-semibold text-zinc-500">Action items</h3>
-                  <ul className="mt-2 list-inside list-disc space-y-1 text-[13px] text-zinc-300">
+                  <ul className="mt-2 list-outside list-disc space-y-1 pl-5 text-[13px] text-zinc-300">
                     {actionItems.map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
@@ -244,7 +244,12 @@ export default function MeetingDetailsModal({ sessionId, onClose, followUpDraftE
                 <h3 className="text-[11.5px] font-semibold text-zinc-500">
                   Transcript ({lines.length || session.transcriptLineCount || 0} lines)
                 </h3>
-                <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-white/[0.06] bg-black/25 p-3 font-mono text-[11px] leading-relaxed text-zinc-400">
+                <div
+                  className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-white/[0.06] bg-black/25 p-3 font-mono text-[11px] leading-relaxed text-zinc-400"
+                  role="region"
+                  aria-label="Transcript"
+                  tabIndex={0}
+                >
                   {lines.length ? (
                     lines.map((line, i) => {
                       const ts = line.at

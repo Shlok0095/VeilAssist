@@ -220,11 +220,11 @@ check('profile UI is the three modes and has no create or delete action', () => 
   assert.match(resumesUi, /Upload resume/)
   assert.match(resumesUi, /Work Experience/)
   assert.match(resumesUi, /Add one more experience/)
-  assert.match(resumesUi, /aria-label=\{expanded \? 'Hide resume details' : 'View resume'\}/)
-  assert.doesNotMatch(resumesUi, /setOpenId\(expanded \? '' : resume\.id\)[\s\S]{0,80}onSelect/)
-  const selectClick = resumesUi.slice(resumesUi.indexOf('aria-pressed={selectedRow}'), resumesUi.indexOf('aria-pressed={selectedRow}') + 280)
-  assert.match(selectClick, /onClick=\{\(\) => onSelect\?\.\(resume\.id\)\}/)
-  assert.doesNotMatch(selectClick, /setOpenId/)
+  // Two controls, two jobs: the radio dot PICKS the resume, the whole bar OPENS it (SelectRow).
+  assert.match(resumesUi, /<SelectRow[\s\S]{0,420}onSelect=\{\(\) => onSelect\?\.\(resume\.id\)\}[\s\S]{0,120}onToggle=\{\(\) => setOpenId\(expanded \? '' : resume\.id\)\}/)
+  assert.match(resumesUi, /role="radiogroup" aria-label="Resumes"/)
+  assert.doesNotMatch(resumesUi, /onSelect\?\.\(resume\.id\)\}[^\n]*setOpenId|setOpenId[^\n]*onSelect\?\.\(resume\.id\)/, 'picking must not toggle the details, nor opening change the pick')
+  assert.doesNotMatch(resumesUi, /\bCheck\b/, 'the tick mark is gone: the selected resume is shown by the radio dot')
   const ada = { ...sample, id: 'resume-ada', name: 'Ada Lovelace' }
   const other = { ...sample, id: 'resume-other', name: 'Other Person', summary: 'Someone else.' }
   const selected = activeResume([ada, other], 'resume-other')

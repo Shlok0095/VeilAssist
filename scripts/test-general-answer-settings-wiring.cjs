@@ -281,6 +281,26 @@ if (catalog.maxTokensForAnswerLength('medium', { coding: false }) === 280) {
   fail('coding:false Medium stays 280 tokens')
 }
 
+// AI response language must also ride on the LAST line of the user turn (live-tested: system prompt alone → 0/8).
+{
+  const { getAnswerOutputRulesReminderFromStore } = require('../lib/interviewAnswerPrompt.cjs')
+  const withLang = (aiResponseLanguage, extra = {}) =>
+    getAnswerOutputRulesReminderFromStore({ get: (k) => ({ aiResponseLanguage, answerLength: 'short' }[k]) }, extra)
+  const hi = withLang('hi')
+  const es = withLang('es', { forceCodingContract: true })
+  if (/\n\[LANGUAGE: write the answer in Hindi;/.test(hi) && hi.trim().endsWith(']') && /Spanish/.test(es)) {
+    pass('OUTPUT RULES reminder ends with a [LANGUAGE: …] line when a response language is set (technical + coding)')
+  } else {
+    fail('OUTPUT RULES reminder carries the response language', `${hi} | ${es}`)
+  }
+  const dflt = withLang('')
+  if (/\n\[LANGUAGE: answer in the same language as the question\.\]$/.test(dflt) && !/Hindi|Spanish|English/.test(dflt) && withLang(undefined) === dflt) {
+    pass('"Match my question" (default) tells the model to answer in the question\'s language, without forcing one')
+  } else {
+    fail('default language reminder', dflt)
+  }
+}
+
 const failed = results.filter((r) => !r.ok)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)
 if (failed.length) process.exit(1)

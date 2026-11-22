@@ -56,6 +56,8 @@ body,
   --success-rgb: 74 222 128;
   --warning-rgb: 250 204 21;
   --danger-rgb: 220 38 38; /* Quit / Listen mid #dc2626 */
+  /* Red TEXT on the dark panel: #dc2626 measured 2.9:1 there; this one is >= 4.5:1 and matches Settings' dark danger text. */
+  --danger-text-rgb: 248 113 113;
   --violet-rgb: 139 92 246;
 
   /* --- Glass surface fills (IM scheme surface + high container) --- */
@@ -1462,7 +1464,7 @@ button:focus-visible,
 }
 
 .crystal-error-text {
-  color: rgb(var(--danger-rgb) / 0.92);
+  color: rgb(var(--danger-text-rgb));
   font-size: 13px;
   line-height: 1.6;
 }
@@ -1472,7 +1474,7 @@ button:focus-visible,
   border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--danger-rgb) / 0.35);
   background: rgb(var(--danger-rgb) / 0.12);
-  color: rgb(var(--danger-rgb) / 0.95);
+  color: rgb(var(--danger-text-rgb));
   font-size: 11px;
   font-weight: 600;
   padding: 6px 12px;

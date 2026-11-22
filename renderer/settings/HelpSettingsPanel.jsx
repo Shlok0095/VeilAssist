@@ -1,11 +1,11 @@
 // Copyright (c) 2026 VeilAssist. All rights reserved.
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { BookOpen, ExternalLink, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { createIpcShim } from '../shared/ipcShim'
 import AppIcon from '../shared/AppIcon'
 import HelpGuideMarkdown, { splitGuideChapters } from './HelpGuideMarkdown'
-import { SettingsPage, SettingsSection } from './SettingsComponents'
+import { SettingsPage, SettingsRow, SettingsSection } from './SettingsComponents'
 import { useBrand } from '../shared/branding'
 
 const ipc = createIpcShim()
@@ -28,10 +28,6 @@ const FAQ = [
     a: 'Unless "Don\'t save meeting recaps" is on in Privacy, a session recap is saved under Meetings.',
   },
   {
-    q: 'Where is debug logging?',
-    a: 'General > Diagnostics > Verbose debug logging. A toast shows the log file path when enabled.',
-  },
-  {
     q: 'Stealth and content protection?',
     a: 'When "Hide from screen capture" is on in Privacy, the overlay is harder to capture in screen shares.',
   },
@@ -41,7 +37,7 @@ function prepareGuideText(raw) {
   return String(raw || '').replace(/\r\n/g, '\n')
 }
 
-export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
+export default function HelpSettingsPanel({ appVersion }) {
   const { name } = useBrand()
   const [doc, setDoc] = useState('')
   const [loading, setLoading] = useState(true)
@@ -69,12 +65,8 @@ export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
     void loadDoc()
   }, [])
 
-  const openLogs = () => {
-    void ipc?.invoke('logs:open-folder')
-  }
-
   return (
-    <SettingsPage title="Help" description="FAQ, user guide, and troubleshooting.">
+    <SettingsPage title="Help" description="FAQ, user guide, and support.">
       <SettingsSection title="FAQ" anchor="faq">
         <ul className="space-y-4">
           {FAQ.map((item) => (
@@ -115,36 +107,16 @@ export default function HelpSettingsPanel({ appVersion, onSelectTab }) {
         )}
       </SettingsSection>
 
-      <SettingsSection title="Troubleshooting" anchor="troubleshooting">
-        <div className="space-y-3 text-[13px] text-zinc-400">
-          <p>
-            Enable <strong className="font-semibold text-zinc-200">Verbose debug logging</strong> under Diagnostics in{' '}
-            <button type="button" className="font-medium text-zinc-200 underline hover:text-white" onClick={() => onSelectTab?.('display', 'diagnostics')}>
-              General
-            </button>
-            , reproduce the issue, then open the log file.
-          </p>
-          <p>
-            <span className="font-semibold text-zinc-200">Version:</span> {appVersion || 'Unknown'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={openLogs} className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-[12px]">
-              <AppIcon icon={ExternalLink} size={13} />
-              Open log folder
-            </button>
-            <button type="button" onClick={() => void ipc?.invoke('debug-log:open-file')} className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-[12px]">
-              Open log file
-            </button>
-            <button
-              type="button"
-              onClick={() => onSelectTab?.('display')}
-              className="btn-ghost flex items-center gap-1.5 px-3 py-2 text-[12px]"
-            >
-              <AppIcon icon={BookOpen} size={13} />
-              General settings
-            </button>
-          </div>
-        </div>
+      <SettingsSection
+        title="Support"
+        description="Stuck? The Troubleshooting chapter in the full guide above covers the common fixes."
+        anchor="support"
+      >
+        <SettingsRow label="Version" hint="Include this when you contact support." anchor="app-version">
+          <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {appVersion || 'Unknown'}
+          </span>
+        </SettingsRow>
       </SettingsSection>
     </SettingsPage>
   )

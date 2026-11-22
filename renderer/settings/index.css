@@ -21,6 +21,9 @@
   --text-tertiary: #8a8a93;
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-muted: rgba(255, 255, 255, 0.12);
+  /* Outline of text inputs, selects and the search box: 3:1 against the card (WCAG 1.4.11). Was 1.2:1. */
+  --control-border: #646468;
+  --control-border-hover: #7c7c82;
   /* Neutral zinc accent — selections, toggles, links (no blue) */
   --accent-primary: #e4e4e7;
   --accent-text: #fafafa;
@@ -31,6 +34,7 @@
   --accent-light-rgb: 250 250 250;
   /* Semantic feedback accents — saved/success state; danger = Quit/Listen red */
   --success-rgb: 74 222 128;
+  --success-text: #4ade80;
   --danger-rgb: 220 38 38;
   /* Toggle — track ≠ thumb (never reuse --accent-primary for ON track) */
   --toggle-track-off: #6b6b73;
@@ -70,6 +74,8 @@
   --text-tertiary: #62626a;
   --border-subtle: rgba(0, 0, 0, 0.08);
   --border-muted: rgba(0, 0, 0, 0.14);
+  --control-border: #8c8c93;
+  --control-border-hover: #6b6b73;
   --accent-primary: #27272a;
   --accent-text: #18181b;
   --accent-muted: rgba(0, 0, 0, 0.06);
@@ -92,6 +98,7 @@
   --menu-text: #18181b;
   --menu-muted: #52525b;
   --danger-text: #b91c1c;
+  --success-text: #15803d;
 }
 
 .settings-body[data-color-scheme='light'] .btn-glow,
@@ -271,6 +278,9 @@ html {
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
+  /* Reserve the scrollbar's space on every tab, so the centered column (title, cards) does not shift sideways
+   * when you switch between a page that scrolls and one that does not. */
+  scrollbar-gutter: stable;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
   background: var(--bg-main);
   scroll-padding-bottom: var(--space-6);
@@ -307,6 +317,7 @@ html {
 }
 
 .settings-nav-title {
+  margin: 0;
   padding: var(--space-1) var(--space-3) var(--space-3);
   font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
   font-size: 16px;
@@ -431,7 +442,7 @@ html {
   height: 34px;
   padding: 0 30px 0 32px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--control-border);
   background: var(--bg-input);
   color: var(--text-primary);
   font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
@@ -549,6 +560,56 @@ html {
 /* ── Page / section (Natively content area) ── */
 .settings-page-header {
   margin-bottom: var(--space-5);
+}
+
+/* Title + description on the left, the page's single "Reset to default" button on the right. */
+.settings-page-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+/* Standard secondary button (.btn-ghost) with a leading icon; sits level with the 24px page title. */
+.settings-reset-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+  padding: 8px 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.settings-reset-btn svg {
+  color: var(--text-secondary);
+  transition: color var(--duration-fast, 120ms) var(--ease-out), transform var(--duration-base) var(--ease-out);
+}
+
+.settings-reset-btn:hover svg {
+  color: var(--text-primary);
+  transform: rotate(-45deg);
+}
+
+@media (max-width: 560px) {
+  .settings-page-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .settings-reset-btn {
+    align-self: flex-start;
+    margin-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-reset-btn:hover svg {
+    transform: none;
+  }
 }
 
 .settings-page-title {
@@ -866,33 +927,6 @@ html {
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.nat-section-head-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.settings-reset-link {
-  flex-shrink: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  padding: 4px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.settings-reset-link:hover {
-  color: var(--text-primary);
-  background: var(--bg-subtle-hover);
-}
-
 .nat-section-head-title {
   font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
   font-size: 14px;
@@ -911,6 +945,19 @@ html {
 
 .nat-section-body {
   padding: var(--space-1) var(--space-5) var(--space-4);
+}
+
+/* The card's own edge closes the last row: no trailing divider and a shorter tail, so a card ends with
+ * about as much space as it starts with instead of a wide empty band. */
+.nat-section-body > .nat-row:last-child,
+.nat-section-body > .settings-row-tile:last-child {
+  border-bottom: 0;
+  padding-bottom: var(--space-2);
+}
+
+/* Custom last items (button groups, key fields) carry their own Tailwind divider: drop it on the last one too. */
+.nat-section-body > div.border-b:last-child {
+  border-bottom: 0;
 }
 
 /* Setting row — Natively flex justify-between py-4 border-b pattern */
@@ -982,12 +1029,21 @@ html {
   border-color: var(--border-subtle);
 }
 
+/*
+ * A tile whose header is a button that reveals a panel under it (session recaps). The row layout above would put the
+ * revealed panel BESIDE the header at 640px and wider, so its children stack instead and the button owns the padding.
+ */
+.settings-row-tile.settings-row-tile-stack {
+  display: block;
+  padding: 0;
+}
+
 /* Inputs — bg-bg-input border-border-subtle */
 .input-shadow,
 .nat-input {
   width: 100%;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--control-border);
   background: var(--bg-input);
   padding: 10px var(--space-3);
   font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
@@ -1001,10 +1057,15 @@ html {
   color: var(--text-tertiary);
 }
 
+.input-shadow:hover:not(:disabled),
+.nat-input:hover:not(:disabled) {
+  border-color: var(--control-border-hover);
+}
+
 .input-shadow:focus,
 .nat-input:focus {
   outline: none;
-  border-color: var(--border-muted);
+  border-color: var(--control-border-hover);
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
 }
 
@@ -1075,7 +1136,7 @@ select.settings-select option {
   min-height: 36px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--control-border);
   background: var(--bg-input);
   color: var(--text-primary);
   font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
@@ -1087,7 +1148,7 @@ select.settings-select option {
 }
 
 .checkmark-select-trigger:hover:not(:disabled) {
-  border-color: var(--border-muted);
+  border-color: var(--control-border-hover);
   background: var(--bg-item-surface);
 }
 
@@ -1408,8 +1469,10 @@ select.settings-select option {
 }
 
 .settings-advance-ai-link {
-  display: inline-block;
-  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px; /* WCAG 2.5.8: a stand-alone link is a pointer target of at least 24px */
+  margin-top: 2px;
   font-size: 11px;
   color: var(--text-tertiary);
   text-decoration: none;
@@ -1643,6 +1706,177 @@ select.settings-select option {
   cursor: not-allowed;
   pointer-events: none;
   transform: none;
+}
+
+/* ── SelectRow: pick one (radio dot) / open to edit (whole bar). Profile resumes, documents, purposes. ── */
+.select-row {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+  transition: border-color var(--transition-fast);
+}
+
+.select-row-selected {
+  border-color: var(--border-muted);
+}
+
+.select-row-bar {
+  display: flex;
+  align-items: stretch;
+}
+
+.select-row-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px 0 14px;
+  cursor: pointer;
+}
+
+.select-row-radio {
+  appearance: none;
+  display: grid;
+  flex-shrink: 0;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1.5px solid var(--control-border);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.select-row-radio::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  transform: scale(0);
+  transition: transform var(--transition-fast);
+}
+
+.select-row-radio:checked {
+  border-color: var(--text-primary);
+}
+
+.select-row-radio:checked::before {
+  transform: scale(1);
+}
+
+.select-row-radio:hover:not(:checked) {
+  border-color: var(--control-border-hover);
+}
+
+.select-row-main {
+  display: flex;
+  flex: 1 1 0%;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 11px 14px 11px 10px;
+  border: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.select-row-main:hover {
+  background: var(--bg-subtle-hover);
+}
+
+.select-row-title,
+.select-row-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-row-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.select-row-sub {
+  margin-top: 1px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.select-row-chevron {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.select-row-main[aria-expanded='true'] .select-row-chevron {
+  transform: rotate(180deg);
+}
+
+.select-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Profile mode cards (Interview / Meeting / General): a radio-style card, theme tokens for light and dark. */
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.mode-card:hover {
+  background: var(--bg-subtle-hover);
+}
+
+.mode-card-active {
+  border-color: var(--control-border);
+  background: var(--bg-item-active);
+}
+
+.mode-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mode-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mode-card-detail {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select-row-chevron,
+  .select-row-radio::before {
+    transition: none;
+  }
 }
 
 /* Frameless confirm dialog — replaces native window.confirm() for destructive actions */
@@ -1910,72 +2144,106 @@ select.settings-select option {
   background: var(--bg-subtle-hover);
 }
 
-/* Inline toast (verbose logging, etc.) */
+/*
+ * Toast — one calm card that floats over the content (never pushes the layout down), in the UI font:
+ * a tone icon, a 13px semibold message, an optional 12px detail line and a quiet dismiss button.
+ * The tone only tints the icon and the hairline border, so success/error read at a glance without a loud bar.
+ */
 .settings-toast {
+  position: fixed;
+  bottom: 24px; /* bottom-center: clear of the page title, the Reset button and the nav */
+  left: 50%;
+  z-index: 300;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-3);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
-  background: rgba(245, 158, 11, 0.08);
-  padding: var(--space-2) var(--space-4);
+  width: max-content;
+  min-width: 260px;
+  max-width: min(480px, calc(100% - 32px));
+  padding: 12px 10px 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-muted);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-elevation-3);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  transform: translateX(-50%);
+  animation: settingsToastIn var(--duration-base) var(--ease-out) both;
+}
+
+.settings-toast-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-secondary);
 }
 
 .settings-toast-message {
-  font-size: 12px;
-  font-weight: 500;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
 }
 
 .settings-toast-detail {
-  margin-top: 4px;
+  margin: 2px 0 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace);
-  font-size: 10.5px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
   color: var(--text-secondary);
 }
 
 .settings-toast-success {
-  border-bottom-color: rgb(var(--success-rgb) / 0.35);
-  background: rgb(var(--success-rgb) / 0.1);
+  border-color: rgb(var(--success-rgb) / 0.32);
+}
+
+.settings-toast-success .settings-toast-icon {
+  color: var(--success-text);
 }
 
 .settings-toast-error {
-  border-bottom-color: rgb(var(--danger-rgb) / 0.45);
-  background: rgb(var(--danger-rgb) / 0.12);
+  border-color: rgb(var(--danger-rgb) / 0.45);
 }
 
-.settings-toast-info {
-  border-bottom-color: var(--border-muted);
-  background: var(--bg-item-surface);
-}
-
-.settings-toast-action {
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  background: rgba(245, 158, 11, 0.12);
-  padding: var(--space-1) var(--space-2);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.settings-toast-action:hover {
-  background: rgba(245, 158, 11, 0.2);
+.settings-toast-error .settings-toast-icon {
+  color: var(--danger-text);
 }
 
 .settings-toast-dismiss {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   border: none;
+  border-radius: 6px;
   background: transparent;
-  padding: 0 4px;
-  font-size: 18px;
-  line-height: 1;
   color: var(--text-tertiary);
+  cursor: pointer;
+  transition: var(--transition-interactive);
 }
 
 .settings-toast-dismiss:hover {
+  background: var(--bg-subtle-hover);
   color: var(--text-primary);
+}
+
+@keyframes settingsToastIn {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-toast {
+    animation: none;
+  }
 }
 
 .settings-save-badge {
@@ -2020,7 +2288,6 @@ select.settings-select option {
 .btn-danger:focus-visible,
 .settings-chip:focus-visible,
 .nat-toggle:focus-visible,
-.settings-toast-action:focus-visible,
 .settings-toast-dismiss:focus-visible,
 .settings-row-tile:focus-visible,
 details.glass-panel > summary:focus-visible {
@@ -2059,6 +2326,34 @@ input[type='range']:focus-visible,
 
 .settings-range {
   accent-color: var(--accent-primary);
+}
+
+/* The slider's box was 8px tall: a 24px box gives the thumb and track a comfortable, WCAG-sized hit area. */
+.settings-root input.settings-range {
+  height: 24px;
+}
+
+/* Skip link: first Tab stop, visible only while focused, so keyboard users can bypass the 16 nav controls. */
+.settings-skip-link {
+  position: fixed;
+  top: 44px; /* below the 36px title bar */
+  left: 12px;
+  z-index: 400;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-muted);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-elevation-2, var(--shadow-elevation-3));
+  color: var(--text-primary);
+  font-family: var(--font-ui, 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transform: translateY(-300%);
+}
+
+.settings-skip-link:focus {
+  transform: none;
 }
 
 /* Search result / deep link landing flash */
@@ -2105,5 +2400,84 @@ input[type='range']:focus-visible,
 
   .settings-root details.glass-panel > summary svg {
     transition: none !important;
+  }
+}
+
+/*
+ * Windows High Contrast / forced colors.
+ * The browser repaints every background and text colour with the user's contrast theme, which erases anything that
+ * is only told apart by a fill: a toggle's knob and track, a radio's dot, the selected nav item, card or menu row.
+ * Each of those gets a system-colour rule here (system colours are kept as written), so on/off and selected/unselected
+ * stay visible. Borders, text, focus rings and the segmented chips already survive and are left alone.
+ */
+@media (forced-colors: active) {
+  .nat-toggle {
+    forced-color-adjust: none;
+    border: 2px solid ButtonText;
+    background: ButtonFace;
+  }
+
+  .nat-toggle .nat-toggle-knob {
+    background: ButtonText;
+    box-shadow: none;
+  }
+
+  .nat-toggle[aria-checked='true'] {
+    background: Highlight;
+    border-color: ButtonText;
+  }
+
+  .nat-toggle[aria-checked='true'] .nat-toggle-knob {
+    background: HighlightText;
+  }
+
+  .nat-toggle:disabled {
+    border-color: GrayText;
+    background: ButtonFace;
+  }
+
+  .nat-toggle:disabled .nat-toggle-knob {
+    background: GrayText;
+  }
+
+  /* Radio dot (profile lists and mode cards). */
+  .select-row-radio::before {
+    background: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .select-row-radio:checked {
+    border-color: Highlight;
+  }
+
+  .select-row-selected,
+  .mode-card-active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  /* Current page in the left nav and the highlighted row in an open menu. */
+  .settings-nav-btn-active,
+  .settings-nav-result-active,
+  .checkmark-select-opt:hover,
+  .checkmark-select-opt-active {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .settings-nav-btn-active svg,
+  .checkmark-select-opt:hover svg,
+  .checkmark-select-opt-active svg {
+    color: HighlightText;
+  }
+
+  .checkmark-select-menu,
+  .checkmark-select-menu-portal {
+    border: 1px solid CanvasText;
+  }
+
+  .settings-toast {
+    border: 1px solid CanvasText;
   }
 }

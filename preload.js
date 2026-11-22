@@ -12,7 +12,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron')
 const INVOKE_CHANNELS = new Set([
   'abort-ai', 'accept-mode-suggestion', 'apply-overlay-display', 'ask-ai-with-transcript',
   'branding:get', 'clipboard-write-text', 'cloud-stt:transcribe-rest', 'consent:complete', 'consent:decline',
-  'debug-log:open-file', 'delete-all-data-relaunch', 'detect-question', 'dismiss-mode-suggestion', 'export-user-data',
+  'delete-all-data-relaunch', 'detect-question', 'dismiss-mode-suggestion', 'export-user-data',
   'get-all-settings', 'get-app-info', 'get-chat-model-catalog', 'get-desktop-source-id', 'get-hotkeys',
   'get-intelligence-flags', 'get-provider-metadata', 'get-store', 'get-stt-policy',
   'get-stt-provider-metadata', 'get-transcription-config', 'get-window-bounds',
@@ -22,7 +22,7 @@ const INVOKE_CHANNELS = new Set([
   'launcher:open-overlay', 'launcher:open-settings',
   'launcher:toggle-session', 'legal:open', 'list-remote-models', 'local-stt:feed-pcm', 'local-stt:flush',
   'local-stt:model-info', 'local-stt:prepare', 'local-stt:stop', 'local-stt:stream-start',
-  'logs:open-folder', 'long-term-memory:clear', 'meeting-sessions:clear', 'meeting-sessions:delete',
+  'long-term-memory:clear', 'meeting-sessions:clear', 'meeting-sessions:delete',
   'meeting-sessions:export', 'meeting-sessions:follow-up-draft', 'meeting-sessions:get',
   'meeting-sessions:list', 'meeting-sessions:update-speakers', 'memory:search-past-meetings',
   'mode-document:parse', 'nvidia-nim:transcribe-wav', 'overlay:set-ignore-mouse-events', 'parse-playbook', 'register-user-file',

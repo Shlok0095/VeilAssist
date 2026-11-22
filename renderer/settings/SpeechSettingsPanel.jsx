@@ -167,14 +167,13 @@ export default function SpeechSettingsPanel({
     onSave(key, value)
   }
 
-  const resetMicrophone = async () => {
+  // The page's single "Reset to default": microphone first, then speech recognition.
+  const resetAll = async () => {
     await onAudioEnabledChange?.(SETTINGS_DEFAULTS.audioEnabled)
     await onMicSensitivityChange?.(SETTINGS_DEFAULTS.micSensitivity)
     await onMeetingListenLanguageChange?.(SETTINGS_DEFAULTS.meetingListenLanguage)
     patchAndSave('preferredMicId', '')
-  }
 
-  const resetRecognition = async () => {
     await onSttModeChange?.(SETTINGS_DEFAULTS.sttMode)
     patchAndSave('localSttModelPreference', SETTINGS_DEFAULTS.localSttModelPreference)
   }
@@ -344,14 +343,14 @@ export default function SpeechSettingsPanel({
       embedded={embedded}
       title="Audio"
       description="Microphone capture and speech recognition while Listen is active."
+      onReset={resetAll}
     >
       <SettingsSection
         title="Microphone"
         description="What Listen captures."
         anchor="microphone"
-        onReset={resetMicrophone}
       >
-        <SettingsRow label="Microphone" hint="Turn off to use screen questions only." anchor="microphone-toggle">
+        <SettingsRow label="Use microphone" hint="Turn off to use screen questions only." anchor="microphone-toggle">
           <ToggleSwitch checked={audioEnabled} onChange={onAudioEnabledChange} />
         </SettingsRow>
 
@@ -438,7 +437,6 @@ export default function SpeechSettingsPanel({
         title="Speech recognition"
         description="Where your voice is turned into text."
         anchor="speech-recognition"
-        onReset={resetRecognition}
       >
         {micOff ? <SettingsNote>Microphone is off, so speech recognition is idle.</SettingsNote> : null}
 
