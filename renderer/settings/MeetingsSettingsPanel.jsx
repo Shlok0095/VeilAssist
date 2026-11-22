@@ -211,6 +211,8 @@ export default function MeetingsSettingsPanel({
     <SettingsPage
       title="Meetings"
       description="Google Calendar, meeting detection, and session recaps."
+      onReset={resetReminders}
+      resetDescription="This resets reminders, meeting app detection and follow-up drafts. Your calendar connection and saved recaps are not touched."
     >
       <SettingsSection
         title="Google Calendar"
@@ -287,7 +289,6 @@ export default function MeetingsSettingsPanel({
       <SettingsSection
         title="Reminders and detection"
         description="When to nudge you and what counts as a meeting."
-        onReset={resetReminders}
       >
         <SettingsRow label="Start-time reminders" hint="Notify before accepted meetings start." anchor="reminders">
           <ToggleSwitch checked={calendarRemindersEnabled} onChange={onCalendarRemindersEnabledChange} />
@@ -348,7 +349,8 @@ export default function MeetingsSettingsPanel({
                     href={m.meetLink}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-block text-[11px] text-accent underline"
+                    className="mt-1 inline-flex min-h-[24px] items-center text-[11px] text-accent underline"
+                    aria-label={`Join link for ${m.title}`}
                   >
                     Join link
                   </a>
@@ -380,21 +382,21 @@ export default function MeetingsSettingsPanel({
             No recaps yet. Start Listen, join a meeting, then Stop. A summary appears here.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul>
             {meetingSessions.map((s) => {
               const open = expandedMeetingId === s.id
               const preview = recapPreview(s.summary)
               return (
-                <li key={s.id} className="settings-row-tile overflow-hidden">
+                <li key={s.id} className="settings-row-tile settings-row-tile-stack">
                   <button
                     type="button"
-                    className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left"
+                    className="flex w-full items-start justify-between gap-3 py-3 text-left"
                     aria-expanded={open}
                     onClick={() => onExpandedMeetingIdChange(open ? null : s.id)}
                   >
                     <div className="min-w-0">
                       <div className="text-[13px] font-medium text-gray-200">
-                        {s.modeName || 'Session'}
+                        {s.modeName || 'Session'}{' '}
                         <span className="ml-2 text-[11px] font-normal text-zinc-500">
                           {formatMeetingDuration(s.durationMs)}
                         </span>
@@ -405,18 +407,24 @@ export default function MeetingsSettingsPanel({
                       ) : null}
                     </div>
                     <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-600">
+                      <span className="sr-only">Summary: </span>
                       {s.summarySource === 'llm' ? 'AI' : 'Local'}
                     </span>
                   </button>
                   {open ? (
-                    <div className="border-t border-white/[0.06] px-4 py-3">
-                      <div className="max-h-80 overflow-y-auto rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                    <div className="pb-3">
+                      <div
+                        className="max-h-80 overflow-y-auto rounded-lg border border-white/[0.06] bg-black/20 p-3"
+                        role="region"
+                        aria-label={`Summary of ${s.modeName || 'session'} recap`}
+                        tabIndex={0}
+                      >
                         <SimpleMarkdown text={s.summary} />
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-3">
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                         <button
                           type="button"
-                          className="text-[11px] text-accent hover:text-accent/80"
+                          className="inline-flex min-h-[24px] items-center text-[11px] text-accent hover:text-accent/80"
                           onClick={(ev) => {
                             ev.stopPropagation()
                             setDetailsSessionId(s.id)
@@ -426,7 +434,7 @@ export default function MeetingsSettingsPanel({
                         </button>
                         <button
                           type="button"
-                          className="text-[11px] text-zinc-400 hover:text-zinc-200"
+                          className="inline-flex min-h-[24px] items-center text-[11px] text-zinc-400 hover:text-zinc-200"
                           onClick={(ev) => {
                             ev.stopPropagation()
                             void exportRecap(s.id)
@@ -436,7 +444,7 @@ export default function MeetingsSettingsPanel({
                         </button>
                         <button
                           type="button"
-                          className="text-[11px] text-danger"
+                          className="inline-flex min-h-[24px] items-center text-[11px] text-danger"
                           onClick={(ev) => {
                             ev.stopPropagation()
                             setConfirmDeleteRecapId(s.id)

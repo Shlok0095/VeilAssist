@@ -131,7 +131,7 @@ check('the ask path uses the shared context builder and the document channel is 
   assert.match(main, /buildAnswerContext\(/)
   assert.match(main, /mode-document:parse/)
   assert.match(preload, /'mode-document:parse'/)
-  assert.match(resumes, /onClick=\{\(\) => onSelect\?\.\(resume\.id\)\}/)
+  assert.match(resumes, /onSelect=\{\(\) => onSelect\?\.\(resume\.id\)\}/)
   assert.match(materials, /Save purpose/)
   assert.match(materials, /Additional documents/)
   assert.match(materials, /Save a purpose first, then upload additional documents/)

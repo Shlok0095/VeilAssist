@@ -146,10 +146,26 @@ if (!displaySrc.includes('title="Advanced"')) {
   fail('General still has a legacy top-level "Advanced" section')
 }
 
-if (displaySrc.includes('SettingsCollapsible') && displaySrc.includes('title="Diagnostics"')) {
-  pass('General collapses logging into "Diagnostics"')
+if (
+  !/Diagnostics|[Vv]erbose debug logging|onOpenLogFile|verboseDebugLogging/.test(displaySrc) &&
+  !/debug-log:open-file|logs:open-folder|Open log (file|folder)/.test(read('renderer/settings/HelpSettingsPanel.jsx'))
+) {
+  pass('no debug-log controls are exposed to end users (General has no Diagnostics, Help has no log buttons)')
 } else {
-  fail('General missing collapsed Diagnostics section')
+  fail('debug-log controls leaked into the end-user settings UI')
+}
+
+{
+  const debugLogSrc = read('lib/debugLog.js')
+  if (
+    /function isDebugLoggingAllowed/.test(debugLogSrc) &&
+    /enabled = !!on && isDebugLoggingAllowed\(\)/.test(debugLogSrc) &&
+    /isDebugLoggingAllowed\(\)\) return \{ ok: false/.test(read('main/index.js'))
+  ) {
+    pass('release builds can never write or open the debug log (gated in debugLog.js and the IPC handlers)')
+  } else {
+    fail('debug logging is not gated to unpackaged builds')
+  }
 }
 
 const cssSrc = read('renderer/settings/index.css')

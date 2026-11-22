@@ -3,7 +3,7 @@
 import { FALLBACK_RANK } from './generated/fallbackRank.generated'
 
 export const DEFAULT_NVIDIA_CHAT_MODEL =
-  FALLBACK_RANK.primary_nvidia || 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1'
+  FALLBACK_RANK.primary_nvidia || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'
 
 export const NVIDIA_VISION_CATALOG_MODELS: string[] = [
   FALLBACK_RANK.primary_nvidia,

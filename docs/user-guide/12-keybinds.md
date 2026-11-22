@@ -45,7 +45,7 @@ Defaults below use **Ctrl** on Windows (shown as `Ctrl`; macOS builds would use 
 1. Open **Settings → Shortcuts**.
 2. Click a row and press your desired key combination.
 3. Conflicts show a warning — pick a unique combo.
-4. **Reset to defaults** restores the table above.
+4. **Reset to default** (top right of the page) restores the table above.
 
 Some shortcuts (like `Escape` for hide) may feel natural to keep unchanged during live meetings.
 

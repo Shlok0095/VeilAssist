@@ -14,7 +14,7 @@ export function DocsLayout() {
     <div className="docs-shell">
       <aside className="docs-side glass-panel" aria-label="Documentation">
         <p className="docs-side__title">Documentation</p>
-        <nav className="docs-side__nav">
+        <nav className="docs-side__nav" aria-label="Documentation pages">
           {topItems.map((item) => (
             <NavLink
               key={item.to}
@@ -43,7 +43,7 @@ export function DocsLayout() {
           <NavLink to="/legal/terms" className="docs-side__link-muted">
             Terms
           </NavLink>
-          <span className="docs-side__dot">·</span>
+          <span className="docs-side__dot" aria-hidden>·</span>
           <NavLink to="/legal/privacy" className="docs-side__link-muted">
             Privacy
           </NavLink>

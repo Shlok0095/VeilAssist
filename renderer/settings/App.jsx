@@ -2,10 +2,11 @@
 // Unauthorized copying or distribution is prohibited.
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
 import { createIpcShim } from '../shared/ipcShim'
 import SettingsTabContent from './SettingsTabContent'
 import { SettingsNav, normalizeSettingsTabId, parseSettingsQuery } from './settingsNav.jsx'
-import { DEFAULT_HOTKEYS_MAP, HOTKEY_DEFS, OVERLAY_SIZE_LIMITS } from './settingsConstants'
+import { DEFAULT_HOTKEYS_MAP, HOTKEY_DEFS, OVERLAY_OPACITY_RANGE, OVERLAY_SIZE_LIMITS } from './settingsConstants'
 import { describeAccelerator } from './hotkeyUtils'
 import { trackSave } from './saveTracker'
 import { emitSettingsToast, onSettingsToast } from './settingsToast'
@@ -132,7 +133,7 @@ export default function Settings() {
   const [listModelsLoadingId, setListModelsLoadingId] = useState(null)
   const [listModelsErrByProvider, setListModelsErrByProvider] = useState({})
 
-  const [overlayOpacityUi, setOverlayOpacityUi] = useState(0.7)
+  const [overlayOpacityUi, setOverlayOpacityUi] = useState(0.5)
   const [overlayFontUi, setOverlayFontUi] = useState('medium')
   const [answerStructureUi, setAnswerStructureUi] = useState('star')
   const [responseFormatUi, setResponseFormatUi] = useState('bullets')
@@ -165,7 +166,6 @@ export default function Settings() {
   const [calendarReminderMinutes, setCalendarReminderMinutes] = useState(5)
   const [meetingForegroundDetectionEnabled, setMeetingForegroundDetectionEnabled] = useState(true)
   const [openAtLoginUi, setOpenAtLoginUi] = useState(false)
-  const [verboseDebugLogging, setVerboseDebugLogging] = useState(false)
   const [doNotSaveMeetingsEnabled, setDoNotSaveMeetingsEnabled] = useState(false)
   const [overlayTranscriptAutoScrollUi, setOverlayTranscriptAutoScrollUi] = useState(true)
   const [overlayLiveTranscriptUi, setOverlayLiveTranscriptUi] = useState(true)
@@ -358,7 +358,6 @@ export default function Settings() {
         setCalendarRemindersEnabled(s.calendarRemindersEnabled !== false)
         setMeetingForegroundDetectionEnabled(s.meetingForegroundDetectionEnabled !== false)
         setOpenAtLoginUi(s.openAtLogin === true)
-        setVerboseDebugLogging(s.verboseDebugLogging === true)
         setDoNotSaveMeetingsEnabled(s.doNotSaveMeetingsEnabled === true)
         setOverlayTranscriptAutoScrollUi(s.overlayTranscriptAutoScroll !== false)
         setOverlayLiveTranscriptUi(s.overlayLiveTranscriptEnabled !== false)
@@ -397,7 +396,7 @@ export default function Settings() {
           setDraftNotesSections(notesSectionsFromPrompt(activeP))
         }
         const ob = s.overlayBounds || {}
-        setOverlayOpacityUi(typeof s.overlayOpacity === 'number' ? s.overlayOpacity : 0.7)
+        setOverlayOpacityUi(typeof s.overlayOpacity === 'number' ? s.overlayOpacity : 0.5)
         setOverlayFontUi(s.overlayFontSize || 'medium')
         setAnswerStructureUi(s.answerStructure === 'car' || s.answerStructure === 'soar' || s.answerStructure === 'par' || s.answerStructure === 'soara' ? s.answerStructure : 'star')
         setResponseFormatUi(s.responseFormat === 'conversational' || s.responseFormat === 'example' ? s.responseFormat : 'bullets')
@@ -410,7 +409,8 @@ export default function Settings() {
         setOverlayTeleprompterUi(s.overlayTeleprompter === true)
         setOverlayFocusModeUi(s.overlayFocusMode === true)
         setOverlayW(ob.width || 480)
-        setOverlayH(ob.height || 580)
+        // A saved height at or under the collapsed notch is a leftover of an old bug; show the real default.
+        setOverlayH(ob.height > 48 ? Math.max(OVERLAY_SIZE_LIMITS.minH, ob.height) : 580)
         setStealthModeUi(s.stealth_mode === true)
         setKeySetMap({
           apiKey: !!s.apiKey,
@@ -480,7 +480,20 @@ export default function Settings() {
     if (!ipc) return
     const onStealth = (_, v) => setStealthModeUi(!!v)
     const unsubStealth = ipc.on('stealth-mode-update', onStealth)
+    // Main reports changes made outside this window (Ctrl+Shift+P, dragging the overlay's edge) so the open page
+    // never shows a stale toggle or size.
     const unsubDisplay = ipc.on('overlay-display-update', (_, p) => {
+      if (!p || typeof p !== 'object') return
+      if (typeof p.overlayMousePassthroughEnabled === 'boolean') {
+        setOverlayMousePassthroughUi(p.overlayMousePassthroughEnabled)
+        patchSnap('overlayMousePassthroughEnabled', p.overlayMousePassthroughEnabled)
+      }
+      const b = p.overlayBounds
+      if (b && Number.isFinite(b.width) && b.height > 48) {
+        setOverlayW(Math.round(b.width))
+        setOverlayH(Math.round(b.height))
+        setSnap((s) => (s ? { ...s, overlayBounds: { ...(s.overlayBounds || {}), width: b.width, height: b.height } } : s))
+      }
     })
     // ipcShim listeners receive (event, ...args) — payload is the second argument.
     // ipcShim listeners receive (event, ...args): the payload is the SECOND argument. (Verified against
@@ -1055,7 +1068,7 @@ export default function Settings() {
   }, [])
 
   const applyOverlayOpacity = async (raw) => {
-    const v = Math.min(1, Math.max(0.35, Number(raw)))
+    const v = Math.min(OVERLAY_OPACITY_RANGE.max, Math.max(OVERLAY_OPACITY_RANGE.min, Number(raw)))
     setOverlayOpacityUi(v)
     patchSnap('overlayOpacity', v)
     await save('overlayOpacity', v)
@@ -1233,12 +1246,6 @@ export default function Settings() {
     await save('phoneMirrorIncludeInAsk', !!v)
   }
 
-  const applyVerboseDebugLogging = async (v) => {
-    setVerboseDebugLogging(!!v)
-    patchSnap('verboseDebugLogging', !!v)
-    await save('verboseDebugLogging', !!v)
-  }
-
   const applyDoNotSaveMeetings = async (v) => {
     setDoNotSaveMeetingsEnabled(!!v)
     patchSnap('doNotSaveMeetingsEnabled', !!v)
@@ -1266,12 +1273,8 @@ export default function Settings() {
     await ipc?.invoke('apply-overlay-display', { overlayAnswerPinToTop: !!v })
   }
 
-  const openDebugLogFile = async () => {
-    await ipc?.invoke('debug-log:open-file')
-  }
-
   const applyOpacityPreset = async (pct) => {
-    const v = Math.min(1, Math.max(0.35, pct / 100))
+    const v = Math.min(OVERLAY_OPACITY_RANGE.max, Math.max(OVERLAY_OPACITY_RANGE.min, pct / 100))
     await applyOverlayOpacity(v)
   }
 
@@ -1284,9 +1287,9 @@ export default function Settings() {
     setOverlayW(w)
     setOverlayH(h)
     const prev = snap?.overlayBounds || {}
-    const next = { ...prev, width: w, height: h }
-    patchSnap('overlayBounds', next)
-    await save('overlayBounds', next)
+    patchSnap('overlayBounds', { ...prev, width: w, height: h })
+    // Main persists the size itself, merged into the CURRENT bounds. Saving this snapshot too would write back the
+    // x/y Settings read when it opened, undoing any move made since (nudge, drag, snap).
     await ipc?.invoke('apply-overlay-display', { width: w, height: h })
   }
 
@@ -1295,9 +1298,11 @@ export default function Settings() {
     await ipc.invoke('set-overlay-position-preset', preset)
     const b = await ipc.invoke('get-window-bounds')
     if (b) {
-      patchSnap('overlayBounds', b)
+      // The live window is usually the collapsed notch (~43px): never show that as the panel height.
+      const expandedH = b.height > 48 ? b.height : snap?.overlayBounds?.height > 48 ? snap.overlayBounds.height : overlayH
+      patchSnap('overlayBounds', { ...b, height: expandedH })
       setOverlayW(b.width)
-      setOverlayH(b.height)
+      setOverlayH(expandedH)
     }
   }
 
@@ -1348,8 +1353,6 @@ export default function Settings() {
     }
   }
 
-  const resetOneHotkey = (action) => commitHotkey(action, DEFAULT_HOTKEYS_MAP[action])
-
   const resetAllHotkeys = async () => {
     if (!ipc) return { ok: false }
     try {
@@ -1374,9 +1377,10 @@ export default function Settings() {
           message: `Defaults restored, but ${failed.length} shortcut${failed.length === 1 ? '' : 's'} could not be registered`,
           detail: names.join(', '),
         })
-      } else {
-        showToast({ tone: 'success', message: 'Shortcuts restored to defaults', durationMs: 3000 })
+        // ok:false = "already reported": the page's Reset button then skips its own success toast.
+        return { ok: false, reported: true }
       }
+      // Success is announced by the Shortcuts page's Reset to default button.
       return { ok: true }
     } catch (e) {
       showToast({ tone: 'error', message: 'Could not restore the default shortcuts', detail: e?.message || String(e) })
@@ -1566,6 +1570,14 @@ export default function Settings() {
   return (
     <SettingsWindowFrame>
       <div className="settings-root flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+        {/* First Tab stop (hidden until focused): jump past the navigation straight to the page. */}
+        <button
+          type="button"
+          className="settings-skip-link"
+          onClick={() => document.querySelector('[data-settings-page] .settings-page-title')?.focus()}
+        >
+          Skip to content
+        </button>
         {showSetupBanner && (
           <div className="settings-setup-banner shrink-0">
             <p>
@@ -1576,9 +1588,18 @@ export default function Settings() {
 
         {settingsToast ? (
           <div
-            className={`settings-toast settings-toast-${settingsToast.tone || 'warning'} shrink-0`}
+            className={`settings-toast settings-toast-${settingsToast.tone || 'info'}`}
             role={settingsToast.tone === 'error' ? 'alert' : 'status'}
           >
+            <span className="settings-toast-icon" aria-hidden>
+              {settingsToast.tone === 'success' ? (
+                <CheckCircle2 size={18} strokeWidth={2} />
+              ) : settingsToast.tone === 'error' ? (
+                <AlertCircle size={18} strokeWidth={2} />
+              ) : (
+                <Info size={18} strokeWidth={2} />
+              )}
+            </span>
             <div className="min-w-0 flex-1">
               <p className="settings-toast-message">{settingsToast.message}</p>
               {settingsToast.detail ? (
@@ -1587,22 +1608,13 @@ export default function Settings() {
                 </p>
               ) : null}
             </div>
-            {settingsToast.action === 'open-log' ? (
-              <button
-                type="button"
-                className="settings-toast-action shrink-0"
-                onClick={() => void openDebugLogFile()}
-              >
-                Open
-              </button>
-            ) : null}
             <button
               type="button"
-              className="settings-toast-dismiss shrink-0"
+              className="settings-toast-dismiss"
               onClick={() => setSettingsToast(null)}
               aria-label="Dismiss"
             >
-              ×
+              <X size={14} strokeWidth={2.25} aria-hidden />
             </button>
           </div>
         ) : null}
@@ -1711,9 +1723,6 @@ export default function Settings() {
             onHideFromTaskbarChange={applyHideFromTaskbar}
             doNotSaveMeetingsEnabled={doNotSaveMeetingsEnabled}
             onDoNotSaveMeetingsChange={applyDoNotSaveMeetings}
-            verboseDebugLogging={verboseDebugLogging}
-            onVerboseDebugLoggingChange={applyVerboseDebugLogging}
-            onOpenLogFile={() => void openDebugLogFile()}
             stealthModeUi={stealthModeUi}
             onStealthModeChange={applyStealthMode}
             overlayW={overlayW}
@@ -1725,7 +1734,6 @@ export default function Settings() {
             hotkeysMap={hotkeysMap}
             hotkeyFailures={hotkeyFailures}
             onHotkeyCommit={commitHotkey}
-            onResetOneHotkey={resetOneHotkey}
             onResetAllHotkeys={resetAllHotkeys}
             googleCalendarConnectedEmail={googleCalendarConnectedEmail}
             googleCalendarOAuthReady={googleCalendarOAuthReady}

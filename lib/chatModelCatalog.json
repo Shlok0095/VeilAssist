@@ -8,13 +8,11 @@
 
   "nvidia": [
 
-    "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
-
-    "nvidia/nemotron-nano-12b-v2-vl",
-
-    "meta/llama-3.2-11b-vision-instruct",
+    "nvidia/nemotron-3.5-bolt-e4b",
 
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+
+    "nvidia/nemotron-3.5-super-vl-120b-a12b",
 
     "meta/llama-4-scout-17b-16e-instruct"
 

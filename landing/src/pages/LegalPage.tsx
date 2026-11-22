@@ -12,7 +12,7 @@ export function LegalPage({ title, body, crumb }: Props) {
         animate={{ opacity: 1, y: 0 }}
       >
         <p className="doc-crumb">
-          <Link to="/docs">Docs</Link> <span className="doc-crumb__sep">/</span> {crumb}
+          <Link to="/docs">Docs</Link> <span className="doc-crumb__sep" aria-hidden>/</span> {crumb}
         </p>
         <h1 className="doc-title">{title}</h1>
         <p className="doc-lede">Summary text as shipped in the app under <code>legal/</code>.</p>

@@ -23,17 +23,17 @@ const steps = [
 ] as const
 
 const ghostBtnClass =
-  'inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-medium text-zinc-200 no-underline transition-colors hover:border-cyan-500/20 hover:text-white'
+  'inline-flex items-center justify-center rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800 no-underline transition-colors hover:border-cyan-600 hover:text-zinc-950'
 
 export function MarketingHowItWorks() {
   return (
-    <div className="relative min-w-0 font-sans text-white antialiased">
+    <div className="relative min-w-0 font-sans text-zinc-900 antialiased">
       <section className="relative overflow-hidden px-4 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 md:px-10 lg:px-14 xl:px-16">
         <div className="relative z-[1] mx-auto w-full max-w-3xl">
           <ScrollReveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-cyan-400/70">Guide</p>
+            <p className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-cyan-700">Guide</p>
             <h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">How it works</h1>
-            <p className="mt-3 font-mono text-sm leading-relaxed tracking-wide text-zinc-500">
+            <p className="mt-3 font-mono text-sm leading-relaxed tracking-wide text-zinc-600">
               Download, connect your provider, and start using the overlay.
             </p>
           </ScrollReveal>
@@ -43,10 +43,10 @@ export function MarketingHowItWorks() {
               <ScrollReveal key={s.title} delay={i * 0.06}>
                 <li className="futura-card list-none p-6 sm:p-7">
                   <div className="flex items-start gap-4">
-                    <span className="font-display text-2xl font-bold leading-none text-cyan-400/45">{i + 1}.</span>
+                    <span className="font-display text-2xl font-bold leading-none text-cyan-600">{i + 1}.</span>
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-white">{s.title}</h2>
-                      <p className="mt-2 text-sm leading-relaxed tracking-wide text-zinc-500">{s.body}</p>
+                      <h2 className="font-display text-lg font-semibold tracking-[-0.01em] text-zinc-900">{s.title}</h2>
+                      <p className="mt-2 text-sm leading-relaxed tracking-wide text-zinc-600">{s.body}</p>
                     </div>
                   </div>
                 </li>

@@ -10,6 +10,7 @@ import {
   SettingsPage,
   SettingsSection,
   SettingsRow,
+  SegmentedControl,
   ToggleSwitch,
 } from '../settings/SettingsComponents'
 
@@ -97,23 +98,20 @@ export default function Onboarding() {
             title={`Welcome to ${name}`}
             description="Bring your own API key (BYOK). Test a connection, then continue."
           >
-            <SettingsSection title="Provider" description="Choose where Ask AI runs.">
-              {PROVIDERS.map((p) => (
-                <SettingsRow key={p.id} label={p.label} hint={p.desc}>
-                  <ToggleSwitch
-                    checked={provider === p.id}
-                    onChange={(on) => {
-                      if (!on && provider === p.id) return
-                      if (on) {
-                        setProvider(p.id)
-                        setApiKey('')
-                        setTestResult(null)
-                      }
-                    }}
-                    aria-label={`Select ${p.label}`}
-                  />
-                </SettingsRow>
-              ))}
+            <SettingsSection title="AI provider" description="Choose where Ask AI runs.">
+              {/* One choice among several: a radio group (arrow keys, one stop), not a toggle per provider. */}
+              <SettingsRow label="Service" hint={current.desc}>
+                <SegmentedControl
+                  value={provider}
+                  options={PROVIDERS.map((p) => ({ id: p.id, label: p.label }))}
+                  onChange={(id) => {
+                    if (id === provider) return
+                    setProvider(id)
+                    setApiKey('')
+                    setTestResult(null)
+                  }}
+                />
+              </SettingsRow>
             </SettingsSection>
 
             <SettingsSection title="API key" description={`Get a key from ${current.label}, then test it.`}>

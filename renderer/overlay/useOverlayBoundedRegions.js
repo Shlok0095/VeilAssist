@@ -15,6 +15,15 @@ const REGION_PUSH_INTERVAL_MS = 400
 const REGION_PUSH_IDLE_MS = 1200
 const REGION_RESIZE_DEBOUNCE_MS = 120
 
+/**
+ * Delay before the next safety-net measurement: fast while the layout is changing, slow (but never stopped) once it
+ * has been stable for a few ticks. The old code cleared its interval at that point and never re-created it, so the
+ * safety net silently ended after about two seconds.
+ */
+export function nextRegionPollDelay(unchangedTicks) {
+  return unchangedTicks > 4 ? REGION_PUSH_IDLE_MS : REGION_PUSH_INTERVAL_MS
+}
+
 function roundRect(rect) {
   return {
     x: Math.round(rect.left),
@@ -108,25 +117,19 @@ export function useOverlayBoundedRegions(active, regionRefs, rebindingDeps = [])
       observers.push(ro)
     }
 
-    // Back off the safety-net interval while regions stay stable.
-    let intervalMs = REGION_PUSH_INTERVAL_MS
-    const pushTimer = window.setInterval(() => {
-      const nextMs = unchangedTicksRef.current > 4 ? REGION_PUSH_IDLE_MS : REGION_PUSH_INTERVAL_MS
-      if (nextMs !== intervalMs) {
-        intervalMs = nextMs
-        window.clearInterval(pushTimer)
-        // Recreate with new cadence via effect restart is heavy — just skip extra ticks.
-      }
-      if (unchangedTicksRef.current > 4 && Date.now() - lastPushRef.current < REGION_PUSH_IDLE_MS) {
-        return
-      }
+    // Safety net for changes the ResizeObserver cannot see (a region that moves without resizing). It re-arms itself
+    // every tick, backing off while regions stay stable, and keeps running for as long as the overlay is shown.
+    let pushTimer = null
+    const tick = () => {
       pushRegions(false)
-    }, REGION_PUSH_INTERVAL_MS)
+      pushTimer = window.setTimeout(tick, nextRegionPollDelay(unchangedTicksRef.current))
+    }
+    pushTimer = window.setTimeout(tick, REGION_PUSH_INTERVAL_MS)
     pushRegions(true)
 
     return () => {
       observers.forEach((ro) => ro.disconnect())
-      window.clearInterval(pushTimer)
+      window.clearTimeout(pushTimer)
       if (resizeDebounceRef.current != null) {
         clearTimeout(resizeDebounceRef.current)
         resizeDebounceRef.current = null

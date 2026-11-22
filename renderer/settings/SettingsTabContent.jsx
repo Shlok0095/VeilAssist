@@ -119,9 +119,6 @@ function renderTab(props) {
         onOpenAtLoginChange={props.onOpenAtLoginChange}
         uiColorSchemeUi={props.uiColorSchemeUi}
         onUiColorSchemeChange={props.onUiColorSchemeChange}
-        verboseDebugLogging={props.verboseDebugLogging}
-        onVerboseDebugLoggingChange={props.onVerboseDebugLoggingChange}
-        onOpenLogFile={props.onOpenLogFile}
         hotkeysMap={props.hotkeysMap}
       />
     )
@@ -169,7 +166,6 @@ function renderTab(props) {
           hotkeysMap={props.hotkeysMap}
           hotkeyFailures={props.hotkeyFailures}
           onHotkeyCommit={props.onHotkeyCommit}
-          onResetOneHotkey={props.onResetOneHotkey}
           onResetAllHotkeys={props.onResetAllHotkeys}
         />
       </Suspense>
@@ -255,7 +251,7 @@ function renderTab(props) {
   if (activeTab === 'help') {
     return (
       <Suspense fallback={<TabFallback />}>
-        <HelpSettingsPanel appVersion={props.appVersion} onSelectTab={props.onSelectTab} />
+        <HelpSettingsPanel appVersion={props.appVersion} />
       </Suspense>
     )
   }

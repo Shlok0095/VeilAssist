@@ -763,7 +763,6 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [isThinking, setIsThinking] = useState(false)
   const [activeFooterAction, setActiveFooterAction] = useState(null)
-  const [opacity, setOpacity] = useState(0.7)
   const [fontSize, setFontSize] = useState('medium')
   // InterviewMan: answer panel is always markdown (detailed). Response Format only affects the Ask prompt.
   const [answerStyle, setAnswerStyle] = useState('detailed')
@@ -1831,7 +1830,6 @@ export default function App() {
     if (!ipc) return
     // InterviewMan helper blue only — ignore multi-accent presets.
     applyUiAccentTheme(document.documentElement, 'im')
-    ipc.invoke('get-store', 'overlayOpacity').then((o) => o != null && setOpacity(o))
     // Font Size and answer panel layout are independent of Answer Length / Response Format (InterviewMan).
     ipc.invoke('get-store', 'overlayFontSize').then((fs) => {
       if (fs === 'small' || fs === 'medium' || fs === 'large') setFontSize(fs)
@@ -1880,7 +1878,6 @@ export default function App() {
   useEffect(() => {
     if (!ipc) return
     const onDisplay = (_, p) => {
-      if (p?.overlayOpacity != null) setOpacity(p.overlayOpacity)
       if (p?.overlayFontSize === 'small' || p?.overlayFontSize === 'medium' || p?.overlayFontSize === 'large') {
         setFontSize(p.overlayFontSize)
       }
@@ -3620,7 +3617,9 @@ export default function App() {
         hiding || !overlayMainVisible ? 'crystal-overlay-inert' : '',
       ].join(' ')}
       style={{
-        opacity: hiding || !overlayMainVisible ? 0 : opacity,
+        // Hide/show fade only. The user's opacity setting belongs to the window alone (main: setOpacity); applying
+        // it here as well made it multiply with itself (70% looked like 49%).
+        opacity: hiding || !overlayMainVisible ? 0 : 1,
         transform: hiding ? 'translateY(-6px) scale(0.98)' : 'translateY(0) scale(1)',
         transition: hiding ? 'opacity 0.15s ease, transform 0.15s ease' : 'none',
       }}

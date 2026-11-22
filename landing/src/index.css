@@ -96,6 +96,36 @@ a:hover {
   text-decoration: underline;
 }
 
+.skip-link {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 300;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  background: #0d0f1a;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transform: translateY(-250%);
+}
+a.skip-link {
+  color: #ffffff;
+  text-decoration: none;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px #0d0f1a;
+}
+
+/* <main> is focused by the skip link; it is not interactive, so no ring. */
+.main-shell:focus {
+  outline: none;
+}
+
 code {
   font-size: 0.88em;
   background: var(--surface2);
@@ -920,7 +950,8 @@ code {
   transform: translateY(-2px);
   text-decoration: none;
 }
-.docs-card h2 {
+.docs-card h2,
+.docs-card h3 {
   margin: 0 0 0.5rem;
   font-size: 1.05rem;
   font-weight: 700;
@@ -1028,6 +1059,11 @@ code {
 
 .prose-doc code {
   font-size: 0.85em;
+}
+
+/* long inline URLs/paths must wrap instead of widening the page (360px) */
+.prose-doc :not(pre) > code {
+  overflow-wrap: anywhere;
 }
 
 .prose-doc pre {
@@ -1308,7 +1344,7 @@ code {
   text-decoration: none;
 }
 .docs-side__a--active {
-  color: var(--accent);
+  color: #1d4ed8;
   background: rgba(37, 99, 235, 0.1);
 }
 
@@ -1323,6 +1359,9 @@ code {
   gap: 0.25rem;
 }
 .docs-side__link-muted {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   color: var(--muted);
   text-decoration: none;
 }

@@ -26,7 +26,7 @@ export function MarkdownDocPage({ title, lede, crumb, markdown }: Props) {
         transition={{ duration: 0.35 }}
       >
         <p className="doc-crumb">
-          <Link to="/docs">Docs</Link> <span className="doc-crumb__sep">/</span> {crumb}
+          <Link to="/docs">Docs</Link> <span className="doc-crumb__sep" aria-hidden>/</span> {crumb}
         </p>
         <h1 className="doc-title">{title}</h1>
         {lede ? <p className="doc-lede">{lede}</p> : null}

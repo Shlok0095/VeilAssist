@@ -31,10 +31,10 @@ The panel **expands** automatically when you:
 
 ## Move and resize
 
-- **Move** — drag the top strip (notch or panel header) to reposition anywhere on screen.
+- **Move** — drag the notch (the bar at the top) to reposition anywhere on screen. The position is remembered.
 - **Resize** — drag edges and corners when expanded (within min/max limits).
 - **Nudge position** — `Ctrl+Arrow keys` (customizable in Settings → Shortcuts).
-- **Snap to corner/edge** — Settings → General → Snap position (Top-Right, Top-Left, Bottom-Right, Bottom-Left, Center-Right).
+- **Snap to corner/edge** — Settings → Overlay → Size and position → Move overlay to (Top-Right, Top-Left, Bottom-Right, Bottom-Left, Center-Right). It snaps to the screen the overlay is on.
 
 ## Show transcript (captions)
 
@@ -57,9 +57,9 @@ When Listen is active, **Show transcript** turns on short captions in the mode b
 
 | Control | What it does |
 |---------|--------------|
-| **Window opacity** | Subtle (65%), Balanced (85%), Clear (92%), or custom slider |
+| **Window opacity** | Subtle (30%), Default (50%), Clear (85%), or a custom slider from 30% to 100%. The percentage is the real opacity you see. |
 | **Font size** | Small, medium, or large |
-| **Panel width / height** | Overlay → Size and position — set dimensions and click Apply |
+| **Panel width / height** | Overlay → Size and position — set dimensions and click Apply. Height is at least 280 px (taller while Listening). |
 
 ## Invisible mode (stealth) and discretion
 

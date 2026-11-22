@@ -3,26 +3,96 @@
 
 import React, { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { RotateCcw } from 'lucide-react'
 import { polishCopy } from './settingsCopy'
 import { emitSettingsToast } from './settingsToast'
 import { useDraftSetting } from './useDraftSetting'
 
-export const SettingsPage = memo(function SettingsPage({ title, description, children, wide }) {
+/**
+ * The one "Reset to default" control of a settings page. It lives in the page header (never per section or
+ * per row), asks first, resets everything the page owns, then confirms through the shared toast.
+ * `scope` is the page name ("General", "Overlay", ...) used in the dialog and the toast.
+ */
+export function ResetToDefaultButton({ scope, onReset, description }) {
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const label = scope || 'These'
+
+  const run = async () => {
+    setConfirming(false)
+    setBusy(true)
+    try {
+      const result = await onReset?.()
+      // A handler that already reported its own failure (e.g. a shortcut that could not be registered)
+      // returns { ok: false }; a success toast here would replace that message.
+      if (result && result.ok === false) return
+      emitSettingsToast({ tone: 'success', message: `${label} settings reset to default`, durationMs: 3000 })
+    } catch (e) {
+      emitSettingsToast({
+        tone: 'error',
+        message: `Could not reset ${label} settings`,
+        detail: e?.message || String(e),
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="btn-ghost settings-reset-btn"
+        onClick={() => setConfirming(true)}
+        disabled={busy}
+      >
+        <RotateCcw size={13} strokeWidth={2.25} aria-hidden />
+        Reset to default
+      </button>
+      <ConfirmDialog
+        open={confirming}
+        title={`Reset ${label} settings to default?`}
+        description={
+          description ||
+          'This puts every setting on this page back to its original value. Your profile, keys and documents are not touched.'
+        }
+        confirmLabel="Reset"
+        destructive={false}
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => void run()}
+      />
+    </>
+  )
+}
+
+export const SettingsPage = memo(function SettingsPage({
+  title,
+  description,
+  children,
+  wide,
+  onReset,
+  resetDescription,
+}) {
   return (
     <div
       className={`settings-page animate-fade-in space-y-5 ${wide ? 'w-full max-w-none' : 'mx-auto max-w-3xl'}`}
       data-settings-page=""
     >
-      {(title || description) && (
+      {(title || description || onReset) && (
         <header className="settings-page-header">
-          {title ? (
-            // Programmatic focus target: after a tab switch focus moves here so screen readers
-            // announce the new page and keyboard users start at the top of it.
-            <h2 className="settings-page-title" tabIndex={-1}>
-              {title}
-            </h2>
-          ) : null}
-          {description ? <p className="settings-page-desc">{polishCopy(description)}</p> : null}
+          <div className="settings-page-header-row">
+            <div className="min-w-0 flex-1">
+              {title ? (
+                // Programmatic focus target: after a tab switch focus moves here so screen readers
+                // announce the new page and keyboard users start at the top of it.
+                <h2 className="settings-page-title" tabIndex={-1}>
+                  {title}
+                </h2>
+              ) : null}
+              {description ? <p className="settings-page-desc">{polishCopy(description)}</p> : null}
+            </div>
+            {onReset ? <ResetToDefaultButton scope={title} onReset={onReset} description={resetDescription} /> : null}
+          </div>
         </header>
       )}
       {children}
@@ -30,11 +100,11 @@ export const SettingsPage = memo(function SettingsPage({ title, description, chi
   )
 })
 
-/** Skip duplicate page chrome when a panel is embedded in another page. */
-export function SettingsPanelShell({ embedded = false, title, description, wide, children }) {
+/** Skip duplicate page chrome when a panel is embedded in another page (no page header → no Reset). */
+export function SettingsPanelShell({ embedded = false, title, description, wide, onReset, resetDescription, children }) {
   if (embedded) return <div className="space-y-5">{children}</div>
   return (
-    <SettingsPage title={title} description={description} wide={wide}>
+    <SettingsPage title={title} description={description} wide={wide} onReset={onReset} resetDescription={resetDescription}>
       {children}
     </SettingsPage>
   )
@@ -115,62 +185,17 @@ export function useDialogA11y(open, onClose, containerRef, opts = {}) {
   }, [open])
 }
 
-export function SettingsSection({
-  title,
-  description,
-  children,
-  className = '',
-  anchor,
-  onReset,
-  resetLabel = 'Reset to default',
-  resetDescription,
-}) {
-  const [confirmReset, setConfirmReset] = useState(false)
-  const label = title || 'These settings'
-  const runReset = async () => {
-    setConfirmReset(false)
-    try {
-      await onReset?.()
-      emitSettingsToast({ tone: 'success', message: `${label} reset to default`, durationMs: 3000 })
-    } catch (e) {
-      emitSettingsToast({ tone: 'error', message: `Could not reset ${label.toLowerCase()}`, detail: e?.message || String(e) })
-    }
-  }
-
+/** A titled card of settings. Reset lives on the page header (see SettingsPage `onReset`), not here. */
+export function SettingsSection({ title, description, children, className = '', anchor }) {
   return (
     <section className={`glass-panel ${className}`} data-settings-anchor={anchor || undefined}>
-      {(title || description || onReset) && (
+      {(title || description) && (
         <div className="nat-section-head">
-          <div className="nat-section-head-row">
-            <div className="min-w-0 flex-1">
-              {title ? <h3 className="nat-section-head-title">{title}</h3> : null}
-              {description ? <p className="nat-section-head-desc">{polishCopy(description)}</p> : null}
-            </div>
-            {onReset ? (
-              <button
-                type="button"
-                className="settings-reset-link"
-                onClick={() => setConfirmReset(true)}
-                aria-label={title ? `${resetLabel}: ${title}` : resetLabel}
-              >
-                {resetLabel}
-              </button>
-            ) : null}
-          </div>
+          {title ? <h3 className="nat-section-head-title">{title}</h3> : null}
+          {description ? <p className="nat-section-head-desc">{polishCopy(description)}</p> : null}
         </div>
       )}
       <div className="nat-section-body space-y-0">{children}</div>
-      {onReset ? (
-        <ConfirmDialog
-          open={confirmReset}
-          title={`Reset ${label.toLowerCase()} to default?`}
-          description={resetDescription || 'This puts every setting in this section back to its original value. Your profile, keys and documents are not touched.'}
-          confirmLabel="Reset"
-          destructive={false}
-          onCancel={() => setConfirmReset(false)}
-          onConfirm={() => void runReset()}
-        />
-      ) : null}
     </section>
   )
 }

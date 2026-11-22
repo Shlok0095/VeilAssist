@@ -12,10 +12,13 @@ function TitleBarButton({ onClick, title, children, danger }) {
     <button
       type="button"
       title={title}
+      aria-label={title}
+      // Window chrome stays out of the Tab order, like the Settings window.
+      tabIndex={-1}
       onClick={onClick}
-      style={noDrag}
-      className={`flex h-9 w-11 shrink-0 items-center justify-center text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100 ${
-        danger ? 'hover:bg-[var(--danger-mid,#dc2626)] hover:text-white' : ''
+      style={{ ...noDrag, color: 'var(--text-tertiary, #a1a1aa)' }}
+      className={`flex h-9 w-11 shrink-0 items-center justify-center transition-colors hover:bg-[var(--bg-subtle-hover,rgba(255,255,255,0.08))] ${
+        danger ? 'hover:bg-[var(--danger-mid,#dc2626)] hover:text-white' : 'hover:text-[var(--text-primary,#f4f4f5)]'
       }`}
     >
       {children}
@@ -43,10 +46,18 @@ export default function AppWindowFrame({ children }) {
   }, [api])
 
   return (
-    <div className="app-window-frame flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[10px] border border-zinc-800/90 bg-[#09090b] shadow-[0_16px_48px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.06)]">
+    <div
+      className="app-window-frame flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[10px]"
+      // Theme tokens (same as the Settings window frame) so light mode gets a light title strip, not a black one.
+      style={{
+        background: 'var(--bg-primary, #09090b)',
+        border: '1px solid var(--border-subtle, rgba(63,63,70,0.9))',
+        boxShadow: 'var(--shadow-elevation-3, 0 16px 48px rgba(0,0,0,0.45))',
+      }}
+    >
       <header
-        className="flex h-9 shrink-0 items-center border-b border-zinc-800/80 bg-[#1c1c21]"
-        style={drag}
+        className="flex h-9 shrink-0 items-center"
+        style={{ ...drag, background: 'var(--bg-sidebar, #1c1c21)', borderBottom: '1px solid var(--border-subtle, rgba(63,63,70,0.8))' }}
       >
         <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2 px-3" style={drag}>
           <img
@@ -57,7 +68,9 @@ export default function AppWindowFrame({ children }) {
             draggable={false}
             className="pointer-events-none h-5 w-5 shrink-0 object-contain"
           />
-          <span className="truncate text-[12px] font-medium text-zinc-200">{name || 'VeilAssist'}</span>
+          <span className="truncate text-[12px] font-medium" style={{ color: 'var(--text-primary, #e4e4e7)' }}>
+            {name || 'VeilAssist'}
+          </span>
         </div>
 
         <div className="flex shrink-0 items-stretch" style={noDrag}>

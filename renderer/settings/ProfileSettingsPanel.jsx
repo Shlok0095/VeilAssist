@@ -19,7 +19,6 @@ function ProfileSettingsPanel({ profilePanel = {} }) {
     <SettingsPage
       title="Profile"
       description="Interview uses a resume. Meeting and General use a prompt and a structured document."
-      wide
     >
       <SettingsCollapsible
         title="Modes"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { DownloadButton } from '@/components/marketing/DownloadButton'
 import { SITE } from '@/config/site'
@@ -15,10 +15,48 @@ export function Header() {
   const isMarketing = isHome || pathname === '/how-it-works' || pathname === '/built-for-live-work'
   const [scrolled, setScrolled] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const menuBtnRef = useRef<HTMLButtonElement>(null)
+  const drawerRef = useRef<HTMLDivElement>(null)
+
+  const closeDrawer = useCallback((restoreFocus: boolean) => {
+    setDrawerOpen(false)
+    if (restoreFocus) menuBtnRef.current?.focus()
+  }, [])
 
   useEffect(() => {
     setDrawerOpen(false)
   }, [pathname])
+
+  // Dialog behaviour for the mobile menu: focus moves in, Tab stays inside, Escape closes and returns focus.
+  useEffect(() => {
+    if (!drawerOpen) return undefined
+    const focusables = () =>
+      Array.from(drawerRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? [])
+    focusables()[0]?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeDrawer(true)
+        return
+      }
+      if (e.key !== 'Tab') return
+      const nodes = focusables()
+      if (nodes.length === 0) return
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      const active = document.activeElement
+      const outside = !drawerRef.current?.contains(active)
+      if (e.shiftKey && (active === first || outside)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (active === last || outside)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [drawerOpen, closeDrawer])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -34,8 +72,8 @@ export function Header() {
           <NavLink to="/" className="font-bold text-zinc-900 no-underline">
             {SITE.name}
           </NavLink>
-          <nav className="flex items-center gap-6 text-sm">
-            <NavLink to="/docs" className="text-zinc-600 no-underline hover:text-zinc-900">
+          <nav className="flex items-center gap-6 text-sm" aria-label="Main">
+            <NavLink to="/docs" className="-my-1 py-1 text-zinc-600 no-underline hover:text-zinc-900">
               Docs
             </NavLink>
             <DownloadButton />
@@ -86,7 +124,10 @@ export function Header() {
             <button
               type="button"
               className="lm-nav__menu-btn"
+              ref={menuBtnRef}
               aria-expanded={drawerOpen}
+              aria-controls="mobile-menu"
+              aria-haspopup="dialog"
               aria-label="Open menu"
               onClick={() => setDrawerOpen(true)}
             >
@@ -98,8 +139,14 @@ export function Header() {
 
       {drawerOpen ? (
         <>
-          <button type="button" className="lm-drawer-backdrop" aria-label="Close menu" onClick={() => setDrawerOpen(false)} />
-          <div className="lm-drawer" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="lm-drawer-backdrop"
+            aria-label="Close menu"
+            tabIndex={-1}
+            onClick={() => closeDrawer(true)}
+          />
+          <div ref={drawerRef} id="mobile-menu" className="lm-drawer" role="dialog" aria-modal="true" aria-label="Menu">
             <a href={homeAnchor('how-it-works')} className="lm-drawer__link" onClick={() => setDrawerOpen(false)}>
               How it works
             </a>

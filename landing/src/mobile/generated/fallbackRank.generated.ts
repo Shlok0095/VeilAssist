@@ -16,16 +16,14 @@ export type FallbackRank = {
 export const FALLBACK_RANK: FallbackRank = {
   generated_at: '2026-08-17T14:50:00.000Z',
   primary_nvidia: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+  // 2026-11-22: the three vision models that used to be listed here now return HTTP 410 (retired); only models a
+  // live probe could reach remain.
   nvidia_fallbacks: [
-    'meta/llama-3.2-11b-vision-instruct',
-    'nvidia/nemotron-nano-12b-v2-vl',
-    'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
+    'nvidia/nemotron-3.5-super-vl-120b-a12b',
   ],
   nvidia_thinking_primary: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
   nvidia_thinking_fallbacks: [
-    'meta/llama-3.2-11b-vision-instruct',
-    'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
-    'nvidia/nemotron-nano-12b-v2-vl',
+    'nvidia/nemotron-3.5-super-vl-120b-a12b',
   ],
   groq_primary: 'qwen/qwen3.6-27b',
   groq_emergency: 'llama-3.3-70b-versatile',

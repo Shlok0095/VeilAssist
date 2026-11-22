@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { MotionConfig } from 'framer-motion'
 import App from './App'
 import './styles/tailwind.css'
 import './styles/design-system.css'
@@ -35,8 +36,10 @@ function basename(): string {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter basename={basename()}>
-      <App />
-    </BrowserRouter>
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter basename={basename()}>
+        <App />
+      </BrowserRouter>
+    </MotionConfig>
   </React.StrictMode>
 )

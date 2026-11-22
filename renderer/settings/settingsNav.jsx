@@ -187,7 +187,7 @@ export function SettingsNav({ activeTab, onSelectTab }) {
 
   return (
     <nav className="settings-nav" aria-label="Settings sections">
-      <p className="settings-nav-title">Settings</p>
+      <h1 className="settings-nav-title">Settings</h1>
 
       <NavSearch onPick={onSelectTab} />
 

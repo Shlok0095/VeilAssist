@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Monitor } from 'lucide-react'
 import AppIcon from '../shared/AppIcon'
-import { DEFAULT_HOTKEYS_MAP, OVERLAY_POSITION_PRESETS, OVERLAY_SIZE_LIMITS, SETTINGS_DEFAULTS } from './settingsConstants'
+import { DEFAULT_HOTKEYS_MAP, OVERLAY_OPACITY_RANGE, OVERLAY_POSITION_PRESETS, OVERLAY_SIZE_LIMITS, SETTINGS_DEFAULTS } from './settingsConstants'
 import {
   CheckmarkSelect,
   SettingsFieldHint,
@@ -29,9 +29,11 @@ const HISTORY_OPTS = [
   { id: 'history', label: 'Full history', detail: 'Keep earlier replies visible' },
 ]
 const OPACITY_PRESETS = [
-  { label: 'Subtle', pct: 55 },
-  { label: 'Default', pct: 70 },
-  { label: 'Clear', pct: 92 },
+  // The number is the real opacity of the overlay window. These match the three looks the old presets (55/70/92,
+  // which were applied twice) actually produced on screen: about 30%, 50% and 85%.
+  { label: 'Subtle', pct: 30 },
+  { label: 'Default', pct: 50 },
+  { label: 'Clear', pct: 85 },
 ]
 const SNAP_OPTS = OVERLAY_POSITION_PRESETS.map((p) => ({ id: p, label: p.replace(/-/g, ' ') }))
 
@@ -68,7 +70,7 @@ function OpacityControl({ opacity, onChange, onPreset }) {
       </div>
       <input
         type="range"
-        min={35}
+        min={Math.round(OVERLAY_OPACITY_RANGE.min * 100)}
         max={100}
         aria-label="Window opacity"
         aria-valuetext={`${shown} percent`}
@@ -219,33 +221,32 @@ export default function OverlaySettingsPanel({
     }
   }
 
-  const resetAppearance = async () => {
+  // The page's single "Reset to default": appearance, reading, window behavior, then size.
+  const resetAll = async () => {
     await onOpacityPreset?.(Math.round(SETTINGS_DEFAULTS.overlayOpacity * 100))
     await onOverlayFontChange?.(SETTINGS_DEFAULTS.overlayFontSize)
     await onLiveTranscriptChange?.(SETTINGS_DEFAULTS.overlayLiveTranscriptEnabled)
-  }
 
-  const resetReading = async () => {
     await onTeleprompterChange?.(SETTINGS_DEFAULTS.overlayTeleprompter)
     await onFocusModeChange?.(SETTINGS_DEFAULTS.overlayFocusMode)
     await onAnswerViewChange?.(SETTINGS_DEFAULTS.overlayAnswerView)
     await onAnswerPinToTopChange?.(SETTINGS_DEFAULTS.overlayAnswerPinToTop)
-  }
 
-  const resetWindow = async () => {
     await onOverlayMousePassthroughChange?.(SETTINGS_DEFAULTS.overlayMousePassthroughEnabled)
     await onHideFromTaskbarChange?.(SETTINGS_DEFAULTS.hideFromTaskbarEnabled)
-  }
 
-  const resetSize = async () => {
     onOverlayWChange?.(SETTINGS_DEFAULTS.overlayWidth)
     onOverlayHChange?.(SETTINGS_DEFAULTS.overlayHeight)
     await onApplyOverlaySize?.(SETTINGS_DEFAULTS.overlayWidth, SETTINGS_DEFAULTS.overlayHeight)
   }
 
   return (
-    <SettingsPage title="Overlay" description="How the overlay looks, how answers read, and where it sits.">
-      <SettingsSection title="Appearance" description="Visual only. Writing rules stay under General." onReset={resetAppearance}>
+    <SettingsPage
+      title="Overlay"
+      description="How the overlay looks, how answers read, and where it sits."
+      onReset={resetAll}
+    >
+      <SettingsSection title="Appearance" description="Visual only. Writing rules stay under General.">
         <SettingsRow label="Window opacity" hint="How see-through the overlay is." anchor="opacity">
           <OpacityControl opacity={overlayOpacityUi} onChange={onOverlayOpacityChange} onPreset={onOpacityPreset} />
         </SettingsRow>
@@ -268,7 +269,7 @@ export default function OverlaySettingsPanel({
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection title="Reading" description="How answers appear during live calls." onReset={resetReading}>
+      <SettingsSection title="Reading" description="How answers appear during live calls.">
         <SettingsRow label="Teleprompter" hint="Larger type, minimal chrome during live calls." anchor="teleprompter">
           <ToggleSwitch checked={overlayTeleprompterUi} onChange={onTeleprompterChange} />
         </SettingsRow>
@@ -293,7 +294,7 @@ export default function OverlaySettingsPanel({
         <SettingsFieldHint>Newest answers appear at the top. Scroll down for earlier exchanges.</SettingsFieldHint>
       </SettingsSection>
 
-      <SettingsSection title="Window" description="Clicks and taskbar behavior." onReset={resetWindow}>
+      <SettingsSection title="Window" description="Clicks and taskbar behavior.">
         <SettingsRow
           label="Mouse passthrough"
           hint={`Clicks pass through the overlay until you hover a panel. Toggle with ${passthroughKeys}.`}
@@ -310,7 +311,7 @@ export default function OverlaySettingsPanel({
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection title="Size and position" description="Expanded overlay dimensions and screen corner." onReset={resetSize}>
+      <SettingsSection title="Size and position" description="Expanded overlay dimensions and screen corner.">
         <SizeControls
           overlayW={overlayW}
           overlayH={overlayH}
@@ -320,7 +321,7 @@ export default function OverlaySettingsPanel({
         />
         <SettingsRow
           label="Move overlay to"
-          hint={moveNote || 'Snap the expanded panel to a corner of your primary monitor.'}
+          hint={moveNote || 'Snap the expanded panel to a corner of the screen it is on.'}
           anchor="move-overlay"
         >
           <CheckmarkSelect

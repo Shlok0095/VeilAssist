@@ -61,7 +61,7 @@ export function CompatLogos() {
     <div className="lm-compat-logos">
       {COMPAT_BRANDS.map((b) => (
         <div key={b.label} className="lm-compat-item">
-          <span className="lm-compat-icon" style={{ background: b.color }}>
+          <span className="lm-compat-icon" style={{ background: b.color }} aria-hidden>
             {b.label.charAt(0)}
           </span>
           <span className="lm-compat-label">{b.label}</span>

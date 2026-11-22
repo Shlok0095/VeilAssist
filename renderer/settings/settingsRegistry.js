@@ -48,8 +48,6 @@ const STATIC_ENTRIES = [
   { tab: 'display', section: 'response-format', label: 'Response format', hint: 'Bullets, conversational or example-driven', keywords: 'bullets spoken style' },
   { tab: 'display', section: 'answer-length', label: 'Answer length', hint: 'Short, medium or long answers', keywords: 'tokens verbose brief' },
   { tab: 'display', section: 'response-language', label: 'AI response language', hint: 'The language answers are written in', keywords: 'translate hindi spanish language output' },
-  { tab: 'display', section: 'diagnostics', label: 'Diagnostics', hint: 'Troubleshooting logs', keywords: 'log debug' },
-  { tab: 'display', section: 'verbose-logging', label: 'Verbose debug logging', hint: 'Write detailed messages to the log file', keywords: 'debug log file troubleshoot' },
 
   // Overlay
   { tab: 'overlay', section: 'opacity', label: 'Window opacity', hint: 'How see-through the overlay is', keywords: 'transparency transparent subtle clear' },
@@ -65,7 +63,7 @@ const STATIC_ENTRIES = [
   { tab: 'overlay', section: 'move-overlay', label: 'Move overlay to', hint: 'Snap the overlay to a screen corner', keywords: 'position snap corner top right left bottom center' },
 
   // Shortcuts (one entry per action is added below)
-  { tab: 'keybinds', section: 'shortcuts', label: 'Keyboard shortcuts', hint: 'Change or restore every shortcut', keywords: 'hotkeys keybinds keys restore defaults' },
+  { tab: 'keybinds', section: 'shortcuts', label: 'Keyboard shortcuts', hint: 'Change a shortcut, or reset them all to default', keywords: 'hotkeys keybinds keys restore reset defaults' },
 
   // Meetings
   { tab: 'meetings', section: 'calendar', label: 'Google Calendar', hint: 'Upcoming meetings and reminders', keywords: 'gcal connect disconnect' },
@@ -102,7 +100,8 @@ const STATIC_ENTRIES = [
   // Help
   { tab: 'help', section: 'faq', label: 'FAQ', hint: 'Common questions', keywords: 'questions answers help' },
   { tab: 'help', section: 'guide', label: 'Full guide', hint: 'The complete user guide', keywords: 'documentation manual docs' },
-  { tab: 'help', section: 'troubleshooting', label: 'Troubleshooting', hint: 'Logs and version info', keywords: 'logs version problem bug' },
+  { tab: 'help', section: 'support', label: 'Support', hint: 'Fixes and where to get help', keywords: 'problem bug contact troubleshooting' },
+  { tab: 'help', section: 'app-version', label: 'App version', hint: 'Include this when you contact support', keywords: 'version build number' },
 ]
 
 const HOTKEY_ENTRIES = HOTKEY_DEFS.map((d) => ({

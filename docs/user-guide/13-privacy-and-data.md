@@ -12,7 +12,6 @@ VeilAssist is **local-first**. Your API keys, transcripts, and recaps stay on yo
 | Long-term memory | Local recall index |
 | Reference file text | Parsed from uploads you attach |
 | Screenshot queue | PNG files in userData when you press `Ctrl+H` |
-| Debug log | `veilassist.log` when verbose logging is on |
 
 ## What is not stored
 
@@ -52,10 +51,6 @@ Review each vendor’s privacy policy for retention and training use.
 **Settings → General → Hide from screen capture** (overlay **Invisible**) — enables Windows content protection so VeilAssist windows are harder to include in screen shares and recordings.
 
 Protected surfaces include the floating overlay and the **Quit VeilAssist?** confirmation dialog. You still see them locally so you can interact; a second machine or share viewer should not. Meeting toast chips are intentionally not on this list.
-
-## Verbose debug logging
-
-**Settings → General → Verbose debug logging** — writes main-process and renderer logs to `veilassist.log`. Use **Open log file** to view. Disable when not troubleshooting — logs may contain transcript snippets.
 
 ## Legal documents
 

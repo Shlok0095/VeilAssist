@@ -4,6 +4,10 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import '../shared/app-fonts.css'
 import App from './App'
+import { applyColorScheme } from '../shared/colorScheme'
+
+// Main bakes the resolved light/dark scheme into the URL (?theme=), so the first paint already has it.
+applyColorScheme(new URLSearchParams(window.location.search).get('theme'))
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -112,7 +112,15 @@ const screenshotQueue = require('../lib/screenshotQueue')
 const providers = require('../lib/providers')
 const { isMultimodalChatModel, DEFAULT_GROQ_CHAT_MODEL } = require('../lib/chatMultimodalModels')
 const { formatUserFacingChatError } = require('../lib/chatStreamFallback')
-const { nvidiaFallbackModelsFor, nvidiaFastFallbackModelsFor } = require('../lib/nvidiaChatModels.cjs')
+const {
+  nvidiaFallbackModelsFor,
+  nvidiaFastFallbackModelsFor,
+  isDeprecatedNvidiaChatModel,
+  isReasoningNvidiaModel,
+  pickNvidiaAskModel,
+  DEFAULT_NVIDIA_CHAT_MODEL,
+} = require('../lib/nvidiaChatModels.cjs')
+const { DEFAULT_OVERLAY_OPACITY, clampOverlayOpacity, migrateLegacyOverlayOpacity } = require('../lib/overlayOpacity.cjs')
 const {
   getTranscriptionRequestConfig,
   NATIVE_STT_PROVIDER_IDS,
@@ -530,7 +538,7 @@ let overlayCaptureSuspended = false
 let overlayCaptureResumeTimer = null
 /** User is dragging a resize handle — skip per-frame hit-region sync and will-resize churn. */
 let overlayLiveResizing = false
-let savedOpacity = 0.7
+let savedOpacity = DEFAULT_OVERLAY_OPACITY
 /** Last protection value pushed to the overlay HWND — Natively dedupes to avoid DWM churn/blinks. */
 let overlayContentProtectionApplied = null
 /** Pending win32 stealth fade-in after protection arms (Natively Opacity Shield). */
@@ -696,6 +704,19 @@ function getOverlayDisplayBounds() {
   return getDisplayBoundsNear(p.x, p.y)
 }
 
+/**
+ * Remember where the overlay is, and ONLY where. The live window is often the collapsed notch (about 43px tall):
+ * saving its width/height as well turned the user's chosen panel size into 43px, which Settings then displayed
+ * and the next launch lost. The size is saved by resize-end and by Settings' Apply, never here.
+ */
+function saveOverlayPosition() {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return
+  const { x, y } = overlayWindow.getBounds()
+  const prev = store.get('overlayBounds') || {}
+  if (prev.x === x && prev.y === y) return
+  store.set('overlayBounds', { ...prev, x, y })
+}
+
 /** Clamp the overlay back onto a display when it was unplugged or rescaled. */
 function reseatOverlayIfOffscreen() {
   if (!overlayWindow || overlayWindow.isDestroyed()) return
@@ -708,7 +729,7 @@ function reseatOverlayIfOffscreen() {
     const ny = Math.max(wa.y, Math.min(maxY, b.y))
     if (nx !== b.x || ny !== b.y) {
       overlayWindow.setPosition(nx, ny)
-      store.set('overlayBounds', overlayWindow.getBounds())
+      saveOverlayPosition()
     }
   } catch (_) {}
 }
@@ -758,14 +779,18 @@ function createOverlayWindow() {
   const savedBounds = store.get('overlayBounds') || {}
   const display = getDisplayBounds()
   const w = savedBounds.width || 400
-  const h = savedBounds.height || 540
+  // A saved height at or under the collapsed notch (~43px) is a leftover of the old nudge bug: use the default.
+  const h = savedBounds.height > 48 ? savedBounds.height : 540
+  if (savedBounds.height != null && !(savedBounds.height > 48)) {
+    store.set('overlayBounds', { ...savedBounds, height: h })
+  }
   const maxX = Math.max(display.x, display.x + display.width - Math.min(w, display.width))
   const maxY = Math.max(display.y, display.y + display.height - Math.min(h, display.height))
   let x = typeof savedBounds.x === 'number' ? savedBounds.x : display.x + display.width - w - 40
   let y = typeof savedBounds.y === 'number' ? savedBounds.y : display.y + Math.floor((display.height - h) / 2)
   if (x < display.x || x > maxX) x = maxX
   if (y < display.y || y > maxY) y = maxY
-  savedOpacity = store.get('overlayOpacity') ?? 0.7
+  savedOpacity = clampOverlayOpacity(store.get('overlayOpacity'))
 
   const owner = getBackgroundOwnerParent()
   const winOpts = {
@@ -813,6 +838,7 @@ function createOverlayWindow() {
       presentOverlayWindow({ inactive: false })
     } else {
       overlayWindow.setOpacity(0)
+      syncOverlayMouseCapture() // created hidden: invisible and click-through from the start
     }
     syncOverlayVisibilityToRenderer()
   })
@@ -826,6 +852,7 @@ function createOverlayWindow() {
   overlayWindow.on('moved', () => {
     if (!overlayWindow || overlayWindow.isDestroyed()) return
     syncOverlayAnchorFromBounds(overlayWindow.getBounds())
+    saveOverlayPosition() // a dragged overlay used to come back to its old spot after a restart
     resumeOverlayCaptureAfterInteraction()
     requestOverlayHitRegionSync()
   })
@@ -873,6 +900,7 @@ function createOverlayWindow() {
     overlayMinimumSize = null
     overlayMouseCaptureApplied = null
     stopMousePassthroughPoll()
+    syncOverlayScopedHotkeys()
   })
   return overlayWindow
 }
@@ -967,6 +995,7 @@ function presentOverlayWindow({ inactive = false } = {}) {
     }, STEALTH_OPACITY_SHIELD_MS)
     applyBackgroundWindowStyles(overlayWindow)
     reassertStealthCaptureExclusionAfterWin32()
+    syncOverlayScopedHotkeys()
     return
   }
 
@@ -986,6 +1015,7 @@ function presentOverlayWindow({ inactive = false } = {}) {
   }
   syncOverlayMouseCapture()
   applyBackgroundWindowStyles(overlayWindow)
+  syncOverlayScopedHotkeys()
 }
 
 /** Hide overlay from compositor before a screenshot — Natively hideMainWindow pattern. */
@@ -1414,6 +1444,18 @@ async function withOverlayExcludedFromScreenCapture(fn) {
   }
 }
 
+/**
+ * Escape / nudge / scroll only act on the overlay, so they are claimed globally only while it is on screen
+ * (lib/hotkeys.js OVERLAY_SCOPED_ACTIONS). Otherwise they would be swallowed in every other app all day.
+ */
+function syncOverlayScopedHotkeys() {
+  try {
+    hotkeys.setOverlayActive(!!(overlayWindow && !overlayWindow.isDestroyed() && overlayVisible))
+  } catch (_) {
+    /* shortcuts are best effort */
+  }
+}
+
 function showOverlay() {
   overlayVisible = true
   if (tray?.updateTrayMenu) tray.updateTrayMenu()
@@ -1436,6 +1478,7 @@ function showOverlay() {
 
 function hideOverlay() {
   overlayVisible = false
+  syncOverlayScopedHotkeys()
   clearOverlayOpacityShield()
   if (tray?.updateTrayMenu) tray.updateTrayMenu()
   if (overlayWindow && !overlayWindow.isDestroyed()) {
@@ -1937,6 +1980,11 @@ function syncOverlayMouseCapture() {
   if (!overlayVisible) {
     stopOverlayHitPoll()
     clearOverlayHitRegions()
+    // "Hidden" is only opacity 0: the window is still there. Without this it kept whatever capture state it had
+    // (e.g. clickable because the cursor was over its chrome when it was hidden), so an invisible rectangle could
+    // swallow clicks meant for the app underneath. Showing it again re-runs this function and restores capture.
+    overlayWindow.setIgnoreMouseEvents(true)
+    overlayMouseCaptureApplied = 'ignore'
     return
   }
   if (passthrough) {
@@ -2294,7 +2342,7 @@ function createConsentWindow() {
   applyBackgroundWindowStyles(consentWindow)
   consentWindow.loadFile(useBuilt
     ? path.join(__dirname, '..', 'out', 'consent', 'index.html')
-    : path.join(__dirname, '..', 'renderer', 'consent', 'index.html'))
+    : path.join(__dirname, '..', 'renderer', 'consent', 'index.html'), { search: `?theme=${resolveUiColorScheme()}` })
   consentWindow.on('closed', () => {
     consentWindow = null
     if (!appCoreStarted && !hasValidConsent()) app.quit()
@@ -2343,7 +2391,7 @@ function createOnboardingWindow() {
   applyBackgroundWindowStyles(onboardingWindow)
   onboardingWindow.loadFile(useBuilt
     ? path.join(__dirname, '..', 'out', 'onboarding', 'index.html')
-    : path.join(__dirname, '..', 'renderer', 'onboarding', 'index.html'))
+    : path.join(__dirname, '..', 'renderer', 'onboarding', 'index.html'), { search: `?theme=${resolveUiColorScheme()}` })
   onboardingWindow.on('closed', () => {
     onboardingWindow = null
     if (!appCoreStarted && !hasCompletedOnboardingFlag()) app.quit()
@@ -2371,7 +2419,7 @@ function moveOverlay(dx, dy) {
     Math.max(d.x, Math.min(d.x + d.width - w, x + dx)),
     Math.max(d.y, Math.min(d.y + d.height - h, y + dy))
   )
-  store.set('overlayBounds', { ...store.get('overlayBounds'), ...overlayWindow.getBounds() })
+  saveOverlayPosition()
 }
 
 function createSettingsWindow(navOpts = null) {
@@ -2465,6 +2513,7 @@ function createGlobalChatWindow() {
   const w = Math.min(720, Math.max(480, Math.floor(sw * 0.42)))
   const h = Math.min(820, Math.max(520, Math.floor(sh * 0.72)))
   const chatOwner = getBackgroundOwnerParent()
+  const chatTheme = resolveUiColorScheme()
   globalChatWindow = new BrowserWindow({
     width: w,
     height: h,
@@ -2473,7 +2522,7 @@ function createGlobalChatWindow() {
     center: true,
     frame: true,
     title: `${getBrandName()} — Global Chat`,
-    backgroundColor: '#0a0a0b',
+    backgroundColor: chatTheme === 'light' ? '#fafafa' : '#0a0a0b',
     skipTaskbar: true,
     show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
@@ -2487,7 +2536,7 @@ function createGlobalChatWindow() {
   })
   globalChatWindow.setMenuBarVisibility(false)
   hardenWindow(globalChatWindow)
-  globalChatWindow.loadFile(getGlobalChatHtmlPath())
+  globalChatWindow.loadFile(getGlobalChatHtmlPath(), { search: `?theme=${chatTheme}` })
   globalChatWindow.on('closed', () => { globalChatWindow = null })
   globalChatWindow.once('ready-to-show', () => {
     globalChatWindow.show()
@@ -2519,6 +2568,7 @@ function createLauncherWindow() {
     return
   }
   const launcherOwner = getBackgroundOwnerParent()
+  const launcherTheme = resolveUiColorScheme()
   launcherWindow = new BrowserWindow({
     width: 340,
     height: 460,
@@ -2528,7 +2578,7 @@ function createLauncherWindow() {
     center: true,
     frame: true,
     title: `${getBrandName()} Launcher`,
-    backgroundColor: '#0c0c0e',
+    backgroundColor: launcherTheme === 'light' ? '#fafafa' : '#0c0c0e',
     skipTaskbar: true,
     show: false,
     ...(getWindowIcon() ? { icon: getWindowIcon() } : {}),
@@ -2541,7 +2591,7 @@ function createLauncherWindow() {
     },
   })
   hardenWindow(launcherWindow)
-  launcherWindow.loadFile(getLauncherHtmlPath())
+  launcherWindow.loadFile(getLauncherHtmlPath(), { search: `?theme=${launcherTheme}` })
   // Constructor `skipTaskbar: true` plus these re-asserts keep the launcher
   // out of the taskbar across show/restore/minimize cycles.
   launcherWindow.on('show', () => setImmediate(applyTaskbarVisibility))
@@ -2741,7 +2791,8 @@ const CONTEXT_ROUTING_RULES = `
 - ## SCREEN is supporting context for a typed or spoken question. Use it only when relevant; never replace a clear question with unrelated screen content.
 - ## TASK means the turn is screen-led: analyze the attached screen as the PRIMARY source.
 - If QUESTION, AUDIO, or TRANSCRIPT contains a clear request, answer it directly. Never use the unclear-context fallback.
-- If the screenshot shows this assistant's own overlay with a prior answer, do not repeat it — focus on new screen content.`
+- If the screenshot shows this assistant's own overlay with a prior answer, do not repeat it — focus on new screen content.
+- If the question refers to something said earlier (a name, number or detail) and it is not in ## AUDIO or ## TRANSCRIPT, say in one short line that you did not catch it. Never invent it.`
 
 async function buildProfileContextBlock({
   query = '',
@@ -3347,12 +3398,27 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
       coding: effectiveAnswerContract === 'coding_answer',
     })
     // Same-provider NVIDIA multimodal chain (bench-ranked). Chat no longer depends on Groq.
-    const NVIDIA_FALLBACK_MODELS = nvidiaFallbackModelsFor(model)
+    // When the screen itself is the question (screenshot with no typed or spoken question, or a coding ask
+    // with a screenshot) the capable thinking models answer first; see pickNvidiaAskModel for why. Ordinary
+    // asks, and any model the user picked in Settings, are unchanged.
+    const screenOnlyAsk =
+      (!!visionB64 || !!phoneVisionB64) && !userQ && !hasTypedFromOverlay && !hasSpeechFromOverlay && !transcript
+    const nvidiaPick =
+      provider === 'nvidia'
+        ? pickNvidiaAskModel({
+            model,
+            hasScreenImage: !!visionB64 || !!phoneVisionB64,
+            screenOnly: screenOnlyAsk,
+            contract: effectiveAnswerContract,
+          })
+        : null
+    const askModel = nvidiaPick ? nvidiaPick.model : model
+    const NVIDIA_FALLBACK_MODELS = nvidiaPick ? nvidiaPick.fallbacks : nvidiaFallbackModelsFor(model)
     const nvidiaKey = String(store.get(providers.getApiKeyField('nvidia')) || '').trim()
     const groqKey = String(store.get(providers.getApiKeyField('groq')) || '').trim()
     const nvFallbacks = provider === 'nvidia' && nvidiaKey
       ? NVIDIA_FALLBACK_MODELS
-          .filter((id) => id !== model && isMultimodalChatModel('nvidia', id))
+          .filter((id) => id !== askModel && isMultimodalChatModel('nvidia', id))
           .map((id) => ({
             provider: 'nvidia',
             apiKey: nvidiaKey,
@@ -3383,7 +3449,7 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
     let streamFinishMeta = null
     const requestStartedAt = Date.now()
     console.log(
-      `[ai-perf] provider=${provider} model=${model} capture=${captureFinishedAt - askStartedAt}ms context=${contextFinishedAt - captureFinishedAt}ms preflight=${requestStartedAt - askStartedAt}ms imageKB=${visionB64 ? Math.round(visionB64.length * 0.75 / 1024) : 0}`,
+      `[ai-perf] provider=${provider} model=${askModel}${nvidiaPick?.screenModel ? ' (screen-led)' : ''} capture=${captureFinishedAt - askStartedAt}ms context=${contextFinishedAt - captureFinishedAt}ms preflight=${requestStartedAt - askStartedAt}ms imageKB=${visionB64 ? Math.round(visionB64.length * 0.75 / 1024) : 0}`,
     )
     perfMarks.mark('ask-capture', captureFinishedAt - askStartedAt)
     perfMarks.mark('ask-context', contextFinishedAt - captureFinishedAt)
@@ -3393,12 +3459,14 @@ async function handleAskAI(userQuestion, audioTranscript, _askMeta = {}) {
       apiKey,
       {
         messages,
-        model,
+        model: askModel,
         maxTokens,
         signal: abortController.signal,
         userQuestion: userQ || retrievalQuery,
         fallbacks,
-        firstTokenTimeoutMs: 3500,
+        // A reasoning-class primary (screen-led ask, or picked in Settings) thinks for several seconds before
+        // its first visible token; the 3.5 s cut-off would abort it on every ask and silently hand over.
+        firstTokenTimeoutMs: provider === 'nvidia' && isReasoningNvidiaModel(askModel) ? 20000 : 3500,
         onAttempt: (metadata) => {
           activeStreamProvider = metadata.provider
           if (metadata.fallbackUsed) {
@@ -3547,15 +3615,16 @@ function broadcastVerboseLogging(enabled) {
 }
 
 function applyVerboseDebugLoggingSetting(enabled) {
-  const v = !!enabled
+  // Developer-only: release builds always resolve to false (see lib/debugLog.js).
+  const v = !!enabled && debugLog.isDebugLoggingAllowed()
   store.set('verboseDebugLogging', v)
   debugLog.setVerboseDebugLogging(v)
   broadcastVerboseLogging(v)
   if (v) {
     sendToSettingsWindow('settings-toast', {
+      tone: 'info',
       message: 'Verbose debug logging enabled',
       detail: debugLog.getLogPath(),
-      action: 'open-log',
       durationMs: 8000,
     })
   }
@@ -3565,6 +3634,8 @@ function toggleMousePassthrough() {
   const next = !(store.get('overlayMousePassthroughEnabled') === true)
   store.set('overlayMousePassthroughEnabled', next)
   syncOverlayMouseCapture()
+  // An open Settings window would otherwise keep showing the old state of this toggle.
+  sendToSettingsWindow('overlay-display-update', { overlayMousePassthroughEnabled: next })
 }
 
 function setupHotkeys() {
@@ -3738,13 +3809,16 @@ function setupIPC() {
     }
     return 'Documentation was not found in this build.'
   })
+  // Log access is developer-only: release builds neither write a debug log nor expose its location.
   ipcMain.handle('logs:open-folder', async () => {
+    if (!debugLog.isDebugLoggingAllowed()) return { ok: false, error: 'Debug logs are not available in this build.' }
     const dir = debugLog.getLogDir()
     await shell.openPath(dir)
     return { ok: true, path: dir }
   })
-  ipcMain.handle('debug-log:get-path', () => debugLog.getLogPath())
+  ipcMain.handle('debug-log:get-path', () => (debugLog.isDebugLoggingAllowed() ? debugLog.getLogPath() : ''))
   ipcMain.handle('debug-log:open-file', async () => {
+    if (!debugLog.isDebugLoggingAllowed()) return { ok: false, error: 'Debug logs are not available in this build.' }
     const p = debugLog.getLogPath()
     ensureDebugLogFileExists(p)
     await shell.openPath(p)
@@ -4949,6 +5023,8 @@ function setupIPC() {
     const b = overlayWindow.getBounds()
     syncOverlayAnchorFromBounds(b)
     store.set('overlayBounds', b)
+    // Keep an open Settings window's Width/Height fields in step with a drag-resize (expanded size only).
+    if (b.height > 48) sendToSettingsWindow('overlay-display-update', { overlayBounds: { width: b.width, height: b.height } })
     resumeOverlayCaptureAfterInteraction()
     requestOverlayHitRegionSync()
   })
@@ -4957,7 +5033,7 @@ function setupIPC() {
   ipcMain.on('open-settings', (_, navOpts) => createSettingsWindow(navOpts))
   ipcMain.on('ui-toggle-session', () => (sessionActive ? stopSession() : requestSessionStart()))
   ipcMain.on('overlay-opacity-change', (_, o) => {
-    const clamped = Math.min(1, Math.max(0.35, Number(o) || 0.7))
+    const clamped = clampOverlayOpacity(o)
     savedOpacity = clamped
     store.set('overlayOpacity', clamped)
     if (overlayWindow && overlayVisible && !overlayWindow.isDestroyed()) overlayWindow.setOpacity(clamped)
@@ -4969,7 +5045,7 @@ function setupIPC() {
     if (!opts || typeof opts !== 'object') return { ok: false, error: 'invalid' }
     try {
       if (typeof opts.overlayOpacity === 'number') {
-        const o = Math.min(1, Math.max(0.35, opts.overlayOpacity))
+        const o = clampOverlayOpacity(opts.overlayOpacity)
         store.set('overlayOpacity', o)
         savedOpacity = o
         if (overlayWindow && !overlayWindow.isDestroyed()) {
@@ -5056,18 +5132,22 @@ function setupIPC() {
       }
       if (typeof opts.width === 'number' || typeof opts.height === 'number') {
         const prev = store.get('overlayBounds') || {}
+        // The overlay never shows an expanded panel shorter than 280px (renderer: notch + gap + 220 + 8), so a
+        // smaller number would be accepted here and silently ignored there.
         const w = typeof opts.width === 'number'
           ? Math.min(860, Math.max(280, Math.round(opts.width)))
           : (prev.width || 400)
         const h = typeof opts.height === 'number'
-          ? Math.min(940, Math.max(180, Math.round(opts.height)))
-          : (prev.height || 540)
+          ? Math.min(940, Math.max(280, Math.round(opts.height)))
+          : (prev.height > 48 ? prev.height : 540)
+        // Merge into the freshly read bounds: x/y stay whatever the window really is now.
         store.set('overlayBounds', { ...prev, width: w, height: h })
         if (overlayWindow && !overlayWindow.isDestroyed()) {
           const curH = overlayWindow.getSize()[1]
-          // Collapsed notch (~43px window) — only change width so we don't pop the panel open
-          if (curH <= 48) overlayWindow.setSize(w, curH)
-          else overlayWindow.setSize(w, h)
+          // Collapsed notch (~43px window) — only change width so we don't pop the panel open.
+          // applyOverlayResize keeps the notch anchored and the window on the screen it is on.
+          applyOverlayResize(w, curH <= 48 ? curH : h)
+          requestOverlayHitRegionSync()
         }
         sendToOverlay('overlay-display-update', { width: w, height: h })
       }
@@ -5096,7 +5176,34 @@ function setupIPC() {
 
 async function initApp() {
   debugLog.installConsoleTap()
-  debugLog.setVerboseDebugLogging(store.get('verboseDebugLogging') === true)
+  try {
+    // The opacity setting used to be applied twice (window x page), so the saved number looked like its square.
+    // Convert it once so existing overlays keep their exact look while the slider now tells the truth.
+    const migration = migrateLegacyOverlayOpacity({
+      opacity: store.get('overlayOpacity'),
+      existingUser: store.get('hasCompletedOnboarding') === true,
+      alreadyMigrated: store.get('overlayOpacityMigrated') === true,
+    })
+    if (migration.opacity != null) store.set('overlayOpacity', migration.opacity)
+    if (migration.done) store.set('overlayOpacityMigrated', true)
+  } catch (_) {
+    /* the saved value stays as it is */
+  }
+  try {
+    // A retired NVIDIA model saved by an earlier build would keep showing in Settings (Ask already remaps it).
+    const savedNvidiaModel = String(store.get('nvidiaModel') || '').trim()
+    if (savedNvidiaModel && isDeprecatedNvidiaChatModel(savedNvidiaModel)) {
+      store.set('nvidiaModel', DEFAULT_NVIDIA_CHAT_MODEL)
+    }
+  } catch (_) {
+    /* cosmetic migration only */
+  }
+  if (debugLog.isDebugLoggingAllowed()) {
+    debugLog.setVerboseDebugLogging(store.get('verboseDebugLogging') === true || process.env.VEILASSIST_DEBUG_LOG === '1')
+  } else if (store.get('verboseDebugLogging') === true) {
+    // A flag saved by an earlier build that still had the Diagnostics toggle: clear it so it can't linger.
+    store.set('verboseDebugLogging', false)
+  }
   applyOpenAtLoginSetting(store.get('openAtLogin') === true)
   screenCapture.setOverlayCaptureWrapper(withOverlayExcludedFromScreenCapture)
   const { session } = require('electron')

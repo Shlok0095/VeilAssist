@@ -208,7 +208,7 @@ async function main() {
 
     const keys = S('KeybindsSettingsPanel.jsx')
     check('Shortcuts panel validates before committing and shows the message inline', /validateAccelerator\(/.test(keys) && /if \(!check\.ok\) \{\s*setError\(check\.message\)\s*return\s*\}/.test(keys))
-    check('Shortcuts panel wires the per-row reset (onResetOne) and labels each combo with its action', /onResetOne/.test(keys) && /label=\{label\}/.test(keys) && /aria-label=\{[\s\S]{0,200}\$\{label\}/.test(keys))
+    check('Shortcuts panel labels each combo with its action and resets only through the page-level button (no per-row reset)', !/onResetOne/.test(keys) && /onReset=\{onResetAllHotkeys\}/.test(keys) && /label=\{label\}/.test(keys) && /aria-label=\{[\s\S]{0,200}\$\{label\}/.test(keys))
     check('Shortcuts panel shows registration failures reported by hotkeys:status', /hotkeyFailures/.test(keys))
     check('Shortcuts panel no longer renders Mac glyph literals', !/['"]⌘['"]|['"]⇧['"]|['"]⌥['"]/.test(keys))
     const app = S('App.jsx')
@@ -368,9 +368,14 @@ async function main() {
     check('"Move overlay to" is an action control with a placeholder, not a stuck "Top-Right"', /label="Move overlay to"/.test(overlay) && /placeholder="Choose a position"/.test(overlay) && !/Snap position/.test(overlay))
     const comps = S('SettingsComponents.jsx')
     check('SettingsRow disables its control and shows a reason', /disabled && takesDisabled/.test(comps) && /settings-row-reason/.test(comps))
-    check('SettingsSection offers a per-section reset behind a ConfirmDialog', /onReset/.test(comps) && /Reset to default/.test(comps) && /confirmReset/.test(comps))
-    const resettable = ['DisplaySettingsPanel.jsx', 'OverlaySettingsPanel.jsx', 'SpeechSettingsPanel.jsx', 'PhoneLinkSettingsPanel.jsx', 'MeetingsSettingsPanel.jsx']
-    check('General, Overlay, Audio, Phone and Meetings sections offer Reset to default', resettable.every((f) => /onReset=\{/.test(S(f))))
+    const resetBtn = bodyFrom(comps, comps.indexOf('export function ResetToDefaultButton'))
+    check('the page header offers one standard "Reset to default" button that asks first (ConfirmDialog)', /className="btn-ghost settings-reset-btn"/.test(resetBtn) && /Reset to default/.test(resetBtn) && /<ConfirmDialog/.test(resetBtn) && /onReset/.test(bodyFrom(comps, comps.indexOf('export const SettingsPage'))))
+    check('a handler that already reported its failure ({ ok: false }) does not get a success toast on top', /result\.ok === false/.test(resetBtn))
+    const sectionBody = bodyFrom(comps, comps.indexOf('export function SettingsSection'))
+    check('sections carry no reset of their own', !/onReset|settings-reset-link/.test(sectionBody))
+    const resettable = ['DisplaySettingsPanel.jsx', 'OverlaySettingsPanel.jsx', 'SpeechSettingsPanel.jsx', 'PhoneLinkSettingsPanel.jsx', 'MeetingsSettingsPanel.jsx', 'KeybindsSettingsPanel.jsx']
+    check('General, Overlay, Audio, Phone, Meetings and Shortcuts each wire exactly one Reset to default', resettable.every((f) => (S(f).match(/onReset=\{/g) || []).length === 1 && !/<SettingsSection[^>]*onReset/.test(S(f))))
+    check('no underlined "reset link" survives anywhere in settings', Object.values(allSource).every((src) => !/settings-reset-link/.test(src)) && !/settings-reset-link/.test(S('index.css')))
     check('reset uses the existing handlers and store defaults, not new store keys', /SETTINGS_DEFAULTS/.test(S('DisplaySettingsPanel.jsx')) && /SETTINGS_DEFAULTS/.test(overlay))
     const privacy = S('PrivacySettingsPanel.jsx')
     check('Hide from screen capture and Do not save meetings live in Privacy', /Hide from screen capture/.test(privacy) && /anchor="do-not-save-meetings"/.test(privacy))

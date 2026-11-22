@@ -3,6 +3,7 @@ import { FALLBACK_RANK } from './generated/fallbackRank.generated'
 const NAMES: Record<string, string> = {
   'nvidia/nemotron-nano-12b-v2-vl': 'Nemotron Nano 12B VL',
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': 'Nemotron 3 Nano Omni',
+  'nvidia/nemotron-3.5-super-vl-120b-a12b': 'Nemotron 3.5 Super VL',
   'nvidia/llama-3.1-nemotron-nano-vl-8b-v1': 'Nemotron Nano VL 8B',
   'meta/llama-3.2-11b-vision-instruct': 'Llama 3.2 11B Vision',
   'qwen/qwen3.6-27b': 'Qwen 3.6 27B',
