@@ -36,6 +36,15 @@
           "value": "public, max-age=600"
         }
       ]
+    },
+    {
+      "source": "/((?!api/|downloads/).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     }
   ],
   "redirects": [
@@ -49,6 +58,11 @@
       ],
       "destination": "https://veilassist.vercel.app/:path*",
       "permanent": true
+    },
+    {
+      "source": "/download/windows",
+      "destination": "https://github.com/Shlok0095/VeilAssist/releases/download/interview-v1.0.0/VeilAssistSetup1.0.0.exe",
+      "permanent": false
     },
     {
       "source": "/download/beta",
