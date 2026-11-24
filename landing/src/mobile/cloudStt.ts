@@ -16,7 +16,7 @@ function transcribeProxyUrls(): string[] {
   const origin = String(import.meta.env.VITE_API_ORIGIN || '').replace(/\/$/, '')
   if (origin) urls.push(`${origin}/api/interview/transcribe`)
   if (import.meta.env.VITE_MOBILE_APK) {
-    urls.push('https://veilassist.vercel.app/api/interview/transcribe')
+    urls.push('https://veilassist-web.vercel.app/api/interview/transcribe')
   }
   urls.push('/api/interview/transcribe')
   return [...new Set(urls)]

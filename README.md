@@ -18,7 +18,7 @@
   <br />
 
   [![Latest release](https://img.shields.io/github/v/release/Shlok0095/VeilAssist?label=release&style=for-the-badge&color=7c6cf0)](https://github.com/Shlok0095/VeilAssist/releases/latest)
-  [![Website](https://img.shields.io/badge/OPEN_WEBSITE-VeilAssist-17152b?style=for-the-badge)](https://veilassist.vercel.app)
+  [![Website](https://img.shields.io/badge/OPEN_WEBSITE-VeilAssist-17152b?style=for-the-badge)](https://veilassist-web.vercel.app)
   [![Windows](https://img.shields.io/badge/Windows-10%2B-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](#requirements)
   [![Electron](https://img.shields.io/badge/Electron-34-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
 </div>

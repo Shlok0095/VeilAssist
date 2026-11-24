@@ -371,7 +371,7 @@ export default async function handler(req, res) {
       'Content-Type': 'application/json',
     }
     if (provider === 'openrouter') {
-      headers['HTTP-Referer'] = 'https://veilassist.vercel.app'
+      headers['HTTP-Referer'] = 'https://veilassist-web.vercel.app'
       headers['X-Title'] = 'VeilAssist Interview'
     }
 

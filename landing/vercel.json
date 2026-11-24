@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "env": {
-    "VITE_SITE_ORIGIN": "https://veilassist.vercel.app",
+    "VITE_SITE_ORIGIN": "https://veilassist-web.vercel.app",
     "VITE_ROLLING_TAG": "latest"
   },
   "functions": {
@@ -56,7 +56,7 @@
           "value": "shadow-assist.vercel.app"
         }
       ],
-      "destination": "https://veilassist.vercel.app/:path*",
+      "destination": "https://veilassist-web.vercel.app/:path*",
       "permanent": true
     },
     {
