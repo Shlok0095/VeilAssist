@@ -29,7 +29,7 @@ async function requestViaProxy(params: {
     origin
       ? `${origin}/api/interview/chat`
       : import.meta.env.VITE_MOBILE_APK
-        ? 'https://veilassist.vercel.app/api/interview/chat'
+        ? 'https://veilassist-web.vercel.app/api/interview/chat'
         : '/api/interview/chat'
 
   const apiKey = getActiveApiKey(params.settings)

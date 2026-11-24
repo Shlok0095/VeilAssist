@@ -21,7 +21,7 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_MOBILE_APK': JSON.stringify('true'),
     'import.meta.env.VITE_API_ORIGIN': JSON.stringify(
-      process.env.VITE_API_ORIGIN || 'https://veilassist.vercel.app',
+      process.env.VITE_API_ORIGIN || 'https://veilassist-web.vercel.app',
     ),
   },
 })

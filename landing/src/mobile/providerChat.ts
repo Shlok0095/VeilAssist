@@ -135,7 +135,7 @@ export async function requestInterviewAnswerDirect(params: {
     const base = getChatBaseUrl(params.settings, opts.providerId)
     const headers: Record<string, string> = { ...nvidiaChatHeaders(opts.apiKey) }
     if (opts.providerId === 'openrouter') {
-      headers['HTTP-Referer'] = 'https://veilassist.vercel.app'
+      headers['HTTP-Referer'] = 'https://veilassist-web.vercel.app'
       headers['X-Title'] = 'VeilAssist Interview'
     }
     const { payload: targetPayload } = buildChatPayload({
@@ -326,7 +326,7 @@ export async function validateProviderKeyDirect(settings: AppSettings): Promise<
   const base = getChatBaseUrl(settings, settings.provider)
   const headers: Record<string, string> = { ...nvidiaChatHeaders(apiKey) }
   if (settings.provider === 'openrouter') {
-    headers['HTTP-Referer'] = 'https://veilassist.vercel.app'
+    headers['HTTP-Referer'] = 'https://veilassist-web.vercel.app'
     headers['X-Title'] = 'VeilAssist Interview'
   }
 

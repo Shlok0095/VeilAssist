@@ -209,7 +209,7 @@ async function structureCvViaActiveProvider(
 
   const headers: Record<string, string> = { ...nvidiaChatHeaders(apiKey) }
   if (settings.provider === 'openrouter') {
-    headers['HTTP-Referer'] = 'https://veilassist.vercel.app'
+    headers['HTTP-Referer'] = 'https://veilassist-web.vercel.app'
     headers['X-Title'] = 'VeilAssist Interview'
   }
 
