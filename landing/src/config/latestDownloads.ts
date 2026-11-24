@@ -24,7 +24,7 @@ export const LATEST_DOWNLOADS: LatestDownload[] = [
     platform: 'windows',
     title: 'Windows',
     description: 'NSIS installer for Windows 10 or later.',
-    fileName: 'VeilAssist-Setup.exe',
+    fileName: 'VeilAssistSetup1.0.0.exe',
     downloadUrl: SITE_WINDOWS_BUILD_MANIFEST.installerDownloadUrl,
     version: SITE_WINDOWS_BUILD_MANIFEST.version,
     size: SITE_WINDOWS_BUILD_MANIFEST.installerSize || null,
